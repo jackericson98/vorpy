@@ -142,6 +142,9 @@ def test_nexus_interface_public_artifact_contract(tmp_path):
 
     assert not (directory / "visualization_manifest.json").exists()
     assert not list(directory.glob("*.geometry.vpy"))
+    info = (directory / "interface_info.txt").read_text(encoding="utf-8")
+    assert "Representative surface energy: NOT_CALCULATED" in info
+    assert "experimental; opt-in only" in info
     assert len(source.balls) == 5
     assert export_scope(interface).source_ids("surface") == (0,)
 

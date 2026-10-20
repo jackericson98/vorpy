@@ -233,3 +233,443 @@ Validation update
 * No EDTA calculation was run. A broader adjacent test invocation was stopped
   by the repository's existing 2kai fixture timeout during setup; it is not
   counted as acceptance evidence.
+
+Final status and completeness repairs — 2026-10-20 integration
+===============================================================
+Revision/worktree
+-----------------
+Validated in NEXUSA's ``nexusa/integration-2026-10-20`` worktree at
+``35de721ca963b893bfe8ef528ae96ff9b5a01180``. Existing NEXUSA changes were
+preserved; no branch, merge, reset, restore, or molecular calculation was
+performed.
+
+Implemented contract
+--------------------
+* Power curvature now distinguishes audit observations from selected-interface
+  coverage. Rejected/non-selected candidate edges do not count as missing
+  selected contributions; unresolved selected edges do. ``CERTIFIED``,
+  ``UNRESOLVED``, and ``NOT_CALCULATED`` are exposed in the result, edge totals,
+  typed curvature adapter, CLI summary, and Cazals validation summary.
+* Incomplete Power edge terms remain ``None`` at scientific output boundaries;
+  included observed edge totals remain available only as explicitly labelled
+  audit values. No missing edge term is converted to zero.
+* The free-boundary mean-curvature slot is now ``None`` with an explicit
+  not-supported explanation. A true calculated planar/smooth or internal-edge
+  zero remains numeric zero. Open-boundary Gaussian terms retain their
+  boundary accounting rules and are not replaced by closed formulas.
+  Missing Gaussian seam terms are no longer defaulted to numeric zero during
+  physical-interface aggregation.
+* Recovery now exposes machine-readable ``geometry_checkpoint_valid`` separately
+  from ``scientific_result_status`` and ``scientific_result_certified``. Source,
+  coordinates/radii, identifiers, and dependency validation can therefore make
+  a checkpoint valid while curvature remains partial, unresolved, or not
+  calculated.
+
+Files changed by this milestone
+-------------------------------
+``vorpy/src/analyze/power_interface_curvature.py``,
+``vorpy/src/analyze/power_interface_cli.py``,
+``vorpy/src/analyze/cazals_validation.py``,
+``vorpy/src/analyze/open_interface_curvature.py``,
+``vorpy/src/geometry/interfaces/curvature.py``,
+``vorpy/src/interface/geometry_analysis.py``,
+``vorpy/src/io/network_archive.py``,
+``vorpy/src/io/network_recovery.py``, and bounded tests in the corresponding
+analysis, interface, geometry, and recovery test modules. ``GAUSS.txt`` was
+updated with this handoff. The archive/recovery files already contained
+NEXUSA boundary-generator work; only targeted status fields and assertions
+were added around it.
+
+Validation evidence
+--------------------
+* ``test_power_interface_curvature.py``, ``test_open_interface_curvature.py``,
+  geometry interface, and Results contract focused suites all passed after the
+  final repair.
+* Interface geometry-analysis and curvature-unit focused tests passed with one
+  existing pandas FutureWarning.
+* Targeted POW and attested-boundary recovery: 2 passed; checkpoint-valid
+  versus not-calculated status survived archive reload. The full recovery
+  module also contains two pre-existing NEXUSA parameterization failures: its
+  AW/PRM producer calls omit ``expected_scheme=scheme`` and therefore use the
+  POW default. Three real-checkpoint cases were expected skips.
+* NEXUSA synthetic checkpoint/output contract suite: 4 passed.
+* Targeted ``compileall`` passed and ``git diff --check`` reported no issues.
+
+Remaining scientific limitations
+--------------------------------
+No molecular benchmark or large archive was run. ``edge_totals`` remains a
+backward-compatible observed audit ledger for callers that consume it directly;
+scientific summaries and typed results now gate aggregate curvature on support
+status. A future unified PRM/POW/AW contact/result producer still needs to feed
+the same typed status contract. Global topology and Gaussian certification
+remain conditional on independently proven closure, orientability, complete
+boundary terms, and numerical convergence; this repair does not infer them.
+
+Scientific validity recertification — 2026-10-20
+================================================
+
+Scope and state
+---------------
+The current NEXUSA integration worktree remains at
+``35de721ca963b893bfe8ef528ae96ff9b5a01180`` with pre-existing concurrent
+changes preserved. This recertification made no source-code or solver changes,
+ran no molecular calculation, and did not alter reference values.
+
+Evidence
+--------
+Focused scientific status, curvature, completeness, geometry, Results, and
+unit suites passed. Archive recovery/replay passed with five expected skips for
+absent real checkpoints. The bounded NEXUSA checkpoint/output suite passed
+(4 tests). The focused command/export suite passed with only expected absent
+1BNA/1AAY fixture skips. The topology, alpha-selection, producer, and curvature
+unit suite passed (26 tests). ``compileall`` and ``git diff --check`` passed.
+One existing pandas FutureWarning remains; it is not a scientific failure.
+
+Definitions verified
+--------------------
+* Checkpoint validity is separate from scientific status. Recovery can report
+  ``geometry_checkpoint_valid=true`` while a quantity is ``PARTIAL``,
+  ``UNRESOLVED``, ``NOT_CALCULATED``, or ``STALE``. Typed quantities reject a
+  numeric value for unavailable statuses, while a genuine calculated planar or
+  smooth zero remains numeric zero.
+* Physical/native interface area and facet/contact ledgers are distinct from
+  display/visualization geometry. Ordinary PRM and POW are planar definitions;
+  AW retains native curved-face area. Explicit Cazals/alpha selection remains a
+  separate ``alpha_selection`` representation and is not substituted for raw
+  physical interface area.
+* Open-boundary mean-curvature slots and missing Gaussian seam/edge terms remain
+  null with status/evidence. Euler, Gaussian, orientability, and topology are
+  not globally certified without closure, incidence, orientation, boundary-term,
+  and convergence evidence; no 4-pi or closed Gauss–Bonnet inference is made.
+
+Scientific gaps before a real wet/dry comparison
+-------------------------------------------------
+* Archive validation proves archive-to-declared-source identity, not that two
+  wet/dry files are the same molecular coordinates. A comparison needs an
+  explicit ordered atom-ID mapping, exact coordinates, radii, frame, groups,
+  and settings, with solvent/ion membership excluded or documented separately.
+* Source solvent presence and physical competitor counts are represented, but
+  the current interface-analysis producer does not populate selected-facet
+  ``solvent_interface_competitors``. Solvent incidence at the requested
+  interface is therefore unresolved, not inferred from bulk solvent counts.
+* Structural-ion retention is recorded by the current residue policy, but the
+  biological structural-versus-bulk ion policy is still provisional. The first
+  comparison must supply explicit retained/excluded ion IDs and policy.
+* Checkpoint/shared-network identity accepts PRM, but ``ResultIdentity`` and
+  ``adapt_group_view_analysis`` canonicalize only AW/POW. PRM typed group
+  Results therefore require an explicit integration fix before PRM can enter
+  the certified comparison matrix.
+* Real molecular checkpoint availability, local facet/edge/vertex coverage,
+  numerical convergence, and complete curvature/topology evidence remain
+  unverified. Partial physical area may be preserved and compared only with
+  coverage fractions and unresolved-area fields shown explicitly.
+
+Minimum first-comparison evidence
+---------------------------------
+For each method/context: reloadable checkpoint and source hash; ordered
+generator identity/coordinate/radius validation; declared PRM/POW/AW semantics;
+selected A/B facet ledger reconciled to native area; contact atom/residue
+incidence; solvent competitor incidence and ion policy; complete/incomplete and
+unresolved dependencies; convergence; and curvature/topology status. Certify
+only quantities whose required local or global evidence is present; leave all
+other values null/statused.
+
+Preserved untracked ``aw_verts.txt``, ``pow_verts.txt``, and ``prm_verts.txt``
+were not inspected or modified because they are outside this validation scope.
+
+Curvature forensics timeout and boundary contract — 2026-10-20
+===============================================================
+
+Read-only timeout investigation
+--------------------------------
+The 2KAI test reads ``vorpy/data/2KAI.pdb`` (2,246 coordinate records; the
+selected A/B/I preparation retains 2,236 atoms: 1,799 in A/B and 437 in I).
+Preparation alone took 0.055 s in the bounded check, so PDB preparation is not
+the observed bottleneck. The test fixture then calls
+``run_power_interface_pdb`` (``power_interface_cli.py:139``), which constructs
+the full weighted complex and, at line 156, calls
+``power_facet_polygon_area`` once for every selected facet.
+
+When no ``triangle_tetrahedra`` cache is supplied, that helper rebuilds the
+complete triangle-to-tetrahedron index by scanning every tetrahedron
+(``cazals_validation.py:175-182``) on every facet call. The loops are finite;
+there is no evidence of nontermination. The evidence supports pathological
+repeated global work: a bounded synthetic case with 2,004 tetrahedra and 10
+identical facet-area calls measured 0.1158 s uncached versus 0.0030 s with one
+reused incidence index (39.1x). Exact 2KAI tetrahedron/facet counts and solve
+wall time were intentionally not measured because a full 2KAI calculation was
+prohibited.
+
+The timeout is therefore a post-solve forensic/reporting complexity problem,
+not evidence that the polygon formula is mathematically invalid or that the
+weighted solver does not terminate. The polygon-area helper is a Cazals/Power
+forensic path; this finding does not justify changing the native triangulation
+area contract used for production physical interface/OFF measurements.
+
+Test policy recommended to NEXUSA
+---------------------------------
+Keep the existing bounded polygon-area, supplied-cache equivalence, synthetic
+open-boundary, water-competitor, signed-curvature, and status tests in the
+quick suite. The full 2KAI forensic module should be an explicit ``slow`` gate
+(the repository already defines that marker), and a timeout remains
+``TIMEOUT/UNRESOLVED`` rather than pass or silent skip. Any later performance
+repair should reuse one incidence index per result and prove byte/numeric
+forensic totals unchanged; no timeout increase alone is scientifically
+sufficient. No test configuration or executable source was changed in this
+investigation.
+
+DNA–ligand–water semantics
+--------------------------
+The solvent-mode tests confirm that FULL_SOLVENT retains water and ions in the
+global generator universe while keeping them outside A/B ownership. In the
+Voronoi/AW interface builder, an A–B–water triple is a physical boundary edge:
+the A/B surface is selected, water-facing facets are not direct A/B area, and
+the edge is classified as ``boundary_selected``. Such a boundary has no scalar
+mean-curvature seam term in the present convention. For Gaussian curvature it
+requires the open-patch boundary geodesic contribution and boundary-corner
+turning, when those terms are actually computed; no water dihedral or closing
+surface may be invented.
+
+The ordinary Cazals/Power edge engine has a narrower limitation: it emits an
+edge only when a primal triangle has exactly two A/B bicolor facets. An
+A–B–water triangle has only one A/B facet and is skipped by
+``bicolor_edges_of_triangle``. Thus its reported Power edge curvature is an
+internal selected-facet seam ledger, not complete open A/B-boundary accounting
+when water exposes the patch. Direct A/B facet area can remain valid, but
+boundary edge/mean-curvature and open Gaussian terms must be marked partial or
+unresolved until that incidence is explicitly represented.
+
+Status audit and latest clarifications
+---------------------------------------
+The typed Results path preserves native area, signed orientation, positive /
+negative / absolute edge aggregates, null missing terms, and independent
+checkpoint validity. AW, ordinary POW, ordinary PRM, and explicit
+Cazals/alpha-selection remain separate; open Gaussian totals are not forced to
+4*pi. Valid area may coexist with unresolved curvature/topology.
+
+One legacy output boundary still needs coordination: ``interface/export.py``
+defaults missing ``int_mean_curv``, ``int_mean_curv_sq``, ``int_gauss_curv``,
+and ``surf_energy`` to numeric zero (around lines 393-396) and unconditionally
+prints “Representative surface energy” (around line 499); the buried-water
+summary similarly derives and prints energy (around lines 1600-1621). This is
+not acceptable as a default scientific result under the clarified policy. It
+should be suppressed or explicitly ``NOT_CALCULATED`` unless an identified
+energy model, units, provenance, and request are present. It was not modified
+during the manual test.
+
+Bounded evidence
+----------------
+The focused non-2KAI validation set passed, including Cazals validation,
+Power selection, open-interface curvature, AW alpha interface boundaries,
+solvent modes, topology/status contracts, scientific contracts, and curvature
+unit metadata. The synthetic cache-scaling probe and selected-atom preparation
+probe also completed. No 2KAI solve, production benchmark, timeout waiver, or
+Git operation was performed.
+
+Unresolved questions for the user
+----------------------------------
+1. Should wet Power/Cazals curvature remain intentionally internal-seam-only,
+   or should future analysis expose A/B–water boundary incidence and its open
+   Gaussian terms?
+2. What explicit energy model/request, if any, authorizes displaying the legacy
+   representative surface-energy quantity?
+3. After the EDTA manual run, should NEXUSA schedule the 2KAI forensic module
+   as a slow gate only after cache reuse is implemented and independently
+   revalidated?
+
+Molecular pilot acceptance contract — 2026-10-20
+=================================================
+
+Current bounded outcome
+-----------------------
+The current focused acceptance set passed: Cazals/Power bounded geometry,
+Power selection, open-interface curvature, AW boundary classification, solvent
+competitor semantics, topology/status contracts, checkpoint contract, curvature
+units, network recovery, and the NEXUSA interface-output contract. Three
+expected real-checkpoint skips remained; no molecular solve or production
+benchmark was run. ``git diff --check`` remains clean after this report-only
+update.
+
+Minimum independent statuses
+----------------------------
+Every pilot record must carry separate statuses for the following fields:
+
+* ``checkpoint_valid``: VALID only when the declared archive, source identity,
+  generator order/IDs, coordinates/radii, and dependencies reload and validate.
+* ``geometry_completeness``: COMPLETE, PARTIAL, or UNRESOLVED, describing the
+  declared source/interface scope; it is not inferred from archive reload.
+* ``area``: VERIFIED when every reported direct A/B facet has finite native
+  triangle area and the selected facet ledger is reconciled once; PARTIAL when
+  only a supported subset is known, with observed and unresolved coverage kept
+  separate; otherwise UNRESOLVED/NOT_CALCULATED.
+* ``contacts``: VERIFIED only when atom/residue incidence is derived from that
+  same facet ledger; PARTIAL for a partial facet set. A missing mapping is not
+  a zero contact count.
+* curvature contributions: each smooth-face, internal-seam, boundary, and
+  vertex term has its own value/status. Signed local H and orientation are
+  retained; signed or absolute aggregates are derived only from available
+  terms. A valid area does not certify H.
+* integrated H: VERIFIED only when all terms required by the declared scope
+  are supported. Missing open-boundary H is NOT_SUPPORTED/UNRESOLVED, not zero.
+* integrated K/topology: VERIFIED/CERTIFIED only with complete relevant
+  smooth, seam, vertex, geodesic-boundary, corner, orientability, and incidence
+  evidence. Open patches must retain boundary terms and must not be assigned
+  4*pi or a closed genus conclusion.
+
+Approved interface semantics
+----------------------------
+Direct A/B area is the unique physical A/B facet set, counted once. Atom and
+residue contacts are two-sided attributions of those facets. Water-facing
+facets do not enter direct A/B area, but water remains a geometric competitor
+and A–B–water edges remain relevant open-boundary incidence. No closure facets
+are fabricated. Area uses VorPy native surface triangles; visualization meshes
+are not substitute measurements. AW, ordinary POW, ordinary PRM, and explicit
+Cazals/alpha-selected POW remain separate representations. Default speculative
+surface-energy output is not scientifically accepted.
+
+2KAI forensic classification
+----------------------------
+The recorded timeout is restricted to the specialized Cazals/alpha/Power
+curvature-forensics path, specifically repeated polygon-area incidence-index
+construction after weighted-complex construction. It does not invalidate
+ordinary PRM/POW/AW geometry, native direct-interface area, checkpoint
+serialization/recovery, or typed status persistence. Keep a bounded synthetic
+mathematical regression in the quick suite; schedule the full 2KAI forensic
+module as an explicitly labelled slow gate. Until it completes with unchanged
+forensic totals, its status is TIMEOUT/UNRESOLVED and it cannot certify
+curvature.
+
+First 1BNA pilot review template
+---------------------------------
+For each method and dry/wet frame, record:
+
+``source_hashes/frame/model``; ordered A/B stable atom IDs; molecular-subset
+coordinate and radius match result; physical competitor IDs and solvent/ion
+policy; network scheme and settings; unique direct A/B facet count; native area
+value/status and supported/unresolved area coverage; A/B contact atom and
+residue counts/status; physical edge/vertex counts; smooth H, internal seam H,
+boundary H, and integrated H statuses; smooth/seam/vertex/boundary K terms and
+Gauss–Bonnet/topology status; checkpoint validity; and explicit limitations.
+
+GO to preserve a useful geometry checkpoint when archive recovery, provenance,
+source/dependency identity, and declared geometry scope are valid, even if
+curvature or topology is PARTIAL/UNRESOLVED. GO to compare observed geometry
+only when the direct facet ledger, native area, contact incidence, competitor
+set, and coverage are matched and explicitly labelled. NO-GO for a certified
+wet/dry or method comparison when the molecular subset is unmatched, solvent
+or ion policy is unknown, direct facet coverage is unresolved, alpha-selected
+and ordinary POW values are mixed, or required curvature/topology terms are
+missing. Surface-energy values remain NOT_CALCULATED unless an explicit,
+provenanced model is requested.
+
+Pilot comparison now versus later
+----------------------------------
+Now: checkpoint validity, source/provenance, declared solvent competitor set,
+native direct A/B facet counts/area, contact atom/residue coverage, geometric
+counts, and partial-status diagnostics. Later: certified integrated H/K,
+closed topology, frame convergence, wet/dry molecular equivalence, and any
+surface-energy interpretation. Partial areas may be compared only with the
+same coverage definition and unresolved-area fields visible.
+
+Final EDTA reporting validation — 2026-10-20
+============================================
+
+EDTA evidence and topology interpretation
+------------------------------------------
+No ``group_info.txt`` exists in this integration worktree; the supplied EDTA
+values are therefore treated as the reported checkpoint evidence, not as a
+fresh artifact read. The source semantics are nevertheless unambiguous:
+
+* The ``VORONOI NETWORK`` counts (the reported 500 vertices, 892 edges, and
+  424 surfaces) are ``len(grp.net.verts/edges/surfs)``: full solved network
+  counts for the Group scope. They are not, by themselves, counts of a closed
+  molecular boundary.
+* The boundary counts and topology labels are reconstructed separately from
+  ``group.layer_surfs[0]`` and ``group.layer_net_atoms[0]``. Each retained
+  face must have exactly one body cell; edges and vertices are deduplicated
+  from that retained face set. This is a Group exterior-boundary incidence
+  complex, not automatically the full molecular boundary and not an A/B
+  interface. It equals the full molecular boundary only when the Group,
+  layers, and source network are proven to cover that scope.
+* ``Closed=True`` means the current edge-incidence test found no retained edge
+  with an incidence count other than two. ``Manifold=True`` additionally means
+  the current vertex-link check passed. These labels do not independently
+  certify valid polygon cycles, embedded geometry, or face winding.
+* ``Orientable=False`` is produced by the parity test
+  ``(2*components - Euler characteristic) % 2`` after the closed/manifold
+  checks. It is not the independent face-winding result. An Euler value of 1
+  is therefore not a code contradiction: an abstract closed nonorientable
+  surface can have odd Euler characteristic. For a physical closed boundary
+  embedded in ordinary 3-space, however, this is a red flag requiring the
+  independent ``topology_diagnostic.boundary_checks`` face-winding and cycle
+  evidence, plus a scope/assembly audit.
+
+The reported integrated Gaussian value near 12.55501 is consequently an
+observed sum over the reconstructed retained complex, if present in the
+checkpoint. It is not a certified Gauss–Bonnet result. No 4*pi substitution,
+genus inference, or topology certification is made while orientability,
+incidence scope, and independent winding evidence disagree or are absent.
+The 32 complete cells establish per-cell geometry completeness only; they do
+not prove that every boundary face/edge/vertex needed for a global theorem is
+present and correctly assembled.
+
+Reporting repair applied
+------------------------
+The legacy Group report now has the approved default behavior:
+
+* native supported area and curvature values remain numeric;
+* missing curvature components, topology fields, and missing contributions
+  render as ``UNRESOLVED`` rather than numeric zero;
+* the vertex mean-curvature row is ``NOT_APPLICABLE`` under the current
+  face-plus-edge convention, not a fabricated measured zero;
+* a non-certified boundary is labelled ``Supported boundary (not certified
+  complete)``;
+* the experimental representative surface-energy section is omitted by
+  default and is available only through the explicit ``surface_energy`` /
+  ``include_surface_energy`` export request.
+
+``group/export.py`` already opens reports with ``encoding="utf-8"``. A byte
+check confirms Å/Å² are valid UTF-8; the garbled glyph seen in PowerShell is
+display decoding, so no scientific file-encoding change was made. The
+concurrently modified ``interface/export.py`` still contains a separate
+legacy direct-interface energy/missing-zero path; it requires coordinated
+follow-up and was not overwritten in this integration worktree.
+
+2KAI forensic timeout classification
+-------------------------------------
+The timeout remains ``TIMEOUT/UNRESOLVED`` and is restricted to the specialized
+Cazals/alpha/Power forensic path: ``power_facet_polygon_area`` rebuilds a
+triangle-to-tetrahedron index for each facet. The loops are finite; bounded
+synthetic evidence showed about 39x repeated-work overhead when the index is
+not reused. It does not invalidate ordinary PRM/POW/AW geometry, native
+interface area, or checkpoint save/reload. Keep the bounded synthetic/cache
+equivalence regression in the quick suite and place the full 2KAI forensic
+case in an explicitly labelled slow suite. Do not increase the timeout or
+convert an unresolved forensic run to pass.
+
+First POW dry/wet pilot acceptance checklist
+--------------------------------------------
+GO for a recoverable geometry checkpoint only if the archive reloads, source
+and dependency hashes are valid, atom order/IDs/radii/coordinates and A/B
+selection are recorded, the dry/wet competitor and ion policy is explicit,
+and the declared geometry scope is complete enough to reproduce its native
+facet ledger. Record direct A/B facet count, native area once, A/B contact
+atom/residue incidence, physical edge/vertex counts, supported/unresolved
+coverage, and checkpoint validity separately.
+
+NO-GO for a certified POW dry/wet scientific result if source matching is
+unproven, ordinary POW is mixed with Cazals/alpha-selected data, direct facet
+coverage is unresolved, or required internal/boundary H or K terms are
+missing. Water remains a geometric competitor; water-facing area is excluded
+from direct A/B area, A/B–water edges remain open-boundary evidence, and no
+closing faces or unsupported dihedral/geodesic terms may be invented. Keep
+integrated curvature and topology ``PARTIAL``/``UNRESOLVED`` even when area
+and contacts are valid.
+
+Bounded validation
+------------------
+Passed with the integration interpreter:
+``test_group_export_policy.py``, ``test_group_boundary_mean_curvature.py``,
+``test_source_view_export_scope.py``, and
+``test_nexus_interface_output_contract.py``. No molecular solve, 2KAI run,
+production benchmark, branch operation, or timeout waiver was performed.

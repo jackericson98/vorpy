@@ -280,3 +280,328 @@ second solve, and which archive/checkpoint artifacts are default versus
 explicit. Once NEXUSA approves those fields, PRISM can implement the parser and
 planning layer without changing VECTOR writers, ATLAS archives, or FORGE
 geometry.
+
+PRISM reservation/recovery integration — 2026-10-20
+----------------------------------------------------
+Worktree: C:\Users\Ryzen-3600\PycharmProjects\vorpy-integration-20261020
+Branch: nexusa/integration-2026-10-20
+HEAD: 35de721ca963b893bfe8ef528ae96ff9b5a01180
+The HEAD ancestry check against the requested base passed. The original
+wip/experimental-development checkout was not edited.
+
+Fixes
+-----
+* `vorpy/src/command/vpy_cmnd.py`: added process-local ownership tokens for
+  interface reservations; same-run preparation now reuses the exact reserved
+  canonical directory, repeated preparation is idempotent, and a different
+  command/run is rejected under `--fail-if-exists`. Scope sharing, archive and
+  timing collision checks, and no-overwrite behavior remain intact.
+* The archive interface route now consumes ATLAS `recover_network_source`,
+  validates archive scheme/solvent metadata, replays without rebuilding, and
+  fails explicitly for missing dependencies or source-less legacy archives.
+  Recovery provenance identifies canonical embedded versus legacy filesystem
+  sources and the calculation log labels checkpoint replay and solvent.
+* `vorpy/tests/command/test_export_plan.py`: direct same-run reservation,
+  foreign-destination, repeated-preparation, and source-less recovery coverage.
+* `vorpy/tests/io/test_network_recovery.py`: bounded AW/POW/PRM replay coverage
+  for molecule-only/full-solvent sources, including wet/dry identity.
+* `vorpy/src/output/output.py` was not changed; existing writer collision
+  protection covers archive and timing sidecars.
+
+Validation
+----------
+* Reservation regressions and direct interface routing: 6 passed.
+* Canonical public CLI replay, archive recovery, and source-less failure:
+  5 passed, 2 unavailable-fixture skips; final AW/POW/PRM wet/dry matrix:
+  6 passed.
+* Bounded command contract, output reservation, progress/error redirection,
+  export-plan, full-system reuse, timing, and source/view tests passed; parser
+  coverage confirms tiny/small/medium/large/all, `-e add`, `-e no`, ordered
+  operations, default small, and an independent checkpoint policy.
+* `py_compile` and scoped `git diff --check` passed. No expensive molecular
+  solve or trajectory was run.
+
+Remaining blocker
+-----------------
+One existing output-preset assertion still expects the pre-Round-4 path
+`<system>/dna_ligand_interface`, while the current canonical layout is
+`<system>/interfaces/dna__ligand`. It was intentionally not changed while the
+directory-naming specification is unfinished. Missing 1AAY/1BNA fixture files
+account for skipped or unavailable real-checkpoint cases. No direct NEXUSA
+connector is available; this file is the handoff.
+
+Final CLI lifecycle and recovery verification — 2026-10-20
+-----------------------------------------------------------
+Scope: current uncommitted PRISM-owned changes, bounded synthetic fixtures,
+and the existing shared VECTOR command/export boundary. No molecular example
+or trajectory was executed, and no Git history was changed.
+
+Review result
+-------------
+The reservation ownership fix remains intact: canonical interface paths are
+reused only by the current Command owner, foreign paths still fail under
+`--fail-if-exists`, and repeated preparation does not rename or nest output.
+The current plan/reuse tests show no duplicate group solves or unrequested
+full-system target. Progress remains present for redirected and TTY output.
+Canonical checkpoint loading is limited to the checkpoint container path for
+canonical files and the legacy loader for legacy archives; no unsupported
+loader was introduced.
+
+Primary command verification
+----------------------------
+* Bare system planning resolves one ordinary full-system target.
+* Interface-only planning resolves one ordered interface target; groups remain
+  selection containers, the direct producer retains the complete competitor
+  universe, and no independent A/B networks are built.
+* Full-system plus interface planning reuses one source network and creates
+  source-backed interface views.
+* A new actual subprocess regression now runs a bounded synthetic POW PDB with
+  `--fail-if-exists`; it passed, emitted solve/export/final progress, and
+  produced exactly one interface directory.
+
+Checkpoint/recovery verification
+--------------------------------
+Canonical public reload passed with `Network.build` forbidden. AW, POW, and
+PRM replay matrix coverage passed for molecule-only/full-solvent metadata;
+source-less legacy archives fail explicitly. VECTOR canonical tiny/small/
+medium/large/all tests passed with cumulative outputs and validated checkpoint
+artifacts. The existing 1BNA checkpoint cases remain skipped because fixtures
+are absent.
+
+Export and PyMOL review
+-----------------------
+Repeated ordered presets, add/no precedence, disabled component families,
+scope routing, and cumulative tiers passed. `build_export_plan([])` reports
+the default `small`. The live `argv_export([])` fallback still dispatches
+`large`; this is a VECTOR-owned command/export discrepancy and is not changed
+by PRISM here.
+
+`vorpy/src/output/set_pymol_atoms.py` is still used through
+`vorpy/src/output/sys.py`. Molecular systems emit element/residue-specific
+`alter ..., vdw=<actual radius>` commands; explicit-radius foam/coarse/balls
+systems emit `alter <object>, vdw=b`. It adds no selections, coloring, or
+visualization setup. Generic `sphere_scale` calls found elsewhere belong to
+separate visualization scripts and do not replace `set_atoms.pml`.
+
+Open blockers for NEXUSA/VECTOR
+------------------------------
+1. Bare live default dispatch must be aligned with the `small` ExportPlan.
+2. Current `-e none` and `-e no archive` set checkpoint policy to `none` and
+   suppress the canonical checkpoint. This conflicts with the requested
+   mandatory-checkpoint contract and needs an owner-approved VECTOR/NEXUSA
+   decision before changing shared command/export code.
+3. The pre-existing old interface-directory assertion and absent 1AAY/1BNA
+   fixtures remain unchanged limitations.
+
+CLI, frame processing, and supervised lifecycle matrix — 2026-10-20
+--------------------------------------------------------------------
+Constraint: this audit made no executable-code changes; only this report was
+updated. Active concurrent worktree changes and untracked vertex artifacts
+were preserved. No molecular solve was run.
+
+| Area | Status | Evidence / current boundary |
+|---|---|---|
+| Bare input full-system route | IMPLEMENTED / TESTED | `python vorpy 1bna_db1976` is represented by the bounded plain-system plan and reuse tests; one ordinary full-system target is selected. |
+| Ordered `-i` direct interface | IMPLEMENTED / TESTED | `python vorpy 1bna_db1976 -g dna -g "c 2" -i`; synthetic AW/POW/PRM tests retain all competitors and build no A/B group networks. |
+| `-i -c system` | IMPLEMENTED / TESTED | Source network plus read-only interface view; reuse tests verify one producer network. |
+| Unsupported selective geometry fallback | PARTIAL | Source-view/direct-producer routes are explicit and no fallback was needed in bounded fixtures. A separate forced unsupported-selective fallback with plan/log/provenance labeling is not implemented or verified. |
+| Reservation repair | IMPLEMENTED / TESTED | Prior same-run ownership and live synthetic subprocess `--fail-if-exists` regression remain passing. |
+| Tiny/checkpoint lifecycle | IMPLEMENTED / TESTED | VECTOR canonical tiny→all tiers produce validated checkpoints; staging-before-optional-export-failure test passes. |
+| Canonical reload/recovery | IMPLEMENTED / TESTED | Public reload, no-`Network.build` export, ATLAS replay, source-less failure, and AW/POW/PRM wet/dry bounded cases pass. |
+| `-e none` / `-e no archive` mandatory checkpoint | BLOCKED | Current shared command/export policy intentionally sets checkpoint policy to `none`; owner-approved VECTOR/NEXUSA contract change is required. |
+| Single-frame and `--all-frames` | IMPLEMENTED / TESTED | Single input stays at `<system>`; batch uses `<system>/frames/frame_NNNN`; frame count/index and cleanup are covered. |
+| Parallel frame execution | PARTIAL / TESTED | Bounded scheduler limits workers, writes per-frame `run.log`, continues after isolated worker failures, and aggregates failure text. |
+| Frame campaign contract | MISSING | No checkpoint skip/resume, bounded retry, solved/skipped/failed manifest, serious shared-failure classification, or sequential continue-after-isolated-failure. |
+| Frame source/wet-dry provenance | PARTIAL | `frame_index/count`, solver method, solvent mode, source hash, and filename convention labels exist. Temporary staging paths mean batch provenance does not preserve the original `_frames/PDB_ID_fN.pdb` source identity directly. |
+| Conditional method/solvent hierarchy | PARTIAL / BLOCKED | Frame layer and logical `system/groups/interfaces` scopes exist. Method/solvent path levels are not conditionally materialized; no migration or new naming policy was chosen. |
+| PyMOL radius script | PARTIAL | `set_pymol_atoms.py` remains active via `output/sys.py` and emits per-atom `vdw` assignments (`vdw=b` for explicit-radius systems). It also emits legacy `load`/`rebuild` commands, so it is not strictly radius-only; no visualization or formula change was made. |
+
+Bounded tests run
+-----------------
+* `test_calculation_plan.py`, `test_full_system_reuse.py`,
+  `test_interface_only_cli.py`, and export/checkpoint regressions: passed;
+  only absent 1AAY fixtures skipped.
+* `test_frames.py`, `test_parallel_frames.py -k "not spawned_cli"`,
+  `test_input_resolution.py`, and selected output-directory CLI tests: passed.
+* `test_output_layout.py`: 11 passed, including legacy PyMOL generation.
+* Canonical export tiers and recovery suites passed; real 1BNA checkpoint
+  cases were skipped because the fixture is absent.
+
+Smallest supervised-campaign changes proposed (not implemented): preserve the
+original source-context identity when staging each frame, add a resumable
+manifest with solved/skipped/failed state and checkpoint validation, and add
+retry/classification only after NEXUSA approves the shared-failure contract.
+
+Public CLI and first-comparison execution contract — 2026-10-20
+----------------------------------------------------------------
+Constraint: this pass remained read-only for executable code because the EDTA
+source-edit freeze is active. No molecular input was executed and no source
+dataset or Git history was changed.
+
+Mandatory checkpoint review
+---------------------------
+The canonical checkpoint path is present for ordinary/tiny plans, and the
+existing checkpoint-before-optional-export-failure regression passes. The new
+contract is not yet satisfied for `-e none` or `-e no archive`: the current
+shared export planner/runtime deliberately changes checkpoint policy to `none`
+and skips archive persistence. Absence of `--save-network` is otherwise not a
+reason to skip the ordinary shared checkpoint. This remains BLOCKED pending
+VECTOR/NEXUSA approval of the shared command/export change. A checkpoint write
+or validation exception is surfaced through the CLI failure path; it must not
+be reported as a protected successful solve once the mandatory policy is
+enabled.
+
+Default export review
+---------------------
+`build_export_plan([])` resolves to `small`, and repeated `-e`, `add`, `no`,
+scope routing, and cumulative tier tests pass. The live `argv_export([])`
+fallback still calls `export_npt(..., 'large')` for ordinary systems, so the
+public default is PARTIAL/BLOCKED even though the plan says `small`. This is a
+VECTOR-owned shared dispatch discrepancy and was not edited during the freeze.
+
+Primary command matrix
+----------------------
+| Command contract | Status | Evidence |
+|---|---|---|
+| `python vorpy 1bna_db1976` | IMPLEMENTED / TESTED | Bounded planning/reuse selects one ordinary full-system target; no molecular run executed. |
+| `python vorpy 1bna_db1976 -g dna -g "c 2" -i` | IMPLEMENTED / TESTED | Direct interface producer retains the complete competitor universe and does not solve independent A/B networks. |
+| `python vorpy 1bna_db1976 -g dna -g "c 2" -i -c system` | IMPLEMENTED / TESTED | One full source network plus a source-backed interface view; geometry is reused. |
+| Unsupported selective geometry fallback | PARTIAL | Explicit source/direct routes are labeled in bounded planning; forced full-source fallback with plan/log/provenance labeling remains unverified. |
+| Reservation and progress lifecycle | IMPLEMENTED / TESTED | Same-run ownership, foreign collision rejection, repeated preparation, live bounded subprocess reservation, and redirected progress regressions pass. |
+
+Prepared pilot command templates (NOT EXECUTED)
+------------------------------------------------
+NEXUSA has not supplied verified single-frame dry/wet source paths or the
+method-specific radii/settings in this handoff. The checked-in 11-model 1BNA
+file is therefore not treated as a pilot source. Substitute only NEXUSA's
+verified values for angle-bracket fields; keep each destination unique:
+
+    python vorpy "<NEXUSA_VERIFIED_DRY_SINGLE_FRAME_PDB>" --fail-if-exists -g dna -g "c 2" -i --solvent-mode MOLECULE_ONLY -s nt pow and <VERIFIED_POW_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir "<PILOT_ROOT>\pow_dry" --timing-report "<PILOT_ROOT>\pow_dry\timing.json" > "<PILOT_ROOT>\pow_dry\run.log" 2>&1
+    python vorpy "<NEXUSA_VERIFIED_WET_SINGLE_FRAME_PDB>" --fail-if-exists -g dna -g "c 2" -i --solvent-mode FULL_SOLVENT -s nt pow and <VERIFIED_POW_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir "<PILOT_ROOT>\pow_wet" --timing-report "<PILOT_ROOT>\pow_wet\timing.json" > "<PILOT_ROOT>\pow_wet\run.log" 2>&1
+    python vorpy "<NEXUSA_VERIFIED_DRY_SINGLE_FRAME_PDB>" --fail-if-exists -g dna -g "c 2" -i --solvent-mode MOLECULE_ONLY -s nt aw and <VERIFIED_AW_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir "<PILOT_ROOT>\aw_dry" --timing-report "<PILOT_ROOT>\aw_dry\timing.json" > "<PILOT_ROOT>\aw_dry\run.log" 2>&1
+    python vorpy "<NEXUSA_VERIFIED_WET_SINGLE_FRAME_PDB>" --fail-if-exists -g dna -g "c 2" -i --solvent-mode FULL_SOLVENT -s nt aw and <VERIFIED_AW_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir "<PILOT_ROOT>\aw_wet" --timing-report "<PILOT_ROOT>\aw_wet\timing.json" > "<PILOT_ROOT>\aw_wet\run.log" 2>&1
+    python vorpy "<NEXUSA_VERIFIED_DRY_SINGLE_FRAME_PDB>" --fail-if-exists -g dna -g "c 2" -i --solvent-mode MOLECULE_ONLY -s nt prm and <VERIFIED_PRM_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir "<PILOT_ROOT>\prm_dry" --timing-report "<PILOT_ROOT>\prm_dry\timing.json" > "<PILOT_ROOT>\prm_dry\run.log" 2>&1
+    python vorpy "<NEXUSA_VERIFIED_WET_SINGLE_FRAME_PDB>" --fail-if-exists -g dna -g "c 2" -i --solvent-mode FULL_SOLVENT -s nt prm and <VERIFIED_PRM_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir "<PILOT_ROOT>\prm_wet" --timing-report "<PILOT_ROOT>\prm_wet\timing.json" > "<PILOT_ROOT>\prm_wet\run.log" 2>&1
+
+All six templates are interface-only: there is no `-c system` and no
+standalone group-network request. `-e tiny` preserves checkpoint-first pilot
+intent; do not replace it with `none` or `no archive` until the mandatory
+checkpoint contract is repaired. The redirection and timing sidecar provide
+per-run evidence; the command's plan/provenance must identify any full-source
+fallback explicitly. The pilot set is BLOCKED until NEXUSA supplies and
+confirms the angle-bracket source/settings values.
+
+Frame orchestration and output hierarchy
+----------------------------------------
+| Contract | Status |
+|---|---|
+| Serial frame processing and preflight/cleanup | IMPLEMENTED / TESTED; serial execution stops on the first exception. |
+| Parallel isolated-failure continuation and per-frame `run.log` | PARTIAL / TESTED. |
+| Verified checkpoint skip/reuse, bounded retries, solved/skipped/failed manifest, serious shared-failure stop | MISSING. |
+| Stable original frame identity and wet/dry provenance | PARTIAL; staging paths can replace the original `_frames/<id>_fN.pdb` identity. |
+| Conditional method/solvent hierarchy | PARTIAL; frame and logical scope layers exist, but method/solvent path levels are not conditional and no migration policy was chosen. |
+
+PyMOL review
+------------
+`vorpy/src/output/set_pymol_atoms.py`, still called from
+`vorpy/src/output/sys.py`, emits element/residue-specific `alter ..., vdw=...`
+assignments for molecular systems and `vdw=b` for explicit-radius systems.
+Generic `sphere_scale` is not used as a substitute. The legacy generator also
+emits `load` and `rebuild`, so the strict radius-only requirement is PARTIAL;
+no change was made without VECTOR/FORGE coordination.
+
+Exact bounded evidence
+----------------------
+Passed previously on this snapshot: `test_calculation_plan.py`,
+`test_full_system_reuse.py`, `test_interface_only_cli.py`, export/checkpoint
+regressions, the actual synthetic subprocess reservation regression,
+`test_network_recovery.py`, archive recovery, output layout, source-view
+scope, `test_frames.py`, `test_parallel_frames.py -k "not spawned_cli"`,
+`test_input_resolution.py`, selected output-directory CLI tests, and
+`test_output_layout.py` (11 passed). Missing real 1BNA/1AAY fixtures were
+skipped. The spawned frame solve and all molecular examples were intentionally
+not run.
+
+Files changed in this pass
+--------------------------
+Only `.agent-reports/PRISM.txt` was appended. No executable source, test,
+dataset, directory naming rule, commit, or push was changed.
+
+Required next action
+--------------------
+NEXUSA/VECTOR should first repair and test live small dispatch plus mandatory
+checkpoint persistence for `none`/`no archive`, then provide the verified
+single-frame source/settings values. After the EDTA freeze is lifted, run only
+the bounded real-CLI checkpoint/default/reservation/reload gates before any
+supervised pilot.
+
+Public CLI release acceptance — current gate audit
+---------------------------------------------------
+The EDTA/source-edit freeze is still active in the integration handoffs. This
+pass therefore made no executable-code or test edits. Worktree verification:
+`C:/Users/Ryzen-3600/PycharmProjects/vorpy-integration-20261020`, branch
+`nexusa/integration-2026-10-20`, HEAD
+`35de721ca963b893bfe8ef528ae96ff9b5a01180`.
+
+| Acceptance item | Result | Evidence / blocker |
+|---|---|---|
+| No `-e` means approved small tier | BLOCKED | `build_export_plan([])` is `small`, but live `argv_export()` still appends `large` for ordinary systems. |
+| `-e none` preserves mandatory checkpoint | PARTIAL / TESTED | Fresh public synthetic subprocess returned success and wrote `*_checkpoint.vpy`; planner metadata still says `checkpoint_policy='none'`, and legacy unit tests still assert suppression. Contract needs one canonical owner decision and updated assertions. |
+| `-e no archive` preserves mandatory checkpoint | PARTIAL / TESTED | Fresh public synthetic subprocess wrote the checkpoint before a deliberately incomplete optional group export failed (`KeyError: 'vol'`). A successful real-geometry optional-export case remains pending. |
+| Repeated `add/no` precedence | TESTED | Existing deterministic operation/precedence tests pass. No source change made. |
+| Canonical reload honors `-e dir` | PARTIAL / BLOCKED | Fresh subprocess replay wrote logs under the requested destination, but `_run_archive()` creates `<checkpoint>_exports` before parsing `-e dir`; this violates the no-unexpected-fallback requirement. |
+| Same-run reservation and foreign collision | TESTED | Existing bounded unit and actual fresh subprocess regressions pass. |
+| Canonical re-export avoids `Network.build()` | TESTED | Existing canonical reload/interface replay tests patch `Network.build` to fail and pass. |
+| Interface-only/full-source routing | TESTED | AW/POW/PRM bounded tests show one direct physical interface; `-i -c system` reuses one source network; no independent A/B solves. |
+| Progress/status categories | PARTIAL / TESTED | Geometry/export/final scientific status and named export failures are covered. Fresh default output does not yet expose a clearly distinct checkpoint-persistence line before optional exports. |
+
+Fresh-process evidence
+----------------------
+Command used for the focused gate (parent verified interpreter):
+
+    C:\Users\Ryzen-3600\PycharmProjects\vorpy\.venv\Scripts\python.exe -m pytest -q -rA vorpy/tests/command/test_export_plan.py vorpy/tests/command/test_cli_progress.py vorpy/tests/command/test_vpy_cmnd.py vorpy/tests/command/test_interface_only_cli.py --basetemp=.pytest-tmp-prism-release
+
+All selected tests passed except
+`test_actual_cli_ordered_pow_interface_archive_reload_and_cache_export`. The
+fresh CLI producer returned zero, but the test still opens the explicit
+`--save-network` destination as a legacy archive containing `state.json`; the
+current writer copies the canonical checkpoint container (`checkpoint/manifest.json`).
+This test/contract needs VECTOR/ATLAS alignment before release.
+
+Additional fresh public CLI harness results on a four-atom synthetic PDB:
+
+* `-e none -e dir <unique>`: return code 0; one canonical checkpoint written.
+* `-e no archive -e dir <unique>`: checkpoint written before the intentionally
+  incomplete optional writer failed; no existing output was reused.
+* canonical checkpoint replay with `-e dir <unique> -e only logs`: requested
+  destination received `system/pow_logs.csv`, but the fallback
+  `<checkpoint>_exports` directory was also created.
+
+First-run 1BNA commands
+-----------------------
+Exact executable commands cannot yet be issued safely: NEXUSA has not
+provided the verified single-frame 1BNA POW dry path, SHA-256, matched wet
+path/SHA-256, ordered group selectors, solver/radius settings, or resource
+limits. The checked-in 11-model PDB is not assumed to satisfy that contract.
+The commands must have this shape, with all angle-bracket values supplied and
+confirmed by NEXUSA before execution:
+
+    preflight: sha256sum <DRY_FRAME> && sha256sum <WET_FRAME> && <RESOURCE_CHECK>
+    python vorpy <DRY_FRAME> --fail-if-exists -g <GROUP_A> -g <GROUP_B> -i --solvent-mode MOLECULE_ONLY -s nt pow and <VERIFIED_POW_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir <POW_DRY_OUTPUT> --timing-report <POW_DRY_OUTPUT>\timing.json
+    python vorpy <POW_DRY_CHECKPOINT> --fail-if-exists -e dir <POW_REPLAY_OUTPUT> -e only logs --timing-report <POW_REPLAY_OUTPUT>\timing.json
+    python vorpy <WET_FRAME> --fail-if-exists -g <GROUP_A> -g <GROUP_B> -i --solvent-mode FULL_SOLVENT -s nt pow and <VERIFIED_POW_SETTINGS> --profile geometry --boundary <VERIFIED_BOUNDARY> -e tiny -e dir <POW_WET_OUTPUT> --timing-report <POW_WET_OUTPUT>\timing.json
+
+The dry, replay, and wet destinations must be distinct; the preflight must
+verify hashes and free resources; and no command may add `-c system` or a
+standalone group solve. Commands were prepared only, not executed.
+
+Release blockers
+----------------
+1. Source freeze clearance and VECTOR/ATLAS agreement on canonical versus
+   legacy explicit archive semantics.
+2. Live default dispatch must use the normalized `small` plan.
+3. Replay must avoid creating fallback output when `-e dir` is supplied.
+4. A successful optional-export `no archive` subprocess case needs a complete
+   bounded geometry fixture.
+5. NEXUSA must supply and confirm the 1BNA frame hashes, groups, settings, and
+   resource preflight values before any molecular command is run.

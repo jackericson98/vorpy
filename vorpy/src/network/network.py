@@ -205,6 +205,10 @@ class Network:
         )
         self.settings = settings  # Settings       : surf_res, surf_col, surf_schm, max_vert, net_type
         self.metrics = {'start': now()}  # Metrics        : Holds the time measurements for the build
+        # ``None`` preserves legacy loaded-network behavior. Live builds
+        # record whether curvature was requested so geometry-only zero
+        # placeholders are not mistaken for calculated zeros by exporters.
+        self.curvature_calculated = None
         self.progress_window = None  # Prog. Window   : Progress window for GUI updates
         self._progress_line_len = 0
         self.loaded_from_logs = False  # Logs Flag      : Determines how the net was created
@@ -1184,6 +1188,7 @@ class Network:
         calc_verts : bool, optional
             If False, skips vertex calculations when loading existing network
         """
+        self.curvature_calculated = bool(calculate_curvature)
         # Check for the group name
         if self.group_name is None:
             self.group_name = 'Group'
@@ -1225,7 +1230,7 @@ class Network:
                     },
                 }
 
-        if getattr(self.sys, '_cli_stage_output_enabled', False):
+        if getattr(getattr(self, 'sys', None), '_cli_stage_output_enabled', False):
             self.update_progress('Network construction', 0.0)
 
         # Reuse the System-level spatial index whenever possible. The first
@@ -1351,8 +1356,11 @@ class Network:
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
         num_complete = len([_ for _ in self.balls['complete'] if _])
-        completion_kind = self.completion_kind or "network"
-        completion_name = self.progress_network_name or self.group_name
+        completion_kind = getattr(self, 'completion_kind', None) or "network"
+        completion_name = (
+            getattr(self, 'progress_network_name', None)
+            or getattr(self, 'group_name', None)
+        )
         # Normal CLI progress is already at the current cursor; adding a
         # separator newline would leave a visible blank line.
         parent = getattr(self, 'sys', None)

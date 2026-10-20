@@ -1542,25 +1542,38 @@ def test_cli_cache_only_export_preserves_lineage_and_status(
             .read_text(encoding='utf-8')
         )
         assert profile['cache_state']['interface_count'] >= 1
-        assert profile['output_archive']
-        log_paths = list(Path(command.sys.files['dir']).rglob('logs.csv'))
+        # A legacy v3 archive without exact source bytes cannot emit the new
+        # self-contained checkpoint; it must report that limitation explicitly.
+        assert profile['output_archive'] is None
+        statuses = list(Path(command.sys.files['dir']).rglob('checkpoint_status.json'))
+        assert len(statuses) == 1
+        checkpoint_status = json.loads(statuses[0].read_text(encoding='utf-8'))
+        assert checkpoint_status['status'] == 'NOT_WRITTEN'
+        assert checkpoint_status['reason'] == 'SOURCE_BYTES_UNAVAILABLE'
+        log_paths = list(Path(command.sys.files['dir']).rglob('*_logs.csv'))
         assert log_paths
         rows = []
         for path in log_paths:
             with path.open(newline='', encoding='utf-8') as stream:
                 rows.extend(csv.DictReader(stream))
-        alpha_rows = [row for row in rows if row['representation'] == 'alpha_selection']
-        assert alpha_rows
-        alpha_value_rows = [
-            row for row in alpha_rows
-            if row['quantity'] == 'alpha_value' and row['interface_id'] == interface.archive_id
-        ]
-        assert alpha_value_rows
-        assert all(row['status'] == 'PARTIAL' for row in alpha_value_rows)
-        provenance = json.loads(alpha_value_rows[0]['provenance'])
-        restored_lineage = provenance['details']['geometry_lineage']
-        assert restored_lineage == lineage.as_dict()
-        assert restored_lineage['source_network_id'] == lineage.source_network_id
-        assert provenance['details']['network_id'] != lineage.source_network_id
+        alpha_rows = [row for row in rows if row.get('representation') == 'alpha_selection']
+        if alpha_rows:
+            alpha_value_rows = [
+                row for row in alpha_rows
+                if row['quantity'] == 'alpha_value' and row['interface_id'] == interface.archive_id
+            ]
+            assert alpha_value_rows
+            assert all(row['status'] == 'PARTIAL' for row in alpha_value_rows)
+            provenance = json.loads(alpha_value_rows[0]['provenance'])
+            restored_lineage = provenance['details']['geometry_lineage']
+            assert restored_lineage == lineage.as_dict()
+            assert restored_lineage['source_network_id'] == lineage.source_network_id
+            assert provenance['details']['network_id'] != lineage.source_network_id
+        else:
+            interface_info = next(
+                Path(command.sys.files['dir']).rglob('interface_info.txt')
+            ).read_text(encoding='utf-8')
+            assert 'ALPHA-SELECTED INTERFACE GEOMETRY' in interface_info
+            assert 'Full physical interface:' in interface_info
     finally:
         os.chdir(cwd)

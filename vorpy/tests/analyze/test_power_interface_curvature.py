@@ -4,6 +4,9 @@ import numpy as np
 import pytest
 
 from vorpy.src.analyze.power_interface_curvature import (
+    PowerFacetRecord,
+    PowerInterfaceCurvatureResult,
+    PowerInterfaceEdgeRecord,
     PowerVertex,
     _closure_issues,
     _condition_beta_for_facet,
@@ -15,6 +18,7 @@ from vorpy.src.analyze.power_interface_curvature import (
     oriented_power_facet_normal,
     power_edge_geometry,
 )
+from vorpy.src.geometry.interfaces.curvature import power_curvature_summary
 
 
 def test_equal_radius_power_vertex_has_expected_equal_power_residuals():
@@ -125,6 +129,37 @@ def test_full_and_alpha_complex_closure_validator_reports_missing_faces():
         3: set(),
     }
     assert _closure_issues(bad) == [((0, 1, 2), (1, 2))]
+
+
+def test_unresolved_power_edge_is_not_emitted_as_zero_curvature():
+    facets = [
+        PowerFacetRecord((0, 1), "A:0->B:1", 0., True, "accepted", 1., 1., 1., True,
+                         True, ((0, 1, 2),), "selected"),
+        PowerFacetRecord((0, 2), "A:0->B:2", 0., True, "accepted", 1., 1., 1., True,
+                         True, ((0, 1, 2),), "selected"),
+    ]
+    edge = PowerInterfaceEdgeRecord(
+        (0, 1, 2), "AAB", 0, "A", ((0, 1), (0, 2)), (), (), (True, True),
+        (True, True), True, "unresolved_power_vertex", None, None,
+        "not_clipped", 1., math.degrees(1.), "positive", None, None,
+        "unresolved_power_vertex", "missing power vertex",
+    )
+    result = PowerInterfaceCurvatureResult(
+        points=np.zeros((3, 3)), expanded_radii=np.ones(3), weights=np.ones(3),
+        group_a=frozenset({0}), group_b=frozenset({1, 2}), alpha=0.,
+        alpha_tolerance=1e-12, condition_beta_m=5.,
+        full_simplices={d: set() for d in range(4)},
+        alpha_simplices={d: set() for d in range(4)}, filtration={},
+        power_vertices={}, unresolved_power_vertices={}, facets=facets, edges=[edge],
+    )
+
+    assert result.edge_contribution_complete is False
+    assert result.curvature_status == "UNRESOLVED"
+    summary = power_curvature_summary(result, area_A2=2.)
+    assert summary.status == "UNRESOLVED"
+    assert summary.smooth_H_A == 0.
+    assert summary.raw_signed_edge_A_rad is None
+    assert "C_signed = sum(l beta): UNRESOLVED" in result.summary()
 
 
 def test_regular_complex_entry_point_preserves_alpha_selection_separately():

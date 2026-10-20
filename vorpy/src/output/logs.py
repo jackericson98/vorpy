@@ -66,15 +66,34 @@ def write_logs(group, net_name=None, round_to=None):
 
     net = group.net
     r = round_func(round_to)
+    curvature_not_calculated = getattr(net, "curvature_calculated", None) is False
+
+    def optional_round(value):
+        """Keep unavailable group curvature blank rather than zero."""
+        if curvature_not_calculated or value is None:
+            return ""
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return ""
+        if not np.isfinite(number):
+            return ""
+        return r(number)
 
     def curvature_total(row, field):
-        value = getattr(row, field, 0.0)
+        value = getattr(row, field, None)
         if isinstance(value, dict):
-            value = sum(float(item) for item in value.values())
-        try:
-            return r(value)
-        except (TypeError, ValueError):
-            return 0.0
+            if not value:
+                return ""
+            values = [optional_round(item) for item in value.values()]
+            return "" if any(item == "" for item in values) else r(sum(float(item) for item in values))
+        return optional_round(value)
+
+    def surface_energy(value, curvature_squared):
+        if value is not None:
+            return optional_round(value)
+        q = optional_round(curvature_squared)
+        return "" if q == "" else r(2.0 * float(curvature_squared))
 
     # ------------------------------------------------------------------
     # Setup
@@ -172,14 +191,14 @@ def write_logs(group, net_name=None, round_to=None):
             [float(r(_)) for _ in group.vdw_com],
             [[float(r(__)) for __ in _] for _ in group.moi],
             [[float(r(__)) for __ in _] for _ in group.spatial_moment],
-            r(getattr(group, "int_mean_curv", 0.0)),
-            r(getattr(group, "int_mean_curv_sq", 0.0)),
-            r(getattr(group, "int_gauss_curv", 0.0)),
-            r(getattr(group, "int_mean_curv_face", 0.0)),
-            r(getattr(group, "int_mean_curv_edge", 0.0)),
-            r(getattr(group, "int_gauss_curv_face", 0.0)),
-            r(getattr(group, "int_gauss_curv_edge", 0.0)),
-            r(getattr(group, "int_gauss_curv_vertex", 0.0)),
+            optional_round(getattr(group, "int_mean_curv", None)),
+            optional_round(getattr(group, "int_mean_curv_sq", None)),
+            optional_round(getattr(group, "int_gauss_curv", None)),
+            optional_round(getattr(group, "int_mean_curv_face", None)),
+            optional_round(getattr(group, "int_mean_curv_edge", None)),
+            optional_round(getattr(group, "int_gauss_curv_face", None)),
+            optional_round(getattr(group, "int_gauss_curv_edge", None)),
+            optional_round(getattr(group, "int_gauss_curv_vertex", None)),
             getattr(group, "euler_characteristic", ""),
             getattr(group, "gauss_bonnet_expected", ""),
             getattr(group, "gauss_bonnet_error", ""),
@@ -254,14 +273,14 @@ def write_logs(group, net_name=None, round_to=None):
                 r(atom.vdw_vol),
                 r(atom.sa),
                 atom.complete,
-                r(atom.max_mean_curv),
-                r(atom.avg_mean_surf_curv),
-                r(atom.max_gauss_curv),
-                r(atom.avg_gauss_surf_curv),
-                r(atom.int_mean_curv),
-                r(atom.int_mean_curv_sq),
-                r(atom.int_gauss_curv),
-                r(getattr(atom, 'surf_energy', 2.0 * atom.int_mean_curv_sq)),
+                optional_round(atom.max_mean_curv),
+                optional_round(atom.avg_mean_surf_curv),
+                optional_round(atom.max_gauss_curv),
+                optional_round(atom.avg_gauss_surf_curv),
+                optional_round(atom.int_mean_curv),
+                optional_round(atom.int_mean_curv_sq),
+                optional_round(atom.int_gauss_curv),
+                surface_energy(getattr(atom, 'surf_energy', None), getattr(atom, 'int_mean_curv_sq', None)),
                 r(atom.sphericity),
                 r(atom.isometric_quotient),
                 atom.ball_inside,
@@ -283,13 +302,13 @@ def write_logs(group, net_name=None, round_to=None):
                     [float(r(_)) for _ in atom.bounding_box[1]]
                 ],
                 nbrs,
-                r(getattr(atom, "int_mean_curv_surface", atom.int_mean_curv)),
-                r(getattr(atom, "int_mean_curv_edge", 0.0)),
-                r(getattr(atom, "int_mean_curv_total", atom.int_mean_curv)),
-                r(getattr(atom, "int_gauss_curv_surface", atom.int_gauss_curv)),
-                r(getattr(atom, "int_gauss_curv_edge", 0.0)),
-                r(getattr(atom, "int_gauss_curv_vertex", 0.0)),
-                r(getattr(atom, "int_gauss_curv_total", atom.int_gauss_curv))
+                optional_round(getattr(atom, "int_mean_curv_surface", atom.int_mean_curv)),
+                optional_round(getattr(atom, "int_mean_curv_edge", None)),
+                optional_round(getattr(atom, "int_mean_curv_total", atom.int_mean_curv)),
+                optional_round(getattr(atom, "int_gauss_curv_surface", atom.int_gauss_curv)),
+                optional_round(getattr(atom, "int_gauss_curv_edge", None)),
+                optional_round(getattr(atom, "int_gauss_curv_vertex", None)),
+                optional_round(getattr(atom, "int_gauss_curv_total", atom.int_gauss_curv))
             ])
 
         # ==============================================================
@@ -308,11 +327,11 @@ def write_logs(group, net_name=None, round_to=None):
             ball1, ball2 = surf.balls
             vols = surf.vols
 
-            lg_fl.writerow([surf.Index, ball1, ball2, r(surf.sa), r(surf.mean_curv), r(surf.avg_mean_curv),
-                            r(surf.gauss_curv), r(surf.avg_gauss_curv), r(surf.int_mean_curv), r(surf.int_mean_curv_sq),
-                            r(surf.int_gauss_curv), r(getattr(surf, 'surf_energy', 2.0 * surf.int_mean_curv_sq)),
+            lg_fl.writerow([surf.Index, ball1, ball2, r(surf.sa), optional_round(surf.mean_curv), optional_round(surf.avg_mean_curv),
+                            optional_round(surf.gauss_curv), optional_round(surf.avg_gauss_curv), optional_round(surf.int_mean_curv), optional_round(surf.int_mean_curv_sq),
+                            optional_round(surf.int_gauss_curv), surface_energy(getattr(surf, 'surf_energy', None), getattr(surf, 'int_mean_curv_sq', None)),
                             r(vols[ball1]), r(vols[ball2]), r(surf.contact_area), r(surf.overlap),
-                            r(surf.int_gauss_curv)])
+                            optional_round(surf.int_gauss_curv)])
 
         # ==============================================================
         # Edges
@@ -331,9 +350,11 @@ def write_logs(group, net_name=None, round_to=None):
                 balls[2],
                 r(edge.length),
             ] + edge_curvature_log_values(
-                balls, getattr(edge, "int_mean_curv_by_ball", None),
-                getattr(edge, "int_gauss_curv_by_generator", getattr(edge, "int_gauss_curv_by_ball", None)),
-                getattr(edge, "int_gauss_curv_by_face", None), r,
+                balls,
+                None if curvature_not_calculated else getattr(edge, "int_mean_curv_by_ball", None),
+                None if curvature_not_calculated else getattr(edge, "int_gauss_curv_by_generator", getattr(edge, "int_gauss_curv_by_ball", None)),
+                None if curvature_not_calculated else getattr(edge, "int_gauss_curv_by_face", None),
+                r,
             ))
 
         # ==============================================================
@@ -361,7 +382,7 @@ def write_logs(group, net_name=None, round_to=None):
                 loc[1],
                 loc[2],
                 r(vert.rad),
-                0.0,
+                "",
                 curvature_total(vert, "int_gauss_curv_by_ball")
             ])
 
@@ -428,6 +449,7 @@ def write_interface_logs(iface, net_name=None, round_to=None):
         round_to = getattr(sys, "round_to", 3)
 
     r = round_func(round_to)
+    curvature_not_calculated = getattr(net, "curvature_calculated", None) is False
 
     # ------------------------------------------------------------------
     # Small defensive helpers
@@ -450,7 +472,7 @@ def write_interface_logs(iface, net_name=None, round_to=None):
 
     def optional_round(value):
         """Keep unavailable curvature blank instead of manufacturing zero."""
-        if value is None:
+        if curvature_not_calculated or value is None:
             return ""
         try:
             number = float(value)
@@ -461,13 +483,26 @@ def write_interface_logs(iface, net_name=None, round_to=None):
         return r(number)
 
     def curvature_total(value):
+        if curvature_not_calculated:
+            return ""
         if isinstance(value, dict):
-            value = sum(curvature_total(item) for item in value.values())
+            if not value:
+                return ""
+            values = [curvature_total(item) for item in value.values()]
+            return "" if any(item == "" for item in values) else sum(values)
+        if value is None:
+            return ""
         try:
             number = float(value)
-            return number if np.isfinite(number) else 0.0
+            return number if np.isfinite(number) else ""
         except (TypeError, ValueError):
-            return 0.0
+            return ""
+
+    def surface_energy(value, curvature_squared):
+        if value is not None:
+            return optional_round(value)
+        q = optional_round(curvature_squared)
+        return "" if q == "" else r(2.0 * float(curvature_squared))
 
     def safe_float(value, default=0.0):
         """
@@ -920,10 +955,7 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 optional_round(atom.get("int_mean_curv")),
                 optional_round(atom.get("int_mean_curv_sq")),
                 optional_round(atom.get("int_gauss_curv")),
-                optional_round(atom.get("surf_energy"))
-                if atom.get("surf_energy") is not None else optional_round(
-                    2.0 * safe_float(atom.get("int_mean_curv_sq"), default=float("nan"))
-                ),
+                surface_energy(atom.get("surf_energy"), atom.get("int_mean_curv_sq")),
                 safe_round(atom.get("sphericity", 0.0)),
                 safe_round(atom.get("isometric_quotient", 0.0)),
                 bool(atom.get("ball_inside", False)),
@@ -1049,15 +1081,12 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         optional_round(surf.get("int_mean_curv")),
                         optional_round(surf.get("int_mean_curv_sq")),
                         optional_round(surf.get("int_gauss_curv")),
-                        optional_round(surf.get("surf_energy"))
-                        if surf.get("surf_energy") is not None else optional_round(
-                            2.0 * safe_float(surf.get("int_mean_curv_sq"), default=float("nan"))
-                        ),
+                        surface_energy(surf.get("surf_energy"), surf.get("int_mean_curv_sq")),
                         safe_round(ball1_volume),
                         safe_round(ball2_volume),
                         safe_round(surf.get("contact_area", 0.0)),
                         safe_round(surf.get("overlap", 0.0)),
-                        safe_round(surf.get("int_gauss_curv", 0.0)),
+                        optional_round(surf.get("int_gauss_curv")),
                     ]
                 )
                 _log_surface_rows += 1
@@ -1102,9 +1131,11 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         int(edge_balls[2]),
                         safe_round(edge.get("length", 0.0)),
                     ] + edge_curvature_log_values(
-                        edge_balls[:3], edge.get("int_mean_curv_by_ball"),
-                        edge.get("int_gauss_curv_by_generator", edge.get("int_gauss_curv_by_ball")),
-                        edge.get("int_gauss_curv_by_face"), safe_round,
+                        edge_balls[:3],
+                        None if curvature_not_calculated else edge.get("int_mean_curv_by_ball"),
+                        None if curvature_not_calculated else edge.get("int_gauss_curv_by_generator", edge.get("int_gauss_curv_by_ball")),
+                        None if curvature_not_calculated else edge.get("int_gauss_curv_by_face"),
+                        safe_round,
                     )
                 )
                 _log_edge_rows += 1

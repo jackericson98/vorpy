@@ -264,3 +264,287 @@ solver digests, partial vertex/cell evidence, lineage, invalidated analysis
 names, and completeness status atomically; stale or partial records must not
 be loaded as complete geometry. VECTOR, PRISM, and archive serialization were
 not modified.
+
+Geometry/checkpoint producer audit — 2026-10-20
+================================================
+
+The 675-test validated snapshot is commit `35de721c`. The current worktree
+has no post-snapshot primal geometry changes in the FORGE paths
+`network/views.py`, `network/incremental.py`, `network/analyze.py`,
+`boundary.py`, or `Interface.make_net`. Current adjacent uncommitted edits
+also include export-scope/API separation, checkpoint-first writer staging,
+progress/partial-analysis semantics, and the ATLAS boundary-generator replay
+repair. The inspected changes do not alter primal geometry, completeness
+predicates, boundary construction, generator selection, or the solvent
+competitor universe.
+
+Bounded evidence
+---------------
+
+* AW/POW/PRM direct interface builds match the full-source build on selected
+  A/B pair identity, physical surface support, area, edge incidence, vertex
+  incidence, and completeness flags. A third-party competitor removes the
+  otherwise present A/B facet in both paths.
+* Ordered source views preserve A->B versus B->A selection identity and keep
+  the same physical source feature IDs; source-network and solve-context
+  identities remain distinct from selection identity.
+* FULL_SOLVENT interface construction retains both water and ion generators
+  as geometry competitors. Only selected A/B generators are interface owners
+  or interface-atom export candidates. No ion-removal policy was inferred.
+* Boundary replay accepts explicit auxiliary rows without mixing them into
+  source atoms. Stable IDs, local-to-system mappings, boundary IDs, and
+  boundary radius/configuration digests are explicit; incomplete cells/edges
+  remain fail-closed. Boundary metadata/radius consistency is covered by
+  producer identity evidence, but a separate cross-field archive assertion is
+  still an ATLAS follow-up.
+* Opt-in build timing records source ball count, candidate/accepted facets,
+  vertices, edges, surfaces, and complete cells. The direct fixture performs
+  the same full competitor geometry work as the full build; no selective
+  reduction is claimed. Unproven or over-budget incremental completion keeps
+  the explicit normal-build fallback.
+* Geometry checkpoint persistence is before optional analysis/export failure;
+  the durable contract records source/dependency identity, topology payload,
+  geometry status, and optional-analysis status independently.
+
+Files changed by this audit
+---------------------------
+
+* `vorpy/tests/network/test_pow_source_view_geometry.py` — feature-level
+  AW/POW/PRM equivalence and timing evidence.
+* `vorpy/tests/test_solvent_modes.py` — water+ion competitor/owner regression.
+* `.agent-reports/FORGE.txt` — this handoff.
+
+Validation
+----------
+
+The focused FORGE/ATLAS/GAUSS/PRISM/VECTOR synthetic matrix passed; four
+tests skipped only because 1BNA and 1AAY fixtures are absent. The checkpoint
+staging subtests passed. One unrelated current-worktree failure remains:
+`test_real_cli_save_analyze_export_and_optional_failure` expects legacy
+`state.json`, while the current `--save-network` path writes the canonical
+checkpoint manifest. No output-layout change was made here.
+
+Not run: 1BNA, 1AAY, 2KAI, EDTA, p53tet, trajectories, or large benchmarks.
+
+Comparison geometry and selective-solver audit — source-edit freeze
+====================================================================
+
+This pass was read-only against executable code. NEXUSA's source-edit freeze
+was treated as active, so no synthetic fixture was executed and no executable
+source or test file was edited.
+
+Direct/full route
+-----------------
+
+`Interface.make_net()` calls `prepare_network_geometry()` over the complete
+physical generator universe selected by solvent mode, including water/ions in
+`FULL_SOLVENT` and `SOLVENT_CONTEXT`, plus explicit auxiliary boundary rows.
+`Network.find_verts()` and `build_net()` use all competitor coordinates but
+retain only topology spanning ordered A/B groups. This is a full competitor
+solve, not a full-system topology materialization. A full-system topology is
+constructed only for an explicit full-source request; `_attach_full_system_interface_views()` then uses `NetworkView` without rebuilding geometry.
+
+The prior bounded evidence is feature-level parity for AW/POW/PRM: A/B
+facets, generator pairs, area, edge/vertex incidence, completeness evidence,
+ordered identity, and third-party competitor suppression. Source-view identity
+and closure checks are covered separately. Universal CLI full-source parity
+for every AW/POW/PRM wet/dry combination remains unproven.
+
+Water-facing surfaces are classified as support, not direct A/B area.
+Selected surface closure still retains required water/boundary-supported
+edges and vertices; exported interface owners remain A/B while surrounding
+exports may include closure atoms. Ion retention/removal remains policy input,
+not an inferred solver decision.
+
+Scaling audit
+------------
+
+* Direct construction allocates O(N) physical location/radius/mass and
+  metadata storage. FULL_SOLVENT therefore remains O(N) in solvent count even
+  when only a small A/B topology is retained.
+* Full-source mode materializes O(N) topology and meshes before O(F) view
+  selection. It is not selective geometry construction.
+* AW verification has a material small-system risk: for at most 4096
+  generators, each candidate can scan the full location/radius arrays; larger
+  cases use spatial neighborhoods. The sparse AW recovery fallback is O(N^4)
+  but is gated to at most 32 generators.
+* POW/PRM use local spatial neighborhoods for candidate verification and flat
+  surfaces, reducing curvature/mesh memory but not the O(N) competitor arrays.
+* Surface meshing retains point/triangle/curvature arrays per constructed
+  facet; AW curvature is the dominant memory risk. No operator benchmark was
+  launched.
+
+Checkpoint contract
+-------------------
+
+The canonical writer is staged before optional logs, meshes, and export
+writers. Full-source CLI geometry is also persisted before source-derived
+views. However, direct interface builds persist only when control reaches the
+export/checkpoint stage: `Interface.build()` performs geometry analysis and,
+when requested, water analysis before that handoff. A failure in either stage
+can therefore leave valid `Network` geometry without a durable canonical
+checkpoint. This is a PRISM/VECTOR/ATLAS coordination item, not fixed under
+the freeze. The old internal `.geometry.vpy` path can also be redundant with
+the canonical checkpoint.
+
+Method readiness matrix
+-----------------------
+
+* AW dry — direct producer and explicit full-source view route exist; bounded
+  feature parity is positive; native AW curvature exists for direct solves;
+  source views intentionally do not certify curvature/alpha/topology. Ready
+  for further bounded comparison, not production certification.
+* AW wet — FULL_SOLVENT competitor retention is positive for water and ions;
+  no direct/full wet AW parity or numerical convergence evidence. Not ready.
+* POW dry — direct and full-source view routes exist; bounded flat-geometry
+  parity is positive; curvature/shell scientific outputs are unsupported or
+  uncalculated. Not production-certified.
+* POW wet — competitor retention path exists, but wet direct/full parity,
+  solvent incidence, and benchmark evidence are missing. Not ready.
+* PRM dry — direct flat primitive route and source-view identity path exist;
+  bounded primitive parity is positive, but typed PRM Results remain
+  unresolved and full-source CLI parity is incomplete. Not ready.
+* PRM wet — solvent universe path exists, but wet parity and certified PRM
+  results are missing. Not ready.
+
+Exact changes in this pass: appended this report section only. No executable
+source, test, output-layout, or Git-history changes were made. Existing
+untracked `aw_verts.txt`, `pow_verts.txt`, and `prm_verts.txt` were preserved.
+
+First molecular interface scientific readiness — 2026-10-20
+==============================================================
+
+Protected-calculation rule
+--------------------------
+
+No executable source or test file was edited. No real PDB, EDTA, 1BNA, 1AAY,
+2KAI, trajectory, or production calculation was opened. The bounded gate used
+the verified parent interpreter because this worktree has no `.venv`:
+
+`C:\\Users\\Ryzen-3600\\PycharmProjects\\vorpy\\.venv\\Scripts\\python.exe -m pytest -q`
+
+with these focused modules: `test_pow_source_view_geometry.py`,
+`test_solvent_modes.py`, `test_views.py`, `test_full_system_reuse.py`,
+`test_interface_only_cli.py`, `test_incremental_group_completion.py`,
+`test_network_recovery.py`, `test_checkpoint_contract.py`,
+`test_export_plan.py`, and `test_source_view_export_scope.py`.
+
+Result: 126 passed, 4 skipped. Skips were only absent 1AAY/1BNA fixtures.
+
+Competitor and export evidence
+------------------------------
+
+The synthetic contracts cover A/B owners, third-party competitors, numerical
+boundary support, water-facing source facets, and FULL_SOLVENT water-plus-ion
+membership. `prepare_network_geometry()` retains all physical competitors in
+`FULL_SOLVENT` and `SOLVENT_CONTEXT`; `MOLECULE_ONLY` removes only classified
+solvent rows and preserves retained rows by original coordinates/radii and
+stable IDs. Interface topology still uses the full competitor coordinate
+universe while `iface_grps` retains only A/B-spanning primitives.
+
+The source-view/export tests preserve edges and vertices closing selected A/B
+facets, keep ligand-water/water-water/DNA-water source faces available, and
+exclude water-facing faces from direct A/B area. Exported contact owners are
+A/B; surrounding/closure exports are separate. Structural-ion classification
+is not inferred and remains an explicit input policy.
+
+Method readiness
+----------------
+
+| Method/context | Bounded evidence | Fallback/unsupported condition | Memory/scientific risk |
+|---|---|---|---|
+| AW dry | Direct/full feature parity: pairs, facets, area, edges, vertices, completeness, competitor suppression | Explicit full-source request uses one source network plus view; incomplete/open source fails closed | AW verification can scan all competitors for small systems; native curvature is direct-only for source views |
+| AW wet | FULL_SOLVENT water/ion competitor retention and A/B export separation pass | No full AW wet direct-vs-source-view parity or convergence gate | O(N) wet arrays; AW mesh/curvature storage is the highest risk |
+| POW dry | Direct/full flat-geometry parity and source-view identity/component coverage pass | Full-source fallback remains required when context/completeness/view proof is absent; curvature/shell products unsupported | Flat geometry lowers mesh cost, but competitor arrays remain O(N) |
+| POW wet | Solvent-universe route and water-facing export exclusion pass | Wet direct/full parity and solvent-incidence convergence are missing | Local candidate neighborhoods are bounded, but dense wet systems need an operator pilot |
+| PRM dry | Direct/full primitive parity passes on bounded fixtures | PRM typed Results remain unresolved; source-view CLI parity is incomplete | Unweighted primitive geometry is cheaper, but no certified scientific result path |
+| PRM wet | Solvent membership plumbing exists | Wet parity and certified PRM Results are missing | Same O(N) competitor storage; pilot required |
+
+Production scaling and input contract
+--------------------------------------
+
+Direct interfaces allocate at least O(N) generator metadata; the numeric
+location/radius/mass lower bound is about 40 bytes per generator before
+DataFrame/object, spatial-index, topology, and mesh overhead. Full-source mode
+adds O(V+E+F) topology and surface mesh arrays. Multiple direct pairwise
+interfaces can repeat O(N) preparation; source-view reuse avoids repeated
+topology construction only after an explicit full-source solve. Exact peak
+memory cannot be predicted from tiny fixtures because `surf_res`, local
+density, facet count, AW curvature, and wet competitor neighborhoods dominate;
+an operator pilot is required.
+
+NEXUSA input contract: preserve original source bytes plus path/filename and
+SHA-256; frame index; ordered A/B system-generator IDs and group IDs; for every
+generator, stable ID, system index, name, element, residue name/sequence,
+chain ID, coordinates, radius, and mass; method (`aw`, `pow`, or `prm`) and
+all solver settings (`surf_res`, `max_vert`, `box_size`, build options,
+curvature/profile settings); solvent mode; explicit solvent local/stable IDs;
+retained solvent/ion IDs and policy; boundary mode/configuration, boundary
+indices, positions, radii, and stable IDs; source-network ID and solve-universe
+ID. Comparisons must require identical ordered coordinates/radii and report any
+structural-ion policy instead of classifying it implicitly.
+
+Exact changes in this pass: appended this report section only. No executable
+source, original structure, output layout, or Git history changed.
+
+First molecular solve geometry gate — 2026-10-20
+================================================
+
+Validation boundary
+-------------------
+
+No executable source or test file was changed, no production molecule was
+opened, and no Git operation was performed. The existing focused suite was
+run with the parent verified interpreter because this worktree has no local
+`.venv`:
+
+`test_pow_source_view_geometry.py`, `test_solvent_modes.py`, `test_views.py`,
+`test_full_system_reuse.py`, `test_interface_only_cli.py`,
+`test_incremental_group_completion.py`, `test_network_recovery.py`,
+`test_checkpoint_contract.py`, `test_export_plan.py`, and
+`test_source_view_export_scope.py`.
+
+Result: 126 passed, 4 skipped out of 130 collected. Skips were only absent
+1AAY/1BNA fixtures. An additional assertion-only in-memory probe passed for
+AW, POW, and PRM. It used a direct facet with A/B/water support incidence and
+an A/water facet: all closing edges/vertices and stable source IDs were kept,
+the view was complete, the A/B facet was the only direct surface, and the
+A/water facet was support-only.
+
+The same probe used A, B, a third-party molecule, HOH, and NA. FULL_SOLVENT
+retained all five source rows; `MOLECULE_ONLY` with explicit retained ion
+index 4 retained A/B/third-party/NA and removed only HOH. Coordinates, radii,
+and stable IDs for retained rows were identical. By current residue policy,
+NA is classified as solvent unless explicitly retained; this is not a silent
+structural-ion decision.
+
+Readiness matrix
+----------------
+
+| Method | Dry | Wet | Gate limitation |
+|---|---|---|---|
+| AW | Bounded direct/full feature parity passes: facet pairs, area, edges, vertices, completeness, IDs | Competitor retention, water closure, and direct-area exclusion pass; wet direct/full numerical parity is not proven | AW curvature/mesh memory risk; source-view curvature is not certified |
+| POW | Bounded direct/full flat-geometry parity passes | Physical competitor plumbing and closure pass; wet direct/full numerical parity is not proven | Full-source fallback if view/completeness proof is unavailable |
+| PRM | Bounded primitive feature parity passes | Solvent-universe plumbing and closure pass; wet parity is not proven | Typed PRM result/complete full-source CLI path remains unresolved |
+
+Cross-cutting gate conclusions
+-------------------------------
+
+1. Wet geometry preparation retains the physical competitor universe; the
+direct output selects A/B owners only. Third-party competitor suppression is
+covered by the bounded geometry parity tests.
+2. Dry mode removes classified solvent rows only. Structural-ion behavior
+requires the explicit retained-ID policy above.
+3. Water-facing facets never enter direct A/B area, while water-defined
+edge/vertex incidence required to close a direct facet remains in the view.
+4. Direct and source-derived geometry agree on the supported bounded
+AW/POW/PRM feature signatures. Wet method-specific numerical parity remains
+unproven and must not be inferred from the passing dry/source tests.
+5. Incomplete or unresolved views fail closed through completeness evidence;
+checkpoint recovery preserves source/geometry identity in the available
+synthetic tests. A direct `Interface.build()` failure before export staging
+can still prevent canonical checkpoint persistence after geometry exists; this
+remains a coordination item, not a solver change.
+
+No molecular readiness claim is made for 1BNA. Operator pilot memory and wet
+convergence remain required before any production solve.

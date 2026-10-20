@@ -203,7 +203,7 @@ def integrated_mean_curvature(smooth_face_terms: Iterable[float],
     certified = (unresolved_faces == 0 and unresolved_internal_edges == 0
                  and math.isfinite(smooth) and math.isfinite(crease))
     return {"smooth_H": smooth, "internal_edge_H": crease,
-            "boundary_H": 0.0, "total_H": smooth + crease if certified else None,
+            "boundary_H": None, "total_H": smooth + crease if certified else None,
             "certified": certified, "unresolved_faces": unresolved_faces,
             "unresolved_internal_edges": unresolved_internal_edges}
 
@@ -606,7 +606,7 @@ def run_2kai_open_interface_audit(output_dir="output/2KAI_curvature_showcase/ope
         {"term": "smooth_face_H", "value": 0.0, "support": "exact: planar Power facets"},
         {"term": "internal_crease_raw_signed_beta_ds", "value": p_raw, "support": f"{len(p_internal)-p_unresolved}/{len(p_internal)} internal edges"},
         {"term": "internal_edge_H_half_raw", "value": .5*p_raw, "support": "existing validated Power edge beta; internal seams only"},
-        {"term": "free_boundary_H", "value": 0.0, "support": "not a mean-curvature term under H=(k1+k2)/2"},
+        {"term": "free_boundary_H", "value": None, "support": "not_supported: free-boundary conormal is not scalar H"},
         {"term": "total_H", "value": p_mean["total_H"], "support": "certified" if p_mean["certified"] else "UNRESOLVED"},
         {"term": "smooth_K", "value": 0.0, "support": "exact: planar Power facets"},
         {"term": "face_boundary_geodesic_K", "value": 0.0, "support": "straight polygon sides"},
@@ -642,7 +642,7 @@ def run_2kai_open_interface_audit(output_dir="output/2KAI_curvature_showcase/ope
         {"term": "smooth_face_H", "value": aw_smooth_mean, "support": f"{len(aw_surface_rows)-aw_missing_faces}/{len(aw_surface_rows)} surfaces"},
         {"term": "internal_crease_raw_signed_beta_ds", "value": aw_raw, "support": f"{len(aw_included_internal)}/{len(aw_internal)} internal edges"},
         {"term": "internal_edge_H_half_raw", "value": .5*aw_raw, "support": "existing validated AW edge integrals; internal seams only"},
-        {"term": "free_boundary_H", "value": 0.0, "support": "not a mean-curvature term under H=(k1+k2)/2"},
+        {"term": "free_boundary_H", "value": None, "support": "not_supported: free-boundary conormal is not scalar H"},
         {"term": "partial_H_sum", "value": aw_mean["smooth_H"]+aw_mean["internal_edge_H"], "support": "partial; not certified total"},
         {"term": "smooth_K", "value": aw_gb["smooth_K"], "support": f"{len(supported_cycles)}/{len(aw_face_records)} supported faces"},
         {"term": "internal_seam_face_geodesic_K", "value": aw_gb["internal_seam_face_geodesic_K"], "support": "reintegrated once per supported face-edge incidence"},

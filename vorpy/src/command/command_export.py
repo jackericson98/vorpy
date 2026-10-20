@@ -24,8 +24,6 @@ def _export_scope(system):
 
 def _run_component_plan(system, plan):
     """Dispatch the normalized plan through the existing writer entry points."""
-    if not plan.included_components:
-        return
     from vorpy.src.output import output
 
     # Interface runs reserve their canonical directories in the CLI after
@@ -61,8 +59,8 @@ def _run_component_plan(system, plan):
         'surfaces': {'surfs': True},
         'vertices': {'verts': True},
         'interface_atoms': {'interface_atoms': True},
-        'surrounding_atoms': {'atoms': True},
-        'surrounding_residues': {'atoms': True},
+        'surrounding_atoms': {'surr_atoms': True},
+        'surrounding_residues': {'surr_resids': True},
         'contact_tables': {'contact_tables': True},
         'logs': {'logs': True},
         'info': {'info': True},
@@ -115,15 +113,21 @@ def _run_component_plan(system, plan):
         sum(component in interface_options for component in components)
         for iface in ifaces if callable(getattr(iface, 'export', None))
     )
-    checkpoint = (
-        plan.checkpoint_policy in {'shared', 'required'}
-        or (
-            plan.checkpoint_policy == 'explicit-only'
-            and 'checkpoint' in components
-        )
-    ) and not getattr(system, '_export_skip_archive', False)
+    # A successful geometry calculation always gets its validated canonical
+    # checkpoint before any optional writer runs. ``no_archive`` suppresses
+    # optional archive products, not the recovery checkpoint.
+    checkpoint = getattr(system, 'balls', None) is not None
     total = len(system_calls) + group_call_count + interface_call_count + int(checkpoint)
     progress = output.ExportProgress(total, system)
+
+    if checkpoint:
+        output._run_export(
+            progress, 'network archive', output._export_network_archive, sys=system
+        )
+
+    if not plan.included_components:
+        progress.finish()
+        return
 
     for component in components:
         legacy = legacy_components.get(component)
@@ -170,10 +174,6 @@ def _run_component_plan(system, plan):
                     progress, f'{iface.name}: {component}', func, **kwargs
                 )
 
-    if checkpoint:
-        output._run_export(
-            progress, 'network archive', output._export_network_archive, sys=system
-        )
     progress.finish()
 
 
@@ -211,9 +211,9 @@ def argv_export(my_sys, usr_npt, add_on=None):
 
     Default behavior:
     - If no export type is specified, interface workflows use the first-class
-      interface preset; other workflows use the large preset.
+      interface preset; other workflows use the small preset.
     - Format and directory commands modify the export but do not replace its preset.
-    - If only modifiers are specified, export the large preset.
+    - If only modifiers are specified, export the small preset.
     - ``only`` explicitly restricts output to the export names that follow it.
     - If explicit exports are specified, only export those.
     """
@@ -280,14 +280,14 @@ def argv_export(my_sys, usr_npt, add_on=None):
         else:
             export_commands.append(npt)
 
-    # Interface results have a first-class default bundle. Legacy non-interface
-    # commands retain the historical Large preset.
+    # Interface results have a first-class default bundle. Other workflows use
+    # the durable small preset by default.
     if len(export_commands) == 0:
         if getattr(my_sys, '_compact_interface_workflow', False):
             from vorpy.src.output.output import export_interface_default
             export_interface_default(my_sys)
             return
-        export_commands.append(['large'])
+        export_commands.append(['small'])
 
     skip_archive = (
         skip_archive
@@ -314,7 +314,14 @@ def argv_export(my_sys, usr_npt, add_on=None):
             _run_component_plan(my_sys, plan)
         else:
             for npt in export_commands:
-                export_npt(my_sys, npt[0])
+                if npt and npt[0].lower() in {'interface', 'interfaces'}:
+                    # The explicit interface command is the complete
+                    # physical interface bundle; ordinary no-``-e`` output
+                    # remains the small preset above.
+                    from vorpy.src.output.output import export_preset
+                    export_preset(my_sys, 'interface')
+                else:
+                    export_npt(my_sys, npt[0])
     finally:
         for name in ('_export_skip_archive', '_export_archive_written'):
             if name in previous:
@@ -388,10 +395,10 @@ def export_npt(my_sys, usr_npt=None):
     #
     # print("====================\n")
 
-    # If nothing is specified export the large default.
+    # If nothing is specified export the small default.
     if usr_npt is None or usr_npt.lower() in {'default', ''}:
 
-        export_large(my_sys)
+        export_small(my_sys)
 
     elif usr_npt.lower() in {'2', 'medium', 'med'}:
 

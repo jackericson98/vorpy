@@ -9,7 +9,11 @@ import hashlib
 import json
 from typing import Any, Mapping
 
-from .network_archive import ArchiveError, validate_network_source
+from .network_archive import (
+    ArchiveError,
+    _physical_generator_rows,
+    validate_network_source,
+)
 
 
 @dataclass(frozen=True)
@@ -45,6 +49,9 @@ class SourceSystemIdentity:
     complete_cell_evidence: bool
     geometry_status: str | None
     analysis_status: str | None
+    geometry_checkpoint_valid: bool
+    scientific_result_status: str
+    scientific_result_certified: bool
     solve_universe_id: str
     radii_digest: str
     generator_policy: Mapping[str, Any] | None
@@ -118,8 +125,8 @@ def recover_network_source(
     network,
     source_path=None,
     *,
-    expected_scheme='pow',
-    expected_solvent_mode='MOLECULE_ONLY',
+    expected_scheme=None,
+    expected_solvent_mode=None,
     expected_settings=None,
     expected_solve_universe_id=None,
     expected_radii_digest=None,
@@ -128,8 +135,9 @@ def recover_network_source(
     """Validate and wrap a loaded solved network for source-view recovery.
 
     ``source_path`` defaults to the checkpoint's recorded original structure.
-    The default contract is the current POW molecular-only recovery path; the
-    expected settings can be overridden for another explicitly selected mode.
+    Method and solvent mode are taken from the recorded network settings when
+    the caller does not provide an independent expectation. Missing identity
+    is rejected rather than guessed.
     The source is parsed only for identity verification; no Network or Group
     build is performed.
 
@@ -141,6 +149,13 @@ def recover_network_source(
 
     metadata = dict(getattr(network, 'archive_metadata', {}) or {})
     source_path = source_path or metadata.get('original_structure_path')
+    recorded_settings = dict(getattr(network, 'settings', {}) or {})
+    expected_scheme = expected_scheme or recorded_settings.get('net_type')
+    expected_solvent_mode = expected_solvent_mode or recorded_settings.get('solvent_mode')
+    if expected_scheme is None or expected_solvent_mode is None:
+        raise ArchiveError(
+            'Checkpoint lacks recorded network scheme and solvent-mode identity'
+        )
     validation = validate_network_source(
         network,
         source_path,
@@ -199,8 +214,12 @@ def recover_network_source(
         solvent_mode=expected_solvent_mode,
     )
     source_balls = source_system.balls
-    generator_indices = tuple(network.generator_system_indices)
-    stable_ids = tuple(str(value) for value in network.generator_stable_ids)
+    physical_rows, _ = _physical_generator_rows(network)
+    generator_indices = tuple(system_index for _, system_index in physical_rows)
+    stable_ids = tuple(
+        str(network.generator_stable_ids[local_index])
+        for local_index, _ in physical_rows
+    )
     generators = []
     for system_index, stable_id in zip(generator_indices, stable_ids):
         row = source_balls.iloc[system_index]
@@ -246,6 +265,9 @@ def recover_network_source(
             complete_cell_evidence=validation['complete_cell_evidence'],
             geometry_status=validation['geometry_status'],
             analysis_status=validation['analysis_status'],
+            geometry_checkpoint_valid=validation['geometry_checkpoint_valid'],
+            scientific_result_status=validation['scientific_result_status'],
+            scientific_result_certified=validation['scientific_result_certified'],
             solve_universe_id=solve_universe_id,
             radii_digest=radii_digest,
             generator_policy=validation['generator_policy'],

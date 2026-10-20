@@ -404,6 +404,8 @@ def test_interface_full_system_1aay_uses_all_input_source_rows(
 
     monkeypatch.setattr('vorpy.src.group.Group', CaptureFullGroup)
     source = DATA / filename
+    if not source.is_file():
+        pytest.skip(f'prepared fixture is absent: {filename}')
     system = System(file=str(source), make_dir=False)
     command = Command(sys=system)
     command.base_file = str(source)
@@ -431,6 +433,8 @@ def test_interface_full_system_1aay_uses_all_input_source_rows(
 
 def test_full_system_explicit_molecule_only_keeps_requested_mode():
     source = DATA / '1AAY_no_sol.pdb'
+    if not source.is_file():
+        pytest.skip('prepared fixture is absent: 1AAY_no_sol.pdb')
     system = System(file=str(source), make_dir=False)
     command = Command(sys=system)
     command.calculation_plan = build_calculation_plan(
@@ -448,6 +452,8 @@ def test_full_system_explicit_molecule_only_keeps_requested_mode():
 
 def test_interface_explicit_molecule_only_keeps_requested_mode():
     source = DATA / '1AAY.pdb'
+    if not source.is_file():
+        pytest.skip('prepared fixture is absent: 1AAY.pdb')
     system = System(file=str(source), make_dir=False)
     command = Command(sys=system)
     command.calculation_plan = build_calculation_plan(
@@ -469,6 +475,8 @@ def test_interface_explicit_molecule_only_keeps_requested_mode():
 @pytest.mark.parametrize('mode', [SolventMode.SOLVENT_CONTEXT, SolventMode.FULL_SOLVENT])
 def test_full_system_explicit_solvent_modes_are_not_overridden(mode):
     source = DATA / '1AAY_no_sol.pdb'
+    if not source.is_file():
+        pytest.skip('prepared fixture is absent: 1AAY_no_sol.pdb')
     system = System(file=str(source), make_dir=False, solvent_mode=mode)
     command = Command(sys=system)
     command.solvent_mode = mode
@@ -486,6 +494,8 @@ def test_full_system_explicit_solvent_modes_are_not_overridden(mode):
 
 def test_ordinary_dry_calculation_keeps_molecule_only_default():
     source = DATA / '1AAY_no_sol.pdb'
+    if not source.is_file():
+        pytest.skip('prepared fixture is absent: 1AAY_no_sol.pdb')
     system = System(file=str(source), make_dir=False)
     command = Command(sys=system)
     command.calculation_plan = build_calculation_plan(

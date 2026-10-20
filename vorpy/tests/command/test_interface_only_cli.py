@@ -113,6 +113,54 @@ def test_interface_only_cli_rejects_preexisting_destination_before_constructor(
     assert system.ifaces == []
 
 
+def test_surrounding_interface_reservation_matches_materialized_interface_id(
+    tmp_path,
+):
+    system = System(
+        spheres=pd.DataFrame({
+            "loc": [
+                (0.0, 0.0, 0.0), (2.0, 0.0, 0.0),
+                (0.0, 2.0, 0.0), (0.0, 0.0, 2.0),
+                (0.8, 0.8, 0.8),
+            ],
+            "rad": [0.75, 0.5, 0.75, 0.75, 0.35],
+            "mass": [1.0] * 5,
+            "num": list(range(5)),
+            "res_name": ["ALA", "ALA", "ALA", "ALA", "HOH"],
+            "name": ["CA"] * 5,
+        }),
+        name="synthetic-surrounding-reservation",
+        output_directory=str(tmp_path),
+        make_dir=False,
+        solvent_mode="MOLECULE_ONLY",
+    )
+    system.type = "balls"
+    command = Command(sys=system)
+    command.fail_if_exists = True
+    command.base_file = str(tmp_path / "synthetic-surrounding.pdb")
+    command._arguments = [
+        command.base_file,
+        "-g", "a", "0",
+        "-i",
+        "-s", "nt", "pow", "and", "mv", "40",
+        "--profile", "geometry",
+        "--boundary", "none",
+    ]
+    command.parse_commands()
+    command.run_exports = lambda: None
+    command._save_archive = lambda: None
+
+    command._process_system()
+
+    interface = system.ifaces[0]
+    expected = canonical_interfaces_directory(system) / slug(interface.interface_id)
+    assert Path(interface.dir).resolve() == expected.resolve()
+    assert Path(interface.dir).resolve() in {
+        Path(path).resolve()
+        for path in system._cli_reserved_interface_directories
+    }
+
+
 def test_full_solvent_direct_cli_keeps_water_and_uses_partial_results_scope(
     tmp_path, capsys, monkeypatch,
 ):

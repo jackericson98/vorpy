@@ -227,23 +227,19 @@ def test_actual_cli_ordered_pow_interface_archive_reload_and_cache_export(tmp_pa
     assert timing['phases']['export']['source'].startswith('VECTOR')
     assert timing['phases']['archive_save']['source'].startswith('ATLAS')
 
-    with zipfile.ZipFile(archive) as bundle:
-        state = json.loads(bundle.read('state.json'))
-    interface_record = next(
-        record for record in state['objects'] if record['kind'] == 'interface'
-    )
-    assert 'typed_results' in interface_record['fields']
-    assert 'results_dependency' in interface_record['fields']
-    typed_snapshot = interface_record['fields']['typed_results']['tuple'][0]
-    snapshot_map = dict(typed_snapshot['map'])
-    assert snapshot_map['format'] == 'vorpy.interface_result_snapshot'
+    from vorpy.src.output.checkpoint import _load_checkpoint
+    checkpoint = _load_checkpoint(archive)
+    assert checkpoint.document.networks
+    result_record = next(iter(checkpoint.document.results))
+    assert {'identity', 'provenance'} <= set(result_record.typed_result)
 
     reload_code = (
         'import json, sys; '
-        'from vorpy.src.io import load_network; '
-        'network = load_network(sys.argv[1]); '
-        'iface = network.sys.ifaces[0]; result = iface.typed_results[0]; '
-        'print(json.dumps({"group_A": result.identity.group_A, '
+        'from vorpy.src.command.vpy_cmnd import Command; '
+        'sys.argv=["vorpy", sys.argv[1], "-g", "c", "A", "and", "c", "B", '
+        '"-g", "c", "I", "-i"]; command=Command(); command.run(); '
+        'iface = command.sys.ifaces[0]; result = iface.typed_results[0]; '
+        'print("RESULT=" + json.dumps({"group_A": result.identity.group_A, '
         '"group_B": result.identity.group_B, '
         '"orientation": result.identity.orientation, '
         '"partition": result.identity.partition, '
@@ -254,13 +250,18 @@ def test_actual_cli_ordered_pow_interface_archive_reload_and_cache_export(tmp_pa
         '"lineage_source": result.provenance.geometry_lineage.source_network_id, '
         '"dependency_status": iface.results_dependency.status.value}))'
     )
+    source.unlink()
     reloaded = subprocess.run(
         [sys.executable, '-c', reload_code, str(archive)],
         cwd=root, capture_output=True, text=True, timeout=30,
         env={**os.environ, 'PYTHONPATH': str(root)},
     )
     assert reloaded.returncode == 0, reloaded.stdout + '\n' + reloaded.stderr
-    restored = json.loads(reloaded.stdout)
+    restored = json.loads(next(
+        line[len('RESULT='):]
+        for line in reversed(reloaded.stdout.splitlines())
+        if line.startswith('RESULT=')
+    ))
     assert restored['group_A'] == 'c_A_and_c_B'
     assert restored['group_B'] == 'c_I'
     assert restored['orientation'] == 'group1 -> group2'

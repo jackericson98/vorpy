@@ -347,7 +347,7 @@ def summarize_physical_interface(representation, network, selection_complete=Tru
         # alpha selection, measured area or previously available partials.
         topology, validated_gauss, cycle_error = None, None, f'{type(exc).__name__}: {exc}'
         validated_mean = {'smooth_H': smooth_partial, 'internal_edge_H': edge_half,
-                          'boundary_H': 0., 'total_H': None, 'certified': False}
+                          'boundary_H': None, 'total_H': None, 'certified': False}
     if cycle_error:
         reasons.append(f'Physical face topology unresolved: {cycle_error}')
     if topology is None:
@@ -360,7 +360,7 @@ def summarize_physical_interface(representation, network, selection_complete=Tru
     smooth_k = finite(validated_gauss.get('smooth_K')) if validated_gauss else gaussian_partial
     vertex_gaussian = (finite(validated_gauss.get('interior_vertex_defect_K'))
                        if validated_gauss else None)
-    seam_gaussian = (finite(validated_gauss.get('internal_seam_face_geodesic_K', 0.))
+    seam_gaussian = (finite(validated_gauss.get('internal_seam_face_geodesic_K'))
                      if validated_gauss else None)
     boundary_geodesic = (finite(validated_gauss.get('free_boundary_face_geodesic_K',
                                                   validated_gauss.get('boundary_geodesic_K')))
@@ -434,7 +434,7 @@ def summarize_physical_interface(representation, network, selection_complete=Tru
         'manifold_incidence_certified': bool(topology and topology['boundary_is_manifold'] and topology['orientable']),
         'smooth_integrated_mean_curvature': smooth_partial,
         'internal_seam_integrated_mean_curvature': edge_half,
-        'boundary_integrated_mean_curvature': 0.,
+        'boundary_integrated_mean_curvature': None,
         'partial_integrated_mean_curvature': partial,
         'total_integrated_mean_curvature': validated_mean['total_H'],
         'mean_curvature_certified': validated_mean['certified'],
@@ -770,7 +770,7 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False,
                                 'mean_curvature_certified': False, 'gaussian_curvature_certified': False,
                                 'manifold_incidence_certified': False, 'gaussian_coverage': 0.,
                                 'gaussian_accounting_scope': 'unavailable',
-                                'boundary_integrated_mean_curvature': 0.,
+                                'boundary_integrated_mean_curvature': None,
                                 'unresolved_reasons': [reason]})
         result.voronoi_side_2 = reverse_perspective(result.voronoi_side_1)
         result.coverage = {'mean_coverage': 0., 'smooth_K_coverage': None,

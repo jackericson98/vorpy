@@ -927,9 +927,42 @@ def summarize_water_group(water_group):
         return None
 
     area = float(getattr(water_group, "sa", 0.0) or 0.0)
-    oriented_c = float(getattr(water_group, "oriented_int_mean_curv", 0.0) or 0.0)
-    q = float(getattr(water_group, "int_mean_curv_sq", 0.0) or 0.0)
-    x = float(getattr(water_group, "int_gauss_curv", 0.0) or 0.0)
+    group_status = getattr(water_group, "gaussian_curvature_status", None)
+    network_unavailable = getattr(net, "curvature_calculated", None) is False
+    all_curvature_unavailable = network_unavailable or group_status == "NOT_CALCULATED"
+    gaussian_unavailable = (
+        network_unavailable
+        or group_status in {"NOT_CALCULATED", "NOT_SUPPORTED", "UNRESOLVED", "UNAVAILABLE"}
+    )
+
+    def optional_float(value):
+        if value is None:
+            return None
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return None
+        return value if np.isfinite(value) else None
+
+    oriented_c = None if all_curvature_unavailable else optional_float(
+        getattr(water_group, "oriented_int_mean_curv", None)
+    )
+    q = None if all_curvature_unavailable else optional_float(
+        getattr(water_group, "int_mean_curv_sq", None)
+    )
+    x = None if gaussian_unavailable else optional_float(
+        getattr(water_group, "int_gauss_curv", None)
+    )
+    if all_curvature_unavailable:
+        oriented_c = q = x = None
+    if not gaussian_unavailable:
+        curvature_status = "UNRESOLVED" if None in (oriented_c, q, x) else "CERTIFIED"
+    elif network_unavailable or group_status == "NOT_CALCULATED":
+        curvature_status = "NOT_CALCULATED"
+    elif group_status in {"NOT_SUPPORTED", "UNRESOLVED"}:
+        curvature_status = group_status
+    else:
+        curvature_status = "UNRESOLVED"
 
     return {
         "group": water_group,
@@ -943,7 +976,8 @@ def summarize_water_group(water_group):
         "oriented_int_mean_curv": oriented_c,
         "int_mean_curv_sq": q,
         "int_gauss_curv": x,
-        "surf_energy": 2.0 * q,
+        "surf_energy": 2.0 * q if q is not None else None,
+        "curvature_status": curvature_status,
         "convex_sa": float(getattr(water_group, "convex_sa", 0.0) or 0.0),
         "concave_sa": float(getattr(water_group, "concave_sa", 0.0) or 0.0),
         "flat_sa": float(getattr(water_group, "flat_sa", 0.0) or 0.0),

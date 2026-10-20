@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from vorpy.src.boundary import BoundaryConfig
+from vorpy.src.boundary import BoundaryGenerator
 from vorpy.src.io import (
     ArchiveError,
     group_from_network,
@@ -40,7 +41,6 @@ def test_actual_checkpoint_recovery_exposes_geometry_only_metadata():
         expected_settings={'net_type': 'pow', 'solvent_mode': 'MOLECULE_ONLY'},
         expected_solve_universe_id=solve_universe_id,
     )
-
     identity = recovered.source_identity
     assert identity.generator_count == 805
     assert identity.generator_system_indices == tuple(range(805))
@@ -121,9 +121,22 @@ def _synthetic_source(path):
     return path
 
 
-def test_synthetic_recovery_wraps_existing_network_and_keeps_order(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ('scheme', 'solvent_mode'),
+    [
+        (scheme, solvent_mode)
+        for scheme in ('aw', 'pow', 'prm')
+        for solvent_mode in ('MOLECULE_ONLY', 'FULL_SOLVENT')
+    ],
+)
+def test_synthetic_recovery_wraps_existing_network_and_keeps_order(
+    tmp_path, monkeypatch, scheme, solvent_mode,
+):
     source_path = _synthetic_source(tmp_path / 'synthetic.pdb')
-    source_system = System(str(source_path), make_dir=False, print_actions=False)
+    source_system = System(
+        str(source_path), make_dir=False, print_actions=False,
+        solvent_mode=solvent_mode,
+    )
 
     locations = [tuple(row['loc']) for _, row in source_system.balls.iterrows()]
     balls = pd.DataFrame({
@@ -160,15 +173,17 @@ def test_synthetic_recovery_wraps_existing_network_and_keeps_order(tmp_path, mon
         rads=balls['rad'].tolist(),
         group=list(range(5)),
         settings={
-            'net_type': 'pow', 'surf_res': 0.2, 'max_vert': 5.0,
-            'box_size': 1.25, 'solvent_mode': 'MOLECULE_ONLY',
+            'net_type': scheme, 'surf_res': 0.2, 'max_vert': 5.0,
+            'box_size': 1.25, 'solvent_mode': solvent_mode,
         },
         balls=balls, verts=verts, edges=edges, surfs=surfs,
         system=source_system,
-        source_network_id='producer:synthetic-pow-dry',
+        source_network_id=(
+            f'producer:synthetic-{scheme}-{solvent_mode.lower()}'
+        ),
         generator_system_indices=tuple(range(5)),
         generator_stable_ids=tuple(f'system:{index}' for index in range(5)),
-        solvent_mode='MOLECULE_ONLY',
+        solvent_mode=solvent_mode,
     )
     network.boundary_config = BoundaryConfig(mode='none')
     network.boundary_mode = 'none'
@@ -190,33 +205,45 @@ def test_synthetic_recovery_wraps_existing_network_and_keeps_order(tmp_path, mon
     monkeypatch.setattr(Network, 'build', forbidden_build)
     producer_recovery = recover_network_source(
         network,
+        expected_scheme=scheme,
+        expected_solvent_mode=solvent_mode,
         expected_settings={
-            'net_type': 'pow',
+            'net_type': scheme,
             'surf_res': 0.2,
             'max_vert': 5.0,
             'box_size': 1.25,
-            'solvent_mode': 'MOLECULE_ONLY',
+            'solvent_mode': solvent_mode,
         },
     )
     expected_solve_universe_id = producer_recovery.source_identity.solve_universe_id
     expected_radii_digest = producer_recovery.source_identity.radii_digest
     with pytest.raises(ArchiveError, match='solve-universe identity'):
-        recover_network_source(network, expected_solve_universe_id='solve:not-this-network')
+        recover_network_source(
+            network,
+            expected_scheme=scheme,
+            expected_solvent_mode=solvent_mode,
+            expected_solve_universe_id='solve:not-this-network',
+        )
     checkpoint = save_network(network, tmp_path / 'synthetic_checkpoint.vpy')
     loaded = load_network(checkpoint)
     recovered = recover_network_source(
         loaded,
-        expected_scheme='pow',
-        expected_solvent_mode='MOLECULE_ONLY',
-        expected_settings={'net_type': 'pow', 'solvent_mode': 'MOLECULE_ONLY'},
+        expected_scheme=scheme,
+        expected_solvent_mode=solvent_mode,
+        expected_settings={'net_type': scheme, 'solvent_mode': solvent_mode},
         expected_solve_universe_id=expected_solve_universe_id,
         expected_radii_digest=expected_radii_digest,
     )
     view = recovered.make_interface_view([0], [1])
 
     assert recovered.source_identity.generator_count == 5
-    assert recovered.source_identity.source_network_id == 'producer:synthetic-pow-dry'
+    assert recovered.source_identity.source_network_id == (
+        f'producer:synthetic-{scheme}-{solvent_mode.lower()}'
+    )
     assert recovered.source_identity.solve_universe_id == expected_solve_universe_id
+    assert recovered.source_identity.geometry_checkpoint_valid is True
+    assert recovered.source_identity.scientific_result_status == 'NOT_CALCULATED'
+    assert recovered.source_identity.scientific_result_certified is False
     assert view.group_a_ids == (0,)
     assert view.group_b_ids == (1,)
     assert view.completeness.proven
@@ -239,9 +266,67 @@ def test_synthetic_recovery_wraps_existing_network_and_keeps_order(tmp_path, mon
     assert reloaded.archive_metadata['solve_universe_id'] == expected_solve_universe_id
     reloaded_recovery = recover_network_source(
         reloaded,
+        expected_scheme=scheme,
+        expected_solvent_mode=solvent_mode,
         expected_solve_universe_id=expected_solve_universe_id,
         expected_radii_digest=expected_radii_digest,
     )
     reloaded_view = reloaded_recovery.make_interface_view([0], [1])
     assert reloaded_view.selection_id == view.selection_id
     assert reloaded_view.completeness.proven
+    assert reloaded_recovery.source_identity.geometry_checkpoint_valid is True
+    assert reloaded_recovery.source_identity.scientific_result_status == 'NOT_CALCULATED'
+    assert reloaded_recovery.source_identity.scientific_result_certified is False
+
+
+def test_recovery_accepts_attested_boundary_rows_without_mixing_them_into_source(
+    tmp_path,
+):
+    source_path = _synthetic_source(tmp_path / 'boundary-source.pdb')
+    source_system = System(str(source_path), make_dir=False, print_actions=False)
+    source_balls = source_system.balls.copy(deep=True)
+    boundary = source_balls.iloc[[4]].copy()
+    balls = pd.concat([source_balls, boundary], ignore_index=True)
+    balls['system_num'] = [0, 1, 2, 3, 4, -1]
+    balls['stable_id'] = [f'system:{index}' for index in range(5)] + ['boundary:5']
+    balls['is_boundary_generator'] = [False] * 5 + [True]
+    balls['complete'] = [True] * 6
+    network = Network(
+        locs=[tuple(value) for value in balls['loc']],
+        rads=[float(value) for value in balls['rad']],
+        group=list(range(5)),
+        settings={
+            'net_type': 'pow', 'surf_res': 0.2, 'max_vert': 5.0,
+            'box_size': 1.25, 'solvent_mode': 'MOLECULE_ONLY',
+        },
+        balls=balls,
+        verts=pd.DataFrame({'balls': [[0, 1, 4]], 'complete': [True]}),
+        edges=pd.DataFrame({'balls': [[0, 1, 4]], 'verts': [[0]], 'complete': [True]}),
+        surfs=pd.DataFrame({'balls': [[0, 1, 4]], 'verts': [[0]], 'edges': [[0]], 'complete': [True]}),
+        system=source_system,
+        generator_system_indices=tuple(range(5)) + (None,),
+        generator_stable_ids=tuple(f'system:{index}' for index in range(5)) + ('boundary:5',),
+        solvent_mode='MOLECULE_ONLY',
+    )
+    network.boundary_config = BoundaryConfig(mode='shell')
+    network.boundary_mode = 'shell'
+    network.boundary_indices = (5,)
+    network.boundary_generators = (
+        BoundaryGenerator(position=tuple(float(value) for value in balls.iloc[5]['loc'])),
+    )
+    network.archive_metadata = {
+        'original_structure_path': str(source_path),
+        'source_sha256': hashlib.sha256(source_path.read_bytes()).hexdigest(),
+    }
+    network.archive_provenance = {
+        'geometry_status': 'GEOMETRY_COMPLETE',
+        'analysis_status': 'NOT_CALCULATED',
+    }
+
+    recovered = recover_network_source(network)
+
+    assert recovered.source_identity.generator_count == 5
+    assert recovered.source_identity.generator_system_indices == tuple(range(5))
+    assert recovered.source_identity.generator_stable_ids == tuple(
+        f'system:{index}' for index in range(5)
+    )

@@ -46,7 +46,7 @@ def test_power_preserves_precise_intrinsic_and_completed_values(static_analyses)
     assert v['mean_curvature_certified']
     assert v['mean_supported_internal_seams'] == 835
     assert v['mean_unresolved_internal_seams'] == 0
-    assert v['boundary_integrated_mean_curvature'] == 0
+    assert v['boundary_integrated_mean_curvature'] is None
     assert v['intrinsic_integrated_gaussian_curvature'] == pytest.approx(5.188337486733097,abs=1e-12)
     assert v['boundary_corner_turning'] == pytest.approx(-5.1883374867332295,abs=1e-12)
     assert v['gauss_bonnet_lhs'] == pytest.approx(0,abs=2e-12)

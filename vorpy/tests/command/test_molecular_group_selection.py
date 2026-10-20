@@ -37,6 +37,8 @@ def test_quoted_canonical_chain_groups_materialize_from_pdb(
 ):
     """Quoted Windows selectors must reach the real VorPy group API correctly."""
     source = DATA / filename
+    if not source.is_file():
+        pytest.skip(f"prepared fixture is absent: {filename}")
     system = System(
         file=str(source),
         make_dir=False,
@@ -76,6 +78,8 @@ def test_quoted_canonical_chain_groups_materialize_from_pdb(
 
 def test_group_preflight_rejects_empty_or_mismatched_groups():
     source = DATA / "2KAI_no_sol.pdb"
+    if not source.is_file():
+        pytest.skip("prepared fixture is absent: 2KAI_no_sol.pdb")
     system = System(file=str(source), make_dir=False, print_actions=False)
     with pytest.raises(ValueError, match="membership mismatch"):
         validate_group_selection(
@@ -89,6 +93,8 @@ def test_group_preflight_rejects_empty_or_mismatched_groups():
 
 def test_canonical_1aay_default_materializes_molecular_groups_and_zinc():
     source = DATA / "1AAY.pdb"
+    if not source.is_file():
+        pytest.skip("prepared fixture is absent: 1AAY.pdb")
     system = System(file=str(source), make_dir=False, print_actions=False)
     command = Command(sys=system)
     command.base_file = str(source)

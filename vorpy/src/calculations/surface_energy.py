@@ -30,6 +30,38 @@ from vorpy.src.calculations.calcs import calc_tri
 from vorpy.src.calculations.curvature import mean_curvature, gaussian_curvature
 
 
+_CURVATURE_UNAVAILABLE = {
+    "NOT_CALCULATED", "NOT_SUPPORTED", "UNRESOLVED", "STALE", "UNAVAILABLE",
+}
+
+
+def _status_value(value):
+    value = getattr(value, "value", value)
+    return str(value).upper() if value is not None else None
+
+
+def _geometry_status(geometry):
+    status = geometry.get("Curvature Status", geometry.get("curvature_status"))
+    return _status_value(status) or "CERTIFIED"
+
+
+def _finite_value(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if np.isfinite(number) else None
+
+
+def _energy_status(geometry, required):
+    status = _geometry_status(geometry)
+    if status in _CURVATURE_UNAVAILABLE or status not in {"CERTIFIED", "CALCULATED"}:
+        return status
+    if any(_finite_value(geometry.get(name)) is None for name in required):
+        return "NOT_CALCULATED"
+    return "CERTIFIED"
+
+
 def calc_surface_energy_geometry_from_curvatures(
         points,
         tris,
@@ -72,6 +104,7 @@ def calc_surface_energy_geometry_from_curvatures(
     integrated_mean_curvature = 0.0
     integrated_mean_curvature_squared = 0.0
     integrated_gaussian_curvature = 0.0
+    curvature_status = "CERTIFIED" if tris else "NOT_CALCULATED"
 
     for i, tri in enumerate(tris):
         p0 = np.asarray(points[tri[0]], dtype=float)
@@ -81,15 +114,14 @@ def calc_surface_energy_geometry_from_curvatures(
         tri_area = float(calc_tri(p0, p1, p2))
 
         if not np.isfinite(tri_area) or tri_area <= 0.0:
+            curvature_status = "UNRESOLVED"
             continue
 
-        H = float(mean_curvatures[i])
-        K = float(gaussian_curvatures[i])
-
-        if not np.isfinite(H):
-            H = 0.0
-        if not np.isfinite(K):
-            K = 0.0
+        H = _finite_value(mean_curvatures[i])
+        K = _finite_value(gaussian_curvatures[i])
+        if H is None or K is None:
+            curvature_status = "UNRESOLVED"
+            continue
 
         calculated_area += tri_area
         integrated_mean_curvature += H * tri_area
@@ -98,12 +130,18 @@ def calc_surface_energy_geometry_from_curvatures(
 
     total_area = calculated_area if area is None else float(area)
 
-    if total_area > 0.0:
+    if curvature_status == "CERTIFIED" and total_area > 0.0:
         average_mean_curvature = integrated_mean_curvature / total_area
         average_gaussian_curvature = integrated_gaussian_curvature / total_area
-    else:
+    elif curvature_status == "CERTIFIED":
         average_mean_curvature = 0.0
         average_gaussian_curvature = 0.0
+    else:
+        integrated_mean_curvature = None
+        integrated_mean_curvature_squared = None
+        integrated_gaussian_curvature = None
+        average_mean_curvature = None
+        average_gaussian_curvature = None
 
     return {
         "Area": total_area,
@@ -112,6 +150,7 @@ def calc_surface_energy_geometry_from_curvatures(
         "Integrated Mean Curvature": integrated_mean_curvature,
         "Integrated Mean Curvature Squared": integrated_mean_curvature_squared,
         "Integrated Gaussian Curvature": integrated_gaussian_curvature,
+        "Curvature Status": curvature_status,
     }
 
 
@@ -147,26 +186,45 @@ def sum_surface_energy_geometry(surface_values):
     Combine geometric descriptors from multiple surfaces.
     """
     area = 0.0
-    integrated_mean_curvature = 0.0
-    integrated_mean_curvature_squared = 0.0
-    integrated_gaussian_curvature = 0.0
+    mean_values = []
+    mean_squared_values = []
+    gaussian_values = []
+    statuses = []
 
     for values in surface_values:
         area += float(values.get("Area", 0.0))
-        integrated_mean_curvature += float(values.get("Integrated Mean Curvature", 0.0))
-        integrated_mean_curvature_squared += float(
-            values.get("Integrated Mean Curvature Squared", 0.0)
-        )
-        integrated_gaussian_curvature += float(
-            values.get("Integrated Gaussian Curvature", 0.0)
-        )
+        statuses.append(_geometry_status(values))
+        mean_values.append(_finite_value(values.get("Integrated Mean Curvature")))
+        mean_squared_values.append(_finite_value(values.get("Integrated Mean Curvature Squared")))
+        gaussian_values.append(_finite_value(values.get("Integrated Gaussian Curvature")))
 
-    if area > 0.0:
+    def complete_sum(values):
+        return sum(values) if values and all(value is not None for value in values) else None
+
+    integrated_mean_curvature = complete_sum(mean_values)
+    integrated_mean_curvature_squared = complete_sum(mean_squared_values)
+    integrated_gaussian_curvature = complete_sum(gaussian_values)
+
+    status = "CERTIFIED"
+    for candidate in statuses:
+        if candidate in _CURVATURE_UNAVAILABLE or candidate not in {"CERTIFIED", "CALCULATED"}:
+            status = candidate
+            break
+    if any(value is None for value in (
+        integrated_mean_curvature,
+        integrated_mean_curvature_squared,
+        integrated_gaussian_curvature,
+    )):
+        status = status if status != "CERTIFIED" else "NOT_CALCULATED"
+
+    if integrated_mean_curvature is not None and area > 0.0:
         average_mean_curvature = integrated_mean_curvature / area
+    else:
+        average_mean_curvature = None
+    if integrated_gaussian_curvature is not None and area > 0.0:
         average_gaussian_curvature = integrated_gaussian_curvature / area
     else:
-        average_mean_curvature = 0.0
-        average_gaussian_curvature = 0.0
+        average_gaussian_curvature = None
 
     return {
         "Area": area,
@@ -175,6 +233,7 @@ def sum_surface_energy_geometry(surface_values):
         "Integrated Mean Curvature": integrated_mean_curvature,
         "Integrated Mean Curvature Squared": integrated_mean_curvature_squared,
         "Integrated Gaussian Curvature": integrated_gaussian_curvature,
+        "Curvature Status": status,
     }
 
 
@@ -188,7 +247,22 @@ def calc_morphometric_energy(
 
         G = gamma*A + kappa*C + kappa_bar*X.
     """
-    area_energy = surface_tension * geometry["Area"]
+    required = (
+        "Area",
+        "Integrated Mean Curvature",
+        "Integrated Gaussian Curvature",
+    )
+    status = _energy_status(geometry, required)
+    area = _finite_value(geometry.get("Area"))
+    area_energy = surface_tension * area if area is not None else None
+    if status != "CERTIFIED":
+        return {
+            "Area Energy": area_energy,
+            "Mean Curvature Energy": None,
+            "Gaussian Curvature Energy": None,
+            "Total Energy": None,
+            "Status": status,
+        }
     mean_energy = (
         mean_curvature_coefficient * geometry["Integrated Mean Curvature"]
     )
@@ -201,6 +275,7 @@ def calc_morphometric_energy(
         "Mean Curvature Energy": mean_energy,
         "Gaussian Curvature Energy": gaussian_energy,
         "Total Energy": area_energy + mean_energy + gaussian_energy,
+        "Status": "CERTIFIED",
     }
 
 
@@ -217,10 +292,27 @@ def calc_helfrich_energy(
             + (kappa_b/2) * integral((2H-C0)^2 dA)
             + kappa_G*integral(K dA).
     """
-    area = geometry["Area"]
-    int_mean = geometry["Integrated Mean Curvature"]
-    int_mean_sq = geometry["Integrated Mean Curvature Squared"]
-    int_gaussian = geometry["Integrated Gaussian Curvature"]
+    required = (
+        "Area",
+        "Integrated Mean Curvature",
+        "Integrated Mean Curvature Squared",
+        "Integrated Gaussian Curvature",
+    )
+    status = _energy_status(geometry, required)
+    area = _finite_value(geometry.get("Area"))
+    int_mean = _finite_value(geometry.get("Integrated Mean Curvature"))
+    int_mean_sq = _finite_value(geometry.get("Integrated Mean Curvature Squared"))
+    int_gaussian = _finite_value(geometry.get("Integrated Gaussian Curvature"))
+
+    if status != "CERTIFIED" or any(value is None for value in (area, int_mean, int_mean_sq, int_gaussian)):
+        return {
+            "Area Energy": surface_tension * area if area is not None else None,
+            "Bending Integral": None,
+            "Bending Energy": None,
+            "Gaussian Curvature Energy": None,
+            "Total Energy": None,
+            "Status": status if status != "CERTIFIED" else "NOT_CALCULATED",
+        }
 
     c0 = float(spontaneous_curvature)
 
@@ -239,6 +331,7 @@ def calc_helfrich_energy(
         "Bending Energy": bending_energy,
         "Gaussian Curvature Energy": gaussian_energy,
         "Total Energy": area_energy + bending_energy + gaussian_energy,
+        "Status": "CERTIFIED",
     }
 
 
@@ -284,15 +377,16 @@ def calc_representative_surface_energy(
         Representative bending energy in units of kBT.
     """
 
+    status = _energy_status(
+        geometry,
+        ('Area', 'Integrated Mean Curvature', 'Integrated Mean Curvature Squared'),
+    )
+    if status != "CERTIFIED":
+        return None
+
     area = geometry['Area']
-
-    int_mean_curv = geometry[
-        'Integrated Mean Curvature'
-    ]
-
-    int_mean_curv_sq = geometry[
-        'Integrated Mean Curvature Squared'
-    ]
+    int_mean_curv = geometry['Integrated Mean Curvature']
+    int_mean_curv_sq = geometry['Integrated Mean Curvature Squared']
 
     c0 = float(spontaneous_curvature)
 

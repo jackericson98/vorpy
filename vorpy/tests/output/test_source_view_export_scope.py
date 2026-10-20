@@ -178,6 +178,20 @@ def test_empty_interface_exports_valid_empty_layers_and_unresolved_info(tmp_path
         assert (tmp_path / "empty_interface" / name).is_file()
 
 
+def test_direct_interface_reports_missing_incidence_as_incomplete(tmp_path):
+    source, _, interface = _case(tmp_path, "aw", "MOLECULE_ONLY")
+    interface.source_view = None
+    interface.source_network = source
+    source.surfs.at[0, "edges"] = [0, 1, 99, 3]
+
+    interface_exports(interface, surfs=True, edges=True, verts=True, info=True)
+
+    info = (tmp_path / "interface" / "interface_info.txt").read_text(encoding="utf-8")
+    assert "Completeness: INCOMPLETE" in info
+    assert "missing edge 99" in info
+    assert "Completeness: COMPLETE" not in info
+
+
 def test_classic_log_keeps_incomplete_cells_and_blank_unavailable_curvature(tmp_path):
     source, _, interface = _case(tmp_path, "aw")
     source.balls["sa"] = [1.0] * len(source.balls)

@@ -234,19 +234,21 @@ class Group:
         # ------------------------------------------------------------------
 
         # Area-weighted average curvature over the group's exposed surface
-        self.avg_mean_curv = 0.0
-        self.avg_gauss_curv = 0.0
+        self.avg_mean_curv = None
+        self.avg_gauss_curv = None
 
         # Integrated curvature over the group's exposed boundary.  The
         # explicit component fields preserve smooth-face values separately.
-        self.int_mean_curv_face = 0.0
-        self.int_mean_curv_edge = 0.0
-        self.int_mean_curv = 0.0
-        self.int_mean_curv_sq = 0.0
-        self.int_gauss_curv_face = 0.0
-        self.int_gauss_curv_edge = 0.0
-        self.int_gauss_curv_vertex = 0.0
-        self.int_gauss_curv = 0.0
+        self.int_mean_curv_face = None
+        self.int_mean_curv_edge = None
+        self.int_mean_curv = None
+        self.int_mean_curv_sq = None
+        self.int_gauss_curv_face = None
+        self.int_gauss_curv_edge = None
+        self.int_gauss_curv_vertex = None
+        self.int_gauss_curv = None
+        self.gaussian_curvature_status = "NOT_CALCULATED"
+        self.gaussian_curvature_unavailable_reason = None
         self.euler_characteristic = None
         self.gauss_bonnet_expected = None
         self.gauss_bonnet_error = None
@@ -651,7 +653,7 @@ class Group:
                 sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False, verts=False,
                 sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, surr_resids=False,
                 logs=False,
-                ext_atoms=False, concave_colors=False, round_to=None, file_type=None):
+                ext_atoms=False, concave_colors=False, round_to=None, file_type=None, surface_energy=False):
         """
         Exports specified export types for the group
         :param all_: All possible exports for the group will be exported to the group directory
@@ -670,6 +672,7 @@ class Group:
         :param concave_colors: Exports the concave colors for the surfaces. Default is False
         :param round_to: Decimal precision for numeric log output. Uses the group setting when omitted
         :param file_type: Geometry format for surfaces, edges, and vertices: off, ply, or vtp
+        :param surface_energy: Include the experimental representative surface-energy estimate in group_info.txt
         :return: The specified export is placed in the group's directory
         """
         if round_to is None:
@@ -682,4 +685,4 @@ class Group:
                       shell_edges=shell_edges, verts=verts, sep_verts=sep_verts, shell_verts=shell_verts, layers=layers,
                       info=info, surr_atoms=surr_atoms, surr_resids=surr_resids, logs=logs, ext_atoms=ext_atoms,
                       concave_colors=concave_colors,
-                      round_to=round_to, file_type=file_type)
+                      round_to=round_to, file_type=file_type, surface_energy=surface_energy)

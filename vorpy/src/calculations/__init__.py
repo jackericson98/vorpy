@@ -87,3 +87,10 @@ from vorpy.src.calculations.vert import verify_aw
 from vorpy.src.calculations.vert import verify_aw_cached
 from vorpy.src.calculations.vert import verify_pow
 from vorpy.src.calculations.vert import verify_prm
+from vorpy.src.calculations.polyhedral_gaussian_curvature import (
+    POLYHEDRAL_STATUS_CALCULATED,
+    POLYHEDRAL_STATUS_UNAVAILABLE,
+    PolyhedralGaussianCurvatureResult,
+    calculate_polyhedral_gaussian_curvature,
+    calculate_polyhedral_network_vertex_gaussian_curvatures,
+)

@@ -301,17 +301,18 @@ def build_export_plan(exports=(), *, scope='system'):
         while tokens:
             head = tokens.pop(0).strip().lower().replace('-', '_')
             if head in _NO_EXPORT_COMMANDS or (head == 'no' and not tokens):
-                # Historical ``-e none``/``-e skip`` is a real export plan:
-                # it writes no components and disables the automatic archive.
+                # ``none`` suppresses optional files, not the mandatory
+                # geometry checkpoint.
                 included = []
                 excluded = []
-                checkpoint_policy = 'none'
                 operations.append(('none',))
                 continue
             if head in controls:
                 if head in {'no_archive', 'no_network', 'no_checkpoint'}:
-                    checkpoint_policy = 'none'
-                    operations.append(('no_checkpoint',))
+                    # Checkpoints are durability records, not optional
+                    # exports.  Keep the policy shared even for legacy
+                    # suppression spellings.
+                    operations.append((head,))
                 elif head == 'checkpoint':
                     checkpoint_policy = 'shared'
                     operations.append(('checkpoint',))
@@ -379,8 +380,9 @@ def build_export_plan(exports=(), *, scope='system'):
                         checkpoint_policy = 'shared'
                 if 'checkpoint' in values and operation == 'add':
                     checkpoint_policy = 'shared'
-                elif 'checkpoint' in values and operation in {'no', 'remove'}:
-                    checkpoint_policy = 'none'
+                # A checkpoint cannot be removed from a successful solve.
+                # ``-e no checkpoint`` remains parseable for compatibility,
+                # but the mandatory shared checkpoint stays enabled.
                 continue
 
             component = canonical_export_component(head)

@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from vorpy.src.io import load_network
+from vorpy.src.output.checkpoint import _load_checkpoint
 
 
 def _terminal_lines(output):
@@ -63,29 +63,34 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
     assert terminal_lines[solve_line + 5] == ""
 
     directory = output_parent / "EDTA"
-    network_dir = directory / "EDTA"
-    assert (directory / "system_info.txt").is_file()
-    assert (network_dir / "network_info.txt").is_file()
-    system_info = (directory / "system_info.txt").read_text(encoding="utf-8")
+    system_dir = directory / "system"
+    network_dir = directory / "groups" / "EDTA"
+    assert (system_dir / "system_info.txt").is_file()
+    system_info = (system_dir / "system_info.txt").read_text(encoding="utf-8")
     assert "Molecular Atoms:      32" in system_info
     assert "Waters:                193" in system_info
     assert "Total Atoms:            612" in system_info
     assert "Active Generators:      612" in system_info
     assert "Excluded Water:         0" in system_info
     assert (network_dir / "surfs.off").stat().st_size > 0
-    assert (network_dir / "edges.off").stat().st_size > 0
-    assert (network_dir / "verts.off").stat().st_size > 0
+    # The public default is the small tier; full edge/vertex meshes remain in
+    # the verified checkpoint or an explicit medium/large request.
+    assert not (network_dir / "edges.off").exists()
+    assert not (network_dir / "verts.off").exists()
     assert not list(directory.rglob("nonpolar_interface_geometry"))
     assert not (directory / "EDTA.vpy.timing.json").exists()
 
-    archive = directory / "EDTA.vpy"
-    restored = load_network(archive)
-    assert restored.solvent_mode == "SOLVENT_CONTEXT"
-    assert restored.retained_system_indices == ()
-    assert restored.settings["generator_policy"]["active_generator_count"] == 612
-    assert restored.settings["generator_policy"]["excluded_water_generator_count"] == 0
-    assert len(restored.balls) == 612
-    assert int(restored.balls.complete.astype(bool).sum()) == 32
-    assert len(restored.verts) > 0
-    assert len(restored.edges) > 0
-    assert len(restored.surfs) > 0
+    archive = directory / "EDTA_checkpoint.vpy"
+    checkpoint = _load_checkpoint(archive)
+    assert checkpoint.document.source.filename == "EDTA.pdb"
+    assert checkpoint.payloads
+    system_states = [
+        state for state in checkpoint.document.networks
+        if state.scope == "group" or state.scope == "system"
+    ]
+    assert system_states
+    state = max(system_states, key=lambda item: sum(item.completeness.values()))
+    assert state.completeness["balls"] == 612
+    assert state.completeness["verts"] > 0
+    assert state.completeness["edges"] > 0
+    assert state.completeness["surfs"] > 0

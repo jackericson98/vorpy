@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from vorpy.src.command.vpy_cmnd import Command
+from vorpy.src.inputs.frames import count_pdb_frames
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +25,12 @@ def test_benchmark_cli_matrix_is_parser_valid_and_output_isolated(
     tmp_path, monkeypatch, capsys, run_name, source, network_type, solvent_mode,
     active_generators,
 ):
+    if not source.is_file():
+        pytest.skip(f'prepared benchmark fixture is absent: {source.name}')
+    if count_pdb_frames(source) != 1:
+        pytest.skip(
+            f'prepared benchmark fixture is not single-frame: {source.name}'
+        )
     destination = tmp_path / 'output' / 'benchmarks' / '1bna_DB1976' / run_name
     captured = []
 
@@ -95,6 +102,10 @@ def test_benchmark_cli_matrix_is_parser_valid_and_output_isolated(
 
 
 def test_benchmark_cli_fail_if_exists_refuses_reuse(tmp_path, monkeypatch):
+    if not WET.is_file():
+        pytest.skip('prepared wet 1BNA fixture is absent')
+    if count_pdb_frames(WET) != 1:
+        pytest.skip('prepared wet 1BNA fixture is not single-frame')
     destination = tmp_path / 'output' / 'benchmarks' / '1bna_DB1976' / 'aw_wet'
 
     monkeypatch.setattr(Command, '_process_system', lambda self: None)

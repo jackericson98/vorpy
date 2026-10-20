@@ -12,6 +12,7 @@ INTERFACE_FIELDS = ('group1_name', 'interface_id', 'settings', 'name', 'group1_i
 NETWORK_FIELDS = ('group', 'iface_grps', 'group_name', 'settings', 'metrics', 'box',
     'network_mode', 'loaded_from_logs', 'completion_kind', 'vert_timing',
     'surface_timing', 'build_surf_timing', 'analysis_timing', 'max_curv', 'interface_vertex_state',
+    'curvature_calculated',
     'balls', 'verts', 'edges', 'surfs')
 SYSTEM_FIELDS = ('name', 'type', 'foam_box', 'foam_data', 'ndxs', 'ndx_names',
     'atom_names', 'chn_names', 'res_names', 'group_names', 'elements',

@@ -272,12 +272,13 @@ def test_explicit_interface_preset_parses_with_directory_and_exports_files(tmp_p
 
     assert command.exports == [["interface"]]
     assert Path(system.files["dir"]) == destination / system.name
-    assert Path(interface.dir) == destination / system.name / "dna_ligand_interface"
+    assert Path(interface.dir) == destination / system.name / "interfaces" / "dna__ligand"
     assert {
         "interface_surfs.off", "interface_edges.off", "interface_verts.off",
-        "interface_info.txt", "group_a_atoms.pdb", "group_b_atoms.pdb",
-        "surr_atoms.pdb", "surr_residues.pdb",
+        "interface_info.txt", "interface_atoms.pdb",
     } <= {path.name for path in Path(interface.dir).iterdir()}
+    assert (Path(system.files["dir"]) / "groups" / "A" / "A.pdb").is_file()
+    assert (Path(system.files["dir"]) / "groups" / "B" / "B.pdb").is_file()
     assert not (destination / "visualization_manifest.json").exists()
     assert not list(destination.glob("*.geometry.vpy"))
 

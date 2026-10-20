@@ -453,6 +453,9 @@ def export_preset(sys, preset):
     """Execute one named export plan."""
     if canonical_layout_enabled(sys):
         prepare_canonical_root(sys)
+        # The validated checkpoint must survive any later optional writer
+        # failure, including a request that suppresses optional archives.
+        _export_network_archive(sys)
     groups = [
         group for group in sys.groups
         if group.net is not None or getattr(group, "source_view", None) is not None
@@ -528,7 +531,7 @@ def _export_network_archive(sys):
             write_checkpoint_status,
         )
         try:
-            write_checkpoint(sys)
+            archive = write_checkpoint(sys)
         except CheckpointSourceUnavailable as error:
             # A legacy v3 cache remains scientifically exportable, but ATLAS's
             # canonical source contract cannot represent it without exact bytes.
@@ -539,6 +542,9 @@ def _export_network_archive(sys):
             )
             print(f"Canonical checkpoint not written: {error}")
             return
+        # Let an explicit archive destination copy the validated checkpoint
+        # instead of serializing the same network a second time.
+        sys._last_export_archive_path = str(Path(archive).resolve())
         if hasattr(sys, '_export_archive_written'):
             sys._export_archive_written = True
         return

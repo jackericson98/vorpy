@@ -136,3 +136,339 @@ source-preserving checkpoint. A subprocess end-to-end fixture was not used as
 a gate because it did not return a final pytest summary within the 30-second
 bounded wait. No real 1BNA/EDTA solve, GROMACS, full benchmark, or
 solver/formula change was performed.
+
+## 2026-10-20 export/checkpoint integration follow-up
+
+Worktree/reference check: the approved worktree is on `35de721c`
+(`nexusa/integration-2026-10-20`). No branch, merge, reset, restore, stage,
+commit, push, molecular solve, or existing-output overwrite was performed.
+
+Post-validation audit: dirty post-HEAD changes in `vpy_cmnd.py`,
+`network_archive.py`, and `network_recovery.py` add reservation ownership,
+recovered-source interface views, and attested boundary-generator validation.
+The bounded writer suites found no regression. These remain cross-owner review
+points because `vpy_cmnd.py` is PRISM-owned and archive lineage is ATLAS-owned.
+
+VECTOR changes in this pass:
+
+- `command_export._run_component_plan` now writes the validated canonical
+  checkpoint before any optional component, including empty/`no_archive`
+  plans. `output.export_preset` stages the same checkpoint before legacy
+  optional writers on canonical layouts.
+- The canonical writer now publishes `_last_export_archive_path`, allowing an
+  explicit archive destination to copy the already validated checkpoint rather
+  than serializing a second network archive.
+- Normalized interface dispatch now separates direct contact atoms from
+  surrounding atoms/residues. The five-tier bounded writer test verifies
+  cumulative scoped files, one checkpoint, and no system OFF mesh.
+
+Bounded actual writer results for the synthetic A/B/water contract fixture:
+`tiny`, `small`, `medium`, `large`, and `all` wrote the expected interface
+artifacts; `large`/`all` retain explicit `NOT_SUPPORTED` status for unavailable
+curvature/topology/shell products rather than inventing values. No default
+manifest, `.geometry.vpy`, or unrelated system OFF output was emitted by the
+normalized interface path. Contact PDBs remain selected A/B physical-contact
+atoms; surrounding exports use the validated surrounding selection.
+
+Checkpoint/recovery: canonical write uses the existing atomic temp-file,
+fsync, reload-validation, and replace path; the explicit archive handoff is
+covered. Canonical replay without geometry rebuild and source-less legacy
+recovery failure both pass. A legacy source-less archive is intentionally not
+migrated into a new canonical checkpoint. The fallback `network-geometry`
+payload still needs ATLAS agreement for complete boundary/dependency replay;
+it must remain partial/diagnostic and must not be promoted by a `complete=True`
+flag.
+
+Output hygiene findings: `find_net_verts.py` unconditionally calls the
+FORGE/network-owned `output.net.write_verts`, which can leave root-level
+`aw_verts.txt`, `pow_verts.txt`, or `prm_verts.txt`; output relocation only
+handles calculated group exports, so interface-only runs can leak these legacy
+files. No files were deleted. Recommended correction is a FORGE-owned
+explicit legacy/debug destination or opt-in writer, with a bounded regression.
+
+PyMOL audit: `output.set_pymol_atoms` writes element/special-radius `alter
+... vdw=` commands for molecular systems and uses B-factor `b` for
+explicit-radius foam/coarse/balls systems. Exact source-geometry radius policy
+remains a PRISM/FORGE coordination item; no PyMOL behavior was changed.
+
+Tests (verified sibling interpreter
+`C:\\Users\\Ryzen-3600\\PycharmProjects\\vorpy\\.venv\\Scripts\\python.exe`,
+because this worktree has no `.venv`):
+
+- 32 scoped interface/tier/source-view tests: passed.
+- 25 canonical-layout/checkpoint/source-less/diagnostic/reservation/progress
+  tests: passed.
+- 3 canonical replay, source-less failure, and same-run reservation tests:
+  passed.
+- `git diff --check` on VECTOR-touched files: passed.
+
+Status: bounded export/checkpoint integration is GO for synthetic validation;
+real 1BNA remains NO-GO/not run until PRISM reviews dispatcher ownership,
+ATLAS closes fallback dependency metadata, and FORGE resolves legacy vertex
+artifact routing. The old PRISM `.vorpy/checkpoints/*.geometry.vpy` writer is
+still present and can create a redundant internal checkpoint; removing or
+retiring it requires PRISM/NEXUSA integration approval.
+
+## 2026-10-20 checkpoint-first audit (EDTA manual-test hold)
+
+No executable source or test file was changed in this audit. Only this report
+was updated. The worktree remains `35de721c`; all pre-existing dirty files and
+untracked legacy vertex artifacts were preserved.
+
+Live ordering result:
+
+`Command._run_pipeline` completes geometry in `_process_system`, then runs the
+optional read-only analysis loop (`edge diagnostics`, Apollonius, dual, and AW
+alpha) before `run_exports`. Therefore the complete requested ordering is not
+yet enforced. Inside normalized `argv_export`/`_run_component_plan`, however,
+the validated canonical checkpoint is written first, then component exports;
+`_save_archive` follows and reuses that checkpoint. Canonical `export_preset`
+also stages it before optional writers. This is a real code-path property, not
+only a mock test. The pre-export analysis gap must remain for NEXUSA/PRISM
+decision after the EDTA manual test.
+
+Fault injection (temporary synthetic fixture, no production output):
+
+- canonical typed log failure: checkpoint survived; failure stage recorded;
+- physical CSV/table failure: checkpoint survived; failure stage recorded;
+- OFF surface failure: checkpoint survived; failure stage recorded;
+- `os.replace` interruption during checkpoint write: prior verified checkpoint
+  bytes survived and no temporary checkpoint remained.
+
+Five-tier actual writer inventory (relative files; source PDB is included once):
+
+- `tiny` (7): `groups/A/A.pdb`, `groups/B/B.pdb`,
+  `interfaces/dna__ligand/interface_atoms.pdb`, `interface_edges.off`,
+  `interface_info.txt`, source PDB, one checkpoint.
+- `small` (8): tiny plus `interface_surfs.off`.
+- `medium` (14): small plus `interface_verts.off`, the three physical CSV
+  tables, `surr_atoms.pdb`, and `surr_residues.pdb`.
+- `large` (14): same as medium; no additional eligible validated products.
+- `all` (14): same as large; unsupported upper-tier products remain status
+  evidence, not fabricated empty/scientific files.
+
+Default interface planning is `small`; repeated `add/no/add` operations
+produce the expected final component set. Each actual tier emitted exactly one
+canonical checkpoint, no default manifest, and no system OFF mesh.
+
+Area audit: `build_surfs.py` stores AW curved `sa` from the same triangle
+cross-product pass used by the curvature calculation; `prepare_surfs` and OFF
+writing consume the same stored points/triangles. Three bounded residual checks
+(AW flat, AW curved, POW flat) measured native-versus-OFF residual `0` within
+floating-point display precision; counts were 4 vertices/1 face. This does not
+replace a production AW measurement.
+
+Closure audit: valid scoped A/B fixtures retained 4 interface edges and 4
+vertices, while water-water/DNA-water facets remained excluded. A deliberately
+broken direct network with a surface edge reference `[0, 1, 2, 99]` silently
+exported edges `(0, 1, 2)` and reported `Completeness: COMPLETE`; missing-edge
+diagnostics were absent. Thus materialized-view validation is fail-closed, but
+the direct `source_view=None` physical scope still needs a FORGE/VECTOR
+dependency-diagnostic fix. No artificial cap was added to open patches.
+
+Replay acceptance: 4 focused tests passed for canonical reload without the
+original PDB, no geometry rebuild, interface replay, source-less legacy
+failure, and checkpoint preservation. A focused 50-test scope/mesh suite and
+17-test checkpoint/layout/diagnostic/reservation suite also passed. The
+checkpoint interruption and four optional-failure checks above were additional
+bounded script assertions.
+
+Extra-file origin: `find_net_verts.py:776` unconditionally calls
+`output.net.write_verts`, which changes to `net.settings['sys_dir']` and writes
+`<net_type>_verts.txt`; current untracked examples were 453/205/454 bytes for
+AW/POW/PRM. Output relocation only handles group export paths. Safe redirection
+is possible but is FORGE-owned and intentionally deferred; no artifact was
+deleted.
+
+Status: checkpoint durability and normalized export tiers are GO on bounded
+fixtures. Full required ordering is NO-GO until the pre-export optional
+analysis placement, direct closure diagnostics, redundant PRISM internal
+`.geometry.vpy`, and ATLAS fallback dependency metadata are resolved after the
+EDTA manual-test gate.
+
+## 2026-10-20 production-safe checkpoint-first persistence audit
+
+EDTA source-edit freeze was respected: no executable source or test file was
+changed in this pass. Only this report changed; existing dirty source and
+untracked artifacts were preserved.
+
+Actual `argv_export` checks on the bounded interface fixture:
+
+- `[['none']]`: one canonical checkpoint was written; no optional interface
+  products were selected.
+- `[['no_archive']]`: one canonical checkpoint was written and the compact
+  interface default proceeded with its small optional products. The archive
+  suppression policy did not suppress the mandatory canonical checkpoint.
+
+Fault injection now covers seven failure points: checkpoint serialization,
+checkpoint atomic replacement, OFF, PDB, CSV/table, canonical log, and
+scientific summary. In every optional failure the validated checkpoint
+remained present and the failing export stage was recorded. Serialization and
+replacement failures preserved the prior checkpoint bytes; replacement left
+no temporary checkpoint. Mandatory serialization failure propagated and did
+not mark the archive complete.
+
+Replay acceptance: one bounded POW checkpoint was created, its external PDB
+was deleted, and `Network.build` was patched to fail. Public CLI replay
+requested `all`; the checkpoint reloaded, one interface was reconstructed from
+embedded data, interface surfaces/info were exported, and the checkpoint
+remained valid. No geometry rebuild occurred.
+
+The previously reported tier inventory remains unchanged: tiny=7, small=8,
+medium=14, large=14, all=14 files on the synthetic fixture, with exactly one
+canonical checkpoint per tier and no interface-only system OFF mesh. Group
+PDBs are routed to `groups/A/A.pdb` and `groups/B/B.pdb`; direct contact union
+is `interface_atoms.pdb`.
+
+Remaining production risks are unchanged and explicit: optional analyses still
+run before checkpointing in `_process_system`; direct `source_view=None`
+physical scope can silently omit a missing edge/vertex while reporting
+`COMPLETE`; PRISM's internal `.geometry.vpy` writer remains redundant; and
+ATLAS fallback payload dependency closure is incomplete. Root `*_verts.txt`
+generation remains FORGE-owned and was not redirected during the EDTA freeze.
+
+Additional bounded evidence: the focused scope/mesh suite (50) and
+checkpoint/layout/diagnostic/reservation suite (17) passed; replay/source-less
+focused tests (4) passed; all seven fault-injection assertions, two
+`none`/`no_archive` assertions, and three native/OFF area residual checks
+passed. No molecular solve or production export was run.
+
+## 2026-10-20 final durability/inventory audit
+
+The requested freeze-clear condition was not explicit, so no executable source
+or test file was changed. Only this report was updated. No Git action, dataset
+mutation, cleanup, or original checkpoint write occurred.
+
+EDTA inventory audit was metadata-only and did not load mesh contents. The
+worktree contains 84 `output/EDTA*` directories, 43 files total, all named
+`aw_verts.txt`, `pow_verts.txt`, or `prm_verts.txt`; it contains zero `.vpy`
+checkpoints, zero `interface_info.txt`, and zero interface OFF files in those
+directories. The real EDTA tiny and replayed-medium export inventories are
+therefore unavailable in this worktree; no original EDTA checkpoint was
+altered.
+
+Durability assessment: bounded `none` and `no_archive` dispatch both produced
+one canonical checkpoint. Serialization, atomic replacement, OFF, PDB, CSV,
+log, and scientific-summary fault injections all preserved prior valid data or
+reported the mandatory failure without success. The cache-only replay test
+deleted its external source, forbade `Network.build`, requested `all`, and
+preserved source bytes, group/interface identity, and checkpoint validity.
+
+Checkpoint contract tests: 16 passed, including deterministic self-contained
+source round-trip, typed Results/status preservation, scoped system/group/
+interface payloads, atomic update validation, and fail-closed dependency or
+identity checks. Previously recorded focused suites remain: 50 scope/mesh,
+17 checkpoint/layout/diagnostic/reservation, and 4 replay/source-less tests
+passed. No molecular solve was run.
+
+Required production blockers remain: optional analyses still precede the
+checkpoint in `_process_system`; direct unmaterialized interface scope can
+silently omit missing edge/vertex dependencies; PRISM's internal
+`.geometry.vpy` path remains potentially redundant; and FORGE's root debug
+vertex writer still leaks future `*_verts.txt` files. Public replay destination
+selection remains a PRISM coordination item. Production assessment is
+CONDITIONAL/NO-GO until these are resolved after the freeze.
+
+## 2026-10-20 Agent 3 curvature availability audit
+
+The EDTA source-edit freeze remains uncleared. No executable source or test
+file was changed in this pass; only this report was updated. The audit was
+bounded and used no molecular solve or production geometry.
+
+Confirmed data-path findings:
+
+- The typed Results model already has the required distinction. `Quantity`
+  rejects a value for `UNRESOLVED`, `NOT_CALCULATED`, or `NOT_SUPPORTED`, and
+  carries units, method, scope, and coverage counts. The typed interface
+  curvature records preserve nullable values and statuses.
+- The legacy Group path does not carry that distinction. `Group.__init__`,
+  `group/sort.py`, and `network/analyze.py` initialize integrated H²/K and
+  component reductions to `0.0`. `Network.build(calculate_curvature=False)`
+  also writes zero curvature arrays for geometry-only builds. POW/PRM flat
+  surfaces legitimately have numerical zero only when the flat geometry
+  branch is the declared calculation; geometry-only builds must not reuse the
+  same representation for “not calculated”.
+- `interface/export.py::summarize_direct_interface_orientation` still uses
+  `float(surf.get(..., 0.0) or 0.0)` for H, H², and K, and its summary starts
+  those totals at zero. Missing direct-interface curvature is therefore
+  reported as a numerical zero. The same file’s group/water summary path
+  coerces missing group curvature to zero and derives `2*q` energy.
+- `interface/water.py::summarize_water_group` has the same coercion and derives
+  surface energy from H² without a calculation-status guard.
+- The legacy `output/logs.py` writer defaults group component fields and
+  representative energy to zero or `2 * int_mean_curv_sq`; its newer mapping
+  writer leaves individual missing values blank but still has the same energy
+  fallback when `surf_energy` is absent. Existing group-info status handling
+  from GAUSS is better, but does not repair these CSV/log paths.
+- `calculations/surface_energy.py::sum_surface_energy_geometry` converts
+  absent geometry keys to zero. A bounded call with `[{"Area": 2.0}]`
+  returned zero H²/K and `calc_helfrich_energy` then returned a finite area-only
+  energy. This is the clearest confirmed downstream scientific defect.
+  Direct `calc_helfrich_energy` on explicit `None` fails with `TypeError`,
+  which is safer; the preceding aggregation can hide the missing state.
+- `calc_surface_energy_geometry_from_curvatures` converts non-finite H/K to
+  zero. This is only valid if non-finite means a measured zero, not when the
+  producer omitted curvature; the API currently has no status argument to
+  distinguish those cases.
+
+Ownership/conflict boundaries:
+
+- `group/export.py` and `interface/export.py` already contain concurrent GAUSS/
+  VECTOR changes. I did not overwrite them. GAUSS’s handoff specifically
+  identifies the interface missing-zero path as coordinated follow-up.
+- A complete fix needs a producer-level availability/status contract in the
+  network/group layer, then the legacy logs/interface writers and surface
+  energy reducers must consume it. It should preserve numeric zero only for a
+  completed calculation whose value is zero, and emit blank/status text for
+  `NOT_CALCULATED`, `NOT_SUPPORTED`, and `UNRESOLVED`/incomplete boundaries.
+
+Bounded validation: 9 focused group/nonpolar export tests passed, including
+the existing GAUSS group-info regression. No new regression was added because
+the explicit EDTA freeze forbids executable/test edits. Recommended next
+tests after the freeze: geometry-only POW/PRM status propagation, numerical
+zero versus unavailable export rows, interface summary/log status text, and
+surface-energy aggregation/Helfrich fail-closed behavior.
+
+## 2026-10-20 Agent 3 final curvature status integration
+
+The Forge/Gauss polyhedral implementation was inspected before editing. Its
+angle-defect and Gauss--Bonnet mathematics were not changed. The integration
+now preserves unavailable curvature instead of using the zero placeholders
+from legacy aggregation paths:
+
+- `Network.build()` records whether curvature was requested, and the marker is
+  included in the network archive field list. Legacy archives without the
+  marker remain loadable.
+- Group aggregation treats missing/non-finite surface H/H²/K as incomplete,
+  reports AW Gaussian curvature as `UNRESOLVED`, and reports geometry-only
+  curvature as `NOT_CALCULATED`. Integrated values and derived energies are
+  left as `None`; valid calculated zeros remain numeric zeros.
+- Interface orientation summaries, buried-water summaries, group/interface
+  log aggregation, and representative surface-energy reporting now preserve
+  missing values and do not derive `2*q` when q is unavailable.
+- Surface-energy reduction, morphometric energy, Helfrich energy, and
+  representative bending energy fail closed for missing required curvature.
+  Area energy may remain reported, but no area-only total is returned.
+- Added bounded regressions for unavailable versus zero curvature, invalid
+  triangle curvature, group aggregation, interface/water summaries, and blank
+  log curvature fields.
+
+Changed by this pass: `vorpy/src/calculations/surface_energy.py`,
+`vorpy/src/group/group.py`, `vorpy/src/group/sort.py`, `vorpy/src/group/export.py`,
+`vorpy/src/interface/export.py`, `vorpy/src/interface/water.py`,
+`vorpy/src/network/network.py`, `vorpy/src/io/archive_fields.py`,
+`vorpy/src/output/logs.py`, `vorpy/tests/calculations/test_surface_energy_status.py`,
+and `vorpy/tests/interface/test_curvature_status_exports.py`.
+The shared writer/group/interface files already contained concurrent
+Forge/Gauss/VECTOR work; those changes were preserved and only narrow status
+paths were extended.
+
+Validation with the sibling repository `.venv`: the new surface-energy and
+status tests passed; the focused polyhedral, group export/boundary, interface,
+water, output-scope, archive, result-cache, edge-log, and export-diagnostic
+tests passed. The open-geometry suite retains only its documented frozen-data
+skips. Touched source files also pass `py_compile`; no molecular solve ran.
+
+Remaining limitation: legacy archives that predate the new curvature-request
+marker can only be classified from their retained values/statuses. No AW,
+POW, or PRM curvature formula or production dataset was changed or rerun.

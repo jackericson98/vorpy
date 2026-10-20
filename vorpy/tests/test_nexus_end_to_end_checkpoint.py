@@ -214,25 +214,28 @@ def test_real_cli_save_analyze_export_and_optional_failure(tmp_path):
     assert off.read_text(encoding='utf-8').splitlines()[0] == 'OFF'
     assert any(path.suffix.lower() == '.csv' for path in files)
     with zipfile.ZipFile(archive) as bundle:
-        assert 'state.json' in bundle.namelist()
+        members = set(bundle.namelist())
+        assert 'checkpoint/manifest.json' in members
+        assert any(name.startswith('checkpoint/payloads/') for name in members)
 
+    source.unlink()
+    reload_output = tmp_path / 'replayed-output'
     reload_code = (
-        'import json, sys; from vorpy.src.io import load_network; '
-        'n=load_network(sys.argv[1]); '
-        'print(json.dumps({"verts":len(n.verts),"edges":len(n.edges),'
-        '"surfs":len(n.surfs),"ifaces":len(n.sys.ifaces)}))'
+        'import sys; from vorpy.src.command.vpy_cmnd import Command; '
+        'sys.argv=["vorpy", sys.argv[1], "-e", "dir", sys.argv[2], "-e", "medium"]; '
+        'Command().run()'
     )
     reloaded = subprocess.run(
-        [sys.executable, '-c', reload_code, str(archive)],
+        [sys.executable, '-c', reload_code, str(archive), str(reload_output)],
         cwd=root, capture_output=True, text=True, timeout=30, env=env,
     )
     assert reloaded.returncode == 0, reloaded.stdout + '\n' + reloaded.stderr
-    restored = json.loads(reloaded.stdout)
-    assert restored['verts'] and restored['edges'] and restored['surfs']
-    assert restored['ifaces'] == 1
+    assert (reload_output / source.stem / 'system' / 'system_info.txt').is_file()
+    assert not (tmp_path / 'pow_exports').exists()
 
     shim = tmp_path / 'optional-failure-shim'
     shim.mkdir()
+    source.write_text(_grouped_pdb(), encoding='ascii')
     (shim / 'sitecustomize.py').write_text(
         'from vorpy.src.command.vpy_cmnd import Command\n'
         'Command.run_aw_alpha_experimental = lambda self: (_ for _ in ()).throw(\n'
@@ -259,7 +262,7 @@ def test_real_cli_save_analyze_export_and_optional_failure(tmp_path):
     assert 'Optional analysis AW alpha analysis failed' in failed_analysis.stderr
     assert failure_archive.is_file()
     assert any(path.suffix.lower() == '.off' for path in failure_output.rglob('*'))
-    restored_failure = load_network(failure_archive)
+    restored_failure = Command()._load_canonical_checkpoint(failure_archive)
     failures = restored_failure.archive_provenance['optional_analysis_failures']
     assert failures[0]['status'] == 'UNRESOLVED'
     assert failures[0]['message'] == 'synthetic GUDHI unavailable'

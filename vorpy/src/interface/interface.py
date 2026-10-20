@@ -455,8 +455,10 @@ class Interface:
             if built is not None:
                 metadata["built"] = built
 
-    def export(self, all_=False, atoms=False, interface_atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
+    def export(self, all_=False, atoms=False, interface_atoms=False, surr_atoms=False, surr_resids=False,
+               surfs=False, edges=False, verts=False, logs=False, info=False,
                group_info=False, round_to=3, dual=False, buried_water=None, contact_tables=False):
-        interface_exports(iface=self, all_=all_, atoms=atoms or interface_atoms, surfs=surfs, edges=edges, verts=verts, logs=logs,
+        interface_exports(iface=self, all_=all_, atoms=atoms, interface_atoms=interface_atoms,
+                          surr_atoms=surr_atoms, surr_resids=surr_resids, surfs=surfs, edges=edges, verts=verts, logs=logs,
                           info=info, group_info=group_info, round_to=round_to, dual=dual,
                           buried_water=buried_water, contact_tables=contact_tables)

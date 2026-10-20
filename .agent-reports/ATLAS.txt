@@ -270,3 +270,262 @@ Files changed for this diagnosis: `.agent-reports/ATLAS.txt` only. Validation:
 the bounded checkpoint/canonical-layout/v3 boundary regression selection passed
 21 tests. No molecular solve, geometry rebuild, VECTOR exporter edit, PRISM
 CLI edit, archive migration, commit, or push was performed.
+
+--- ATLAS CANONICAL BOUNDARY REPLAY AUDIT / 2026-10-20 ---
+
+WORKTREE:
+The required isolated integration worktree is
+`C:\Users\Ryzen-3600\PycharmProjects\vorpy-integration-20261020`, branch
+`nexusa/integration-2026-10-20`, HEAD
+`35de721ca963b893bfe8ef528ae96ff9b5a01180`. It was already dirty in
+`vorpy/src/io/network_archive.py`, `vorpy/src/io/network_recovery.py`,
+`vorpy/tests/io/test_network_recovery.py`, and several integration-owned files.
+Those changes were preserved; no conflicted implementation file was edited.
+
+ROOT CAUSE:
+The reported `Recovery source contains non-source boundary generators` came
+from recovery treating every local `generator_system_indices` entry as a
+molecular source row. Valid auxiliary boundary rows use `system_index=None`
+and are explicitly listed in `boundary_indices`; they must not be indexed into
+the PDB source table or included in the physical generator universe.
+
+EXISTING INTEGRATION PATCH:
+The dirty worktree already contains `_physical_generator_rows()` in
+`network_archive.py`. It separates physical rows from boundary rows, requires
+boundary membership to be explicit, rejects physical IDs on boundary rows,
+requires boundary-generator records, and preserves stable boundary IDs.
+`network_recovery.py` already consumes only the physical rows. The existing
+synthetic test `test_recovery_accepts_attested_boundary_rows_without_mixing_them_into_source`
+covers this role separation.
+
+VALIDATION:
+Using the parent repository's verified `.venv` interpreter against this
+isolated worktree:
+`test_network_recovery.py`, boundary-focused `test_network_archive.py`,
+`test_checkpoint_contract.py`, and `test_archive_interface_recovery.py`
+produced 6 passed and 3 skipped (the verified 1BNA checkpoint is absent in
+this isolated worktree). No molecular solve or rebuild was invoked.
+
+REMAINING INTEGRATION REQUIREMENTS:
+The current patch still needs a fresh-process canonical interface replay gate
+against the actual checkpoint and the universal AW/POW/PRM wet/dry matrix.
+`recover_network_source()` in the dirty worktree still has the old POW/dry
+defaults and does not yet expose all generalized frame/boundary checks from
+the other development worktree. Do not merge those changes blindly: reconcile
+them with the existing `_physical_generator_rows()` contract first.
+
+PRISM/VECTOR HANDOFF:
+PRISM must invoke recovery on a full-system source checkpoint and pass explicit
+method, solvent, settings, frame, and source-identity expectations. VECTOR
+must preserve `generator_system_indices`, `generator_stable_ids`,
+`boundary_indices`, `boundary_generators`, boundary mode/config, and solve
+context in the canonical archive. Missing boundary/dependency data remains a
+precise fail-closed error.
+
+STATUS:
+No implementation changes completed in this turn because the named recovery
+and archive files already contain concurrent NEXUSA edits. Integration is
+required before ATLAS can safely add the generalized replay fix.
+
+--- ATLAS CANONICAL CHECKPOINT RECERTIFICATION / 2026-10-20 ---
+
+RECERTIFICATION RESULT:
+The isolated worktree remains at branch `nexusa/integration-2026-10-20`,
+HEAD `35de721ca963b893bfe8ef528ae96ff9b5a01180`. The existing boundary-role
+correction was preserved. No implementation or test file was edited in this
+recertification; only this report was appended.
+
+CONTRACT VERSIONS:
+The typed checkpoint contract is `vorpy.system.checkpoint`, schema version 1,
+container format version 1. The legacy network archive is `VorPy Network
+Archive`, format version 3, with boundary-generator fields carried in the
+system/network records. Interface and dependency snapshots in that archive
+use schema version 1. These version boundaries were not changed.
+
+AUDIT:
+`_physical_generator_rows()` now distinguishes attested auxiliary boundary
+rows (`system_index=None` and explicit `boundary_indices`) from physical
+source rows, rejects malformed or ambiguously physical boundary rows, and
+preserves boundary identity. Recovery consumes only physical source rows.
+This is the correct root-cause fix for the prior replay failure; the positive
+boundary archive test also confirms save/load preservation. The direct
+boundary recovery fixture does not yet exercise recovery after save/load.
+
+The typed checkpoint model preserves source bytes/hash, source/network/result
+identity, generator and feature IDs, solver digests, dependency status,
+interface group identity, and partial/completeness status. Its current typed
+contract has no dedicated frame/trajectory-parent or boundary-role record;
+those remain archive/settings payload responsibilities. The `.vpy` recovery
+path also still requires an external source path, so self-contained typed
+checkpoint bytes and legacy network recovery are not equivalent guarantees.
+
+VALIDATION:
+Bounded archive/recovery/checkpoint selection: **34 passed, 3 skipped**.
+The skips are exact 1BNA replay tests because the verified checkpoint is not
+present in this isolated worktree. Results, lineage, shared identity and cache
+contract suite: **139 passed**. No molecular solve, source rebuild, full
+archive load, historical archive rewrite, CLI/exporter edit, commit, or push
+was performed. The end-to-end checkpoint test was intentionally not run
+because it launches a real solve.
+
+REMAINING RISKS / INTEGRATION:
+The actual checkpoint fresh-process replay, no-original-PDB recovery,
+complete/partial reload matrix, A/B-versus-A/C selective dependency refusal,
+and AW/POW/PRM wet/dry matrix remain unproven here. `network_recovery.py`
+still contains POW/MOLECULE_ONLY defaults, so universal recovery is not yet
+recertified. Reconcile that code with `_physical_generator_rows()` before
+adding generalized method/solvent/frame validation. VECTOR must retain the
+attested boundary fields and PRISM must pass explicit expected source,
+method, solvent, settings, frame, and interface identity; neither should
+infer these from filenames.
+
+STATUS:
+Boundary replay is bounded-positive and fail-closed for malformed roles, but
+canonical universal recovery is **not certified** until the missing replay
+and dependency-closure gates run.
+
+--- ATLAS REUSABLE CHECKPOINT / MULTI-FRAME IDENTITY AUDIT / 2026-10-20 ---
+
+SCOPE:
+The isolated worktree remains on `nexusa/integration-2026-10-20` at
+`35de721ca963b893bfe8ef528ae96ff9b5a01180`. EDTA was not interrupted or
+modified. No executable source or test file was changed in this audit; only
+this report was appended. Existing dirty implementation changes remain
+preserved.
+
+IDENTITY FIELDS VERIFIED:
+* The reusable solve key contains schema, AW/POW/PRM scheme, scope, frame ID,
+  partition scheme, boundary mode/config and boundary-generator digests,
+  environment/solvent digest, physical and auxiliary generator IDs,
+  local-to-system mapping, coordinate/radius geometry digest, membership
+  digest, resolution/vertex/build/solver settings, and solver version.
+* `SharedNetworkIdentity` adds source-network and solve-universe IDs, frame,
+  geometry/partition/scope, solvent mode and generator digest, solvent-cell
+  evidence, retained-system/generator membership, and ordered view/group A/B
+  selection IDs plus orientation.
+* Network archives retain source SHA/path, source/network IDs, generator
+  mappings and stable IDs, boundary indices/config/generators, solvent
+  membership/digest/status, retained membership, settings, typed Results,
+  ResultsDependency, archive provenance, and geometry/analysis status.
+* Typed checkpoints retain exact embedded source bytes/hash, atom identity and
+  coordinates/radii, dependency digests for source/coordinates/radii/settings/
+  generators/topology, ordered interface identity, network/cache/result
+  statuses, and provenance/GeometryLineage.
+
+REUSE POLICY:
+`REUSE` is safe only for a positive `AWReuseDecision.EXACT_REUSE` assessment,
+current dependency evidence, a proven local completeness certificate, and
+positive equality for every identity above. `GeometryLineage.EXACT_REUSE`
+already requires positive generator/competitor/solve-context evidence and
+proven completeness.
+
+`PARTIAL_REUSE` is the conservative mapping for valid geometry whose selected
+view or optional analysis is incomplete: retain local measurements as
+`PARTIAL`/`UNRESOLVED` or `MATERIALIZED_VIEW`; never emit `EXACT_REUSE` or
+certified complete values. `RECOMPUTE_REQUIRED` maps to incompatible scheme,
+environment, settings, coordinates/radii, membership, or topology. `BLOCKED`
+maps to missing/contradictory source, frame-parent, boundary, or dependency
+identity and must remain `UNRESOLVED`/fail-closed. There is not yet one public
+four-state batch decision type; the existing AW enum is
+`EXACT_REUSE`, `REJECT_INCOMPLETE`, `REJECT_ENVIRONMENT`,
+`REJECT_TOPOLOGY`, `UNRESOLVED`.
+
+VALIDATION:
+* Recovery/checkpoint/lineage/shared-identity suite: **67 passed, 3 skipped**
+  out of 70 collected. Skips are the absent historical 1BNA checkpoint.
+* Synthetic boundary/solvent archive and malformed-role gates: **4 passed**.
+* Synthetic full-system reuse/no-build/partial-status gates: **5 passed**.
+No molecular solve, large archive load, historical rewrite, commit, or push
+was performed. The parent repository's verified `.venv` interpreter was used
+against this worktree because the isolated worktree has no local `.venv`.
+
+LIMITATIONS / REQUIRED HANDOFFS:
+1. The legacy `.vpy` network archive stores a source path and SHA-256, not
+   embedded source bytes. `recover_network_source()` therefore cannot satisfy
+   source-independent replay without an external PDB; the typed checkpoint
+   `CheckpointSource` can, but it is not wired into network recovery.
+2. `frame_id`/`frame_index` are preserved and included in solve identity, but
+   no parent-trajectory identity is modeled. Identical frame labels from
+   different trajectories are not safely distinguishable.
+3. Recovery defaults remain POW/MOLECULE_ONLY and radii/settings checks are
+   caller-supplied; PRISM must pass explicit method, solvent, settings,
+   frame/parent, and source expectations. Do not infer from filenames.
+4. `CheckpointDocument` has no dedicated typed boundary-role or trajectory-
+   parent fields; VECTOR must preserve those in the archive/network contract
+   or ATLAS must extend the typed schema after EDTA coordination.
+5. A selective A/B checkpoint must remain scoped to that interface; absent
+   A/C geometry is a dependency failure, not a reason to fabricate a view.
+
+HANDOFF:
+PRISM should implement batch manifests using the four-state policy above and
+refuse reuse on any unresolved identity field. VECTOR should atomically write
+the complete identity closure, including source bytes for self-contained
+checkpoints and explicit trajectory-parent/boundary-role records. No source
+changes were made while EDTA was active.
+
+--- ATLAS UNIVERSAL CHECKPOINT RECOVERY RELEASE BLOCKER / 2026-10-20 ---
+
+FREEZE:
+The worktree remains `nexusa/integration-2026-10-20` at
+`35de721ca963b893bfe8ef528ae96ff9b5a01180`. The EDTA source-edit freeze was
+honored. No executable source, test, archive, or Git operation was changed;
+only this report was appended.
+
+UNSAFE DEFAULTS FOUND:
+* `recover_network_source()` defaults `expected_scheme='pow'` and
+  `expected_solvent_mode='MOLECULE_ONLY'`. A caller that omits both can
+  validate an incompatible checkpoint against the wrong requested model.
+* Recovery constructs `System(... solvent_mode=expected_solvent_mode)`, so the
+  same defaults affect source parsing rather than merely diagnostics.
+* `SharedNetworkIdentity.solvent_mode` defaults to `MOLECULE_ONLY`.
+* `build_solve_context_key()` defaults a missing scheme to `aw`, missing
+  partition to `default`, and missing frame evidence to the generic `default`
+  frame ID. These are unsafe for identity-required reuse when metadata is
+  absent.
+* `CheckpointPayload.from_mapping()` defaults an absent payload status to
+  `CERTIFIED`; this can overstate an incomplete payload unless the container
+  contract requires the field before deserialization.
+* Network `.vpy` archives preserve source path/hash, not source bytes. Recovery
+  therefore requires the external source file and cannot satisfy source-
+  independent replay. `CheckpointSource` embeds bytes, but no adapter connects
+  it to `recover_network_source()`.
+
+WHAT IS ALREADY FAIL-CLOSED:
+Scheme/solvent mismatches supplied by the caller, source hash mismatch,
+coordinates/radii and stable generator identity mismatch, malformed boundary
+roles, missing legacy solvent/boundary evidence, dependency digest mismatch,
+and partial scientific status are rejected or remain unresolved. Legacy
+archives are not upgraded by inventing missing identity.
+
+BOUNDED MATRIX:
+The synthetic recovery parameterization covers all six combinations:
+AW-dry, AW-wet, POW-dry, POW-wet, PRM-dry, and PRM-wet. The current gate
+passed **6/6 matrix cases**, including save/load and no `Network.build()` in
+the same process. Separate boundary/solvent/malformed archive gates passed
+**4**, and no-build/partial-status gates passed **5**. Recovery/checkpoint/
+lineage gates passed **45**, with **3 historical-1BNA skips**.
+
+The required release acceptance is **not met**: the matrix retains access to
+the external source PDB, is not a fresh-process replay, and does not recover
+from embedded `CheckpointSource` bytes. No test currently proves interface
+replay after deleting the external PDB. The six-mode result is therefore
+metadata compatibility evidence, not universal source-independent recovery.
+
+REQUIRED IMPLEMENTATION AFTER FREEZE:
+1. Remove implicit method/solvent acceptance from public recovery: absent
+   values must be `BLOCKED`, while explicit expected values must match the
+   archive. Preserve legacy loading, but mark absent identity unresolved.
+2. Add a source-independent adapter that consumes validated embedded source
+   bytes/hash and reconstructs only source identity; it must not invent missing
+   boundary, frame, parent-trajectory, radius/weight, or competitor fields.
+3. Make frame and trajectory-parent identity mandatory for reusable multi-frame
+   checkpoints, and require explicit radii/weight/settings digests.
+4. Add fresh-process six-mode tests with the external source removed, plus
+   negative tests for every missing identity field.
+
+HANDOFF:
+PRISM must pass explicit method, solvent, frame/parent, settings, source and
+selection expectations in any public route. VECTOR must serialize the
+embedded source, boundary-role records, competitor universe, frame parent,
+and complete solver identity atomically. This remains a release blocker until
+those changes are coordinated and the freeze is lifted.

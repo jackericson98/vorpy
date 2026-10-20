@@ -208,7 +208,7 @@ def execution_profile_cli_options(args):
                 profile = 'geometry'
             if profile not in EXECUTION_PROFILES:
                 raise SystemExit(
-                    '--profile requires geometry, simple, interface, analysis, or full'
+                    '--profile requires geometry, interface, analysis, or full'
                 )
         else:
             remaining.append(arg)
@@ -694,6 +694,9 @@ class Command:
         self.interface_result_handoffs = ()
         self.interface_result_errors = ()
         self._checkpoint_source_tempdir = None
+        # Directory ownership is process-local.  A new Command over a reused
+        # System must not inherit a failed run's reservations.
+        self._interface_reservation_owner = object()
 
     def run(self):
         self._cli_timing_started = (perf_counter(), process_time())
@@ -1846,6 +1849,7 @@ class Command:
         from vorpy.src.network.views import NetworkViewError
 
         source = self._full_system_group.net
+        recovered = getattr(self.sys, '_archive_recovered_source', None)
         source_network_id = self._full_system_source_network_id()
         self.sys.ifaces = []
         for group_a, group_b in interface_pairs:
@@ -1856,13 +1860,19 @@ class Command:
             )
             actual_group_b = interface.group2
             try:
-                view = source.make_view(
-                    iface_grps=(
-                        tuple(sorted(int(index) for index in group_a.ball_ndxs)),
-                        tuple(sorted(int(index) for index in actual_group_b.ball_ndxs)),
-                    ),
-                    source_network_id=source_network_id,
-                )
+                group_a_ids = tuple(sorted(int(index) for index in group_a.ball_ndxs))
+                group_b_ids = tuple(sorted(int(index) for index in actual_group_b.ball_ndxs))
+                if recovered is not None:
+                    view = recovered.make_interface_view(
+                        group_a_ids,
+                        group_b_ids,
+                        source_network_id=source_network_id,
+                    )
+                else:
+                    view = source.make_view(
+                        iface_grps=(group_a_ids, group_b_ids),
+                        source_network_id=source_network_id,
+                    )
             except NetworkViewError as error:
                 # The solved source network is still a valid completed
                 # checkpoint; only this requested derived interface failed.
@@ -1900,55 +1910,101 @@ class Command:
             return label
         return type(group).__name__
 
+    @staticmethod
+    def _interface_reservation_id(group1, group2):
+        """Return the directory identity used by Interface.make_interface_id."""
+        group1_id = str(getattr(group1, 'group_id', None) or group1.name)
+        group2_id = (
+            f'{group1_id}__surrounding'
+            if group2 is None
+            else str(getattr(group2, 'group_id', None) or group2.name)
+        )
+        return (
+            f'{group1_id}__{group2_id}'
+            if group2 is None
+            else '__'.join(sorted((group1_id, group2_id)))
+        )
+
+    def _interface_reservations(self):
+        """Return this Command's explicit path-to-interface reservations."""
+        raw = getattr(self.sys, '_cli_interface_output_reservations', {}) or {}
+        return {
+            Path(path).resolve(): interface_id
+            for path, value in raw.items()
+            if isinstance(value, tuple)
+            and len(value) == 2
+            and value[0] is self._interface_reservation_owner
+            for interface_id in (str(value[1]),)
+        }
+
+    def _store_interface_reservations(self, reservations):
+        raw = getattr(self.sys, '_cli_interface_output_reservations', {}) or {}
+        for path, interface_id in reservations.items():
+            raw[str(Path(path).resolve())] = (
+                self._interface_reservation_owner,
+                str(interface_id),
+            )
+        self.sys._cli_interface_output_reservations = raw
+        self.sys._cli_owned_interface_directories = tuple(
+            str(path) for path in reservations
+        )
+        self.sys._cli_reserved_interface_directories = tuple(
+            str(Path(path).resolve()) for path in raw
+        )
+
     def _prepare_interface_output_directories(self):
         root = Path(self.sys.files['dir']).resolve()
         if canonical_layout_enabled(self.sys):
             interfaces = list(getattr(self.sys, 'ifaces', ()) or ())
-            owned = {
-                Path(path).resolve()
-                for path in (
-                    tuple(getattr(self.sys, '_cli_owned_interface_directories', ()))
-                    + tuple(getattr(self.sys, '_cli_reserved_interface_directories', ()))
-                )
-            }
+            owned = self._interface_reservations()
             directories = [
                 canonical_interface_directory(self.sys, interface)
                 for interface in interfaces
             ]
-            for directory in directories:
-                if directory.exists() and self.fail_if_exists and directory.resolve() not in owned:
+            claimed = dict(owned)
+            for interface, directory in zip(interfaces, directories):
+                directory = directory.resolve()
+                interface_id = str(getattr(interface, 'interface_id', interface.name))
+                current_owner = claimed.get(directory)
+                if current_owner is not None and current_owner != interface_id:
                     raise SystemExit(
                         f'Refusing to reuse existing interface output directory: {directory}'
                     )
-            # This is the first creator for interface runs; the guard above
-            # therefore sees only destinations that existed before this run.
+                if directory.exists() and self.fail_if_exists and current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: {directory}'
+                    )
+                if not directory.exists():
+                    directory.mkdir(parents=True, exist_ok=False)
+                claimed[directory] = interface_id
+
             from vorpy.src.output.layout import prepare_canonical_root
             prepare_canonical_root(self.sys)
-            self.sys._cli_owned_interface_directories = tuple(
-                str(directory.resolve()) for directory in directories
-            )
+            self._store_interface_reservations(claimed)
             self.sys._cli_interface_output_prepared = True
             for interface, directory in zip(interfaces, directories):
                 interface.dir = str(directory)
             return
+        owned = self._interface_reservations()
+        claimed = dict(owned)
         occupied = []
-        owned = {
-            Path(path).resolve()
-            for path in (
-                tuple(getattr(self.sys, '_cli_owned_interface_directories', ()))
-                + tuple(getattr(self.sys, '_cli_reserved_interface_directories', ()))
-            )
-        }
         for interface in getattr(self.sys, 'ifaces', ()) or ():
             name = slug(getattr(interface, 'name', 'interface'))
-            directory = root / name
+            interface_id = str(getattr(interface, 'interface_id', interface.name))
+            directory = Path(getattr(interface, 'dir', None) or (root / name)).resolve()
             if directory.exists():
-                if self.fail_if_exists and directory.resolve() not in owned:
+                current_owner = claimed.get(directory)
+                if current_owner is not None and current_owner != interface_id:
                     raise SystemExit(
                         f'Refusing to reuse existing interface output directory: '
                         f'{directory}'
                     )
-                if directory.resolve() in owned:
+                if self.fail_if_exists and current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: '
+                        f'{directory}'
+                    )
+                if current_owner == interface_id:
                     interface.dir = str(directory)
                     occupied.append(directory)
                     continue
@@ -1956,62 +2012,53 @@ class Command:
             directory.mkdir(parents=True, exist_ok=False)
             interface.dir = str(directory)
             occupied.append(directory)
+            claimed[directory.resolve()] = interface_id
+        self._store_interface_reservations(claimed)
 
     def _reserve_interface_output_destinations(self, interface_pairs):
         """Validate interface destinations before Interface.make_net can touch them."""
         if not self.fail_if_exists:
             return
         root = Path(self.sys.files['dir']).resolve()
-        reserved = {
-            Path(path).resolve()
-            for path in getattr(self.sys, '_cli_reserved_interface_directories', ())
-        }
-        directories = []
-        occupied = set(reserved)
+        reservations = self._interface_reservations()
+        planned = {}
         for group1, group2 in interface_pairs:
-            group1_id = str(getattr(group1, 'group_id', None) or group1.name)
-            group2_id = (
-                'surrounding'
-                if group2 is None
-                else str(getattr(group2, 'group_id', None) or group2.name)
-            )
+            interface_id = self._interface_reservation_id(group1, group2)
             if canonical_layout_enabled(self.sys):
-                interface_id = (
-                    f'{group1_id}__{group2_id}'
-                    if group2 is None
-                    else '__'.join(sorted((group1_id, group2_id)))
-                )
                 directory = canonical_interfaces_directory(self.sys) / slug(interface_id)
             else:
                 candidate = (root / interface_folder_name(group1, group2)).resolve()
-                if candidate.exists() and candidate not in occupied:
+                if candidate.exists() and candidate not in reservations:
                     raise SystemExit(
                         f'Refusing to reuse existing interface output directory: {candidate}'
                     )
                 directory = (
                     candidate
-                    if candidate not in occupied
-                    else unique_output_directory(root, candidate.name, occupied)
+                    if candidate not in reservations
+                    else unique_output_directory(root, candidate.name, (*reservations, *planned))
                 )
             directory = directory.resolve()
-            if directory in occupied:
+            current_owner = reservations.get(directory) or planned.get(directory)
+            if current_owner is not None:
+                if current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: {directory}'
+                    )
                 continue
             if directory.exists():
                 raise SystemExit(
                     f'Refusing to reuse existing interface output directory: {directory}'
                 )
-            directories.append(directory)
-            occupied.add(directory)
-        for directory in directories:
+            planned[directory] = interface_id
+        for directory in planned:
             try:
                 directory.mkdir(parents=True, exist_ok=False)
             except FileExistsError as error:
                 raise SystemExit(
                     f'Refusing to reuse existing interface output directory: {directory}'
                 ) from error
-        self.sys._cli_reserved_interface_directories = tuple(
-            str(path) for path in (*reserved, *directories)
-        )
+        reservations.update(planned)
+        self._store_interface_reservations(reservations)
         self.sys._defer_interface_output_directory = True
 
     @staticmethod
@@ -3054,25 +3101,74 @@ class Command:
         """Recover an ordered interface from an already solved source network."""
         from types import SimpleNamespace
 
-        from vorpy.src.io import validate_network_source
+        from vorpy.src.io import ArchiveError, recover_network_source
 
         metadata = dict(getattr(network, 'archive_metadata', {}) or {})
         canonical = bool(getattr(self.sys, '_loaded_from_canonical_checkpoint', False))
-        source_path = (
-            self.sys.files.get('base_file')
-            if canonical else metadata.get('original_structure_path')
+        source_path = self.sys.files.get('base_file') if canonical else metadata.get(
+            'original_structure_path'
         )
         settings = dict(getattr(network, 'settings', {}) or {})
-        validation = validate_network_source(
-            network,
-            source_path,
-            expected_scheme=settings.get('net_type', 'pow') if canonical else 'pow',
-            expected_solvent_mode=(
-                settings.get('solvent_mode') if canonical else 'MOLECULE_ONLY'
-            ),
+        source_kind = 'canonical_embedded' if canonical else (
+            'legacy_source_less' if not source_path else 'legacy_filesystem'
         )
+        self.sys.archive_recovery_source_kind = source_kind
+        if not source_path:
+            raise ArchiveError(
+                'Cannot replay interface: source-less legacy archive has no '
+                'recoverable molecular source/dependency.'
+            )
+        expected_scheme = settings.get('net_type')
+        expected_solvent_mode = settings.get('solvent_mode')
+        if expected_scheme is None or expected_solvent_mode is None:
+            raise ArchiveError(
+                'Cannot replay interface: archive metadata lacks the recorded '
+                'network scheme and solvent mode.'
+            )
+        try:
+            recovered = recover_network_source(
+                network,
+                source_path,
+                expected_scheme=expected_scheme,
+                expected_solvent_mode=expected_solvent_mode,
+                expected_settings={
+                    'net_type': expected_scheme,
+                    'solvent_mode': expected_solvent_mode,
+                },
+                expected_solve_universe_id=metadata.get('solve_universe_id'),
+            )
+        except ArchiveError as error:
+            raise ArchiveError(
+                f'Cannot replay {str(expected_scheme).upper()} interface from '
+                f'{source_kind} checkpoint: {error}'
+            ) from error
+        validation = dict(recovered.validation)
+        validation.update({
+            'recovery_source_kind': source_kind,
+            'recovery_mode': 'canonical_replay' if canonical else 'legacy_replay',
+        })
+        recovery_provenance = {
+            'mode': validation['recovery_mode'],
+            'source_kind': source_kind,
+            'scheme': validation['scheme'],
+            'solvent_mode': validation['solvent_mode'],
+            'source_sha256': validation['source_sha256'],
+            'solve_universe_id': validation['solve_universe_id'],
+            'source_network_id': validation['source_network_id'],
+        }
+        self.sys._archive_recovered_source = recovered
+        self.sys.archive_recovery_provenance = recovery_provenance
+        network.archive_provenance = {
+            **dict(getattr(network, 'archive_provenance', {}) or {}),
+            'recovery': recovery_provenance,
+        }
         self.sys.archive_recovery_validation = validation
         self.sys.archive_recovery_checkpoint = str(Path(archive_path).resolve())
+        print(
+            f'Checkpoint replay: {source_kind}; method={str(validation["scheme"]).upper()} '
+            f'solvent={validation["solvent_mode"]}; geometry rebuild=none',
+            flush=True,
+        )
         # Interface Result identity is the original source, while the loaded
         # checkpoint remains the geometry producer and is never overwritten.
         self.base_file = Path(validation['source_path'])
@@ -3317,12 +3413,16 @@ class Command:
         self.sys = network.sys
         self.sys._loaded_from_archive = True
         self.sys._fail_if_exists = self.fail_if_exists
-        self.sys.set_output_directory(
-            self.sys.files['dir'], fail_if_exists=self.fail_if_exists
-        )
         if profile is not None:
             started = (perf_counter(), process_time())
         self.parse_commands()
+        # Parse ``-e dir`` before reserving the default replay destination so
+        # a requested destination is not accompanied by an unused fallback.
+        output_dir = self.sys.files.get('dir')
+        if output_dir is None or not Path(output_dir).exists():
+            self.sys.set_output_directory(
+                output_dir, fail_if_exists=self.fail_if_exists
+            )
         self.sys.verbose = self.verbose
         self.sys._write_archive_timing_manifest = bool(
             self.verbose or self.diagnose_edges or self.execution_profile is not None

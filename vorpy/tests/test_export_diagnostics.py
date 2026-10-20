@@ -40,7 +40,7 @@ def test_canonical_log_failure_is_stage_labeled_and_does_not_create_file(tmp_pat
     progress = _progress()
     interface = SimpleNamespace(dir=str(tmp_path))
 
-    def fail_rows(_iface):
+    def fail_rows(_iface, **kwargs):
         raise TypeError('unsupported interface-log value: function')
 
     monkeypatch.setattr(output, '_export_canonical_interface_log', output._export_canonical_interface_log)

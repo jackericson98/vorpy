@@ -259,6 +259,8 @@ def test_interface_only_pipeline_builds_no_full_system_or_group_networks(
 
 
 def test_canonical_1aay_groups_keep_membership_and_zinc_without_geometry_build():
+    if not (DATA / "1AAY_no_sol.pdb").is_file():
+        pytest.skip("prepared fixture is absent: 1AAY_no_sol.pdb")
     settings = {"net_type": "aw"}
     baseline = System(file=str(DATA / "1AAY_no_sol.pdb"), make_dir=False)
     ggroup(

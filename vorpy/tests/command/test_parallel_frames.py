@@ -205,5 +205,5 @@ def test_spawned_cli_builds_and_exports_every_frame(tmp_path, workers, entry):
         first_atom = next(line for line in exported if line.startswith(('ATOM  ', 'HETATM')))
         assert float(first_atom[30:38]) == pytest.approx(float(atoms[0][30:38]) + i)
         log = (directory / 'run.log').read_text()
-        assert f'frame {i} only' in log
+        assert f'Frame: {i}/3 loaded' in log
         assert 'network built' in log

@@ -229,6 +229,31 @@ def test_full_solvent_interface_keeps_water_as_global_competitor(tmp_path):
     assert network.solvent_mode == SolventMode.FULL_SOLVENT.value
 
 
+def test_full_solvent_interface_keeps_water_and_ion_competitors_outside_owners(tmp_path):
+    balls = _balls().copy()
+    balls.loc[2, "res_name"] = "NA"
+    system = System(
+        spheres=balls,
+        name="full-solvent-water-ion-interface",
+        output_directory=str(tmp_path),
+        make_dir=False,
+        solvent_mode=SolventMode.FULL_SOLVENT,
+    )
+    group_a = Group(system, name="solute-A", atoms=[0], make_net=False, build_net=False)
+    group_b = Group(system, name="solute-B", atoms=[1], make_net=False, build_net=False)
+    system._compact_interface_workflow = True
+    interface = Interface(system, group_a, group_b)
+    network = interface.make_net()
+
+    assert network.generator_system_indices == (0, 1, 2)
+    assert network.solvent_local_indices == (1, 2)
+    assert network.solvent_generator_ids == ("system:1", "system:2")
+    assert network.group == [0, 1]
+    assert network.iface_grps == ({0}, {1})
+    assert set(interface.group1_indices) | set(interface.group2_indices) == {0, 1}
+    assert set(network.generator_system_indices) - {0, 1} == {2}
+
+
 def test_molecule_only_view_accepts_incomplete_numerical_boundary_support():
     locations = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (1.0, 1.0, 2.0)]
     balls = pd.DataFrame({

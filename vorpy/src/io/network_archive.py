@@ -70,6 +70,52 @@ def _source_sha256(path):
         return None
 
 
+def _physical_generator_rows(network):
+    """Return source-generator rows while preserving attested boundaries.
+
+    Boundary generators are numerical geometry inputs, not source atoms.  A
+    recoverable checkpoint may therefore contain them alongside physical
+    source rows, but every boundary row must be explicitly identified.
+    """
+    balls = getattr(network, 'balls', None)
+    generator_indices = getattr(network, 'generator_system_indices', None)
+    if balls is None or generator_indices is None:
+        raise ArchiveError('Checkpoint lacks explicit generator identity metadata')
+    generator_indices = tuple(generator_indices)
+    if len(generator_indices) != len(balls):
+        raise ArchiveError('Checkpoint generator metadata disagrees with its balls table')
+
+    boundary_indices = tuple(getattr(network, 'boundary_indices', ()) or ())
+    boundary_set = set()
+    for value in boundary_indices:
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+            raise ArchiveError('Checkpoint boundary generator index is invalid')
+        value = int(value)
+        if value < 0 or value >= len(generator_indices) or value in boundary_set:
+            raise ArchiveError('Checkpoint boundary generator indices are invalid')
+        boundary_set.add(value)
+
+    physical = []
+    observed_boundaries = set()
+    for local_index, value in enumerate(generator_indices):
+        if value is None:
+            if local_index not in boundary_set:
+                raise ArchiveError('Recovery source contains an unattested boundary generator')
+            observed_boundaries.add(local_index)
+            continue
+        if local_index in boundary_set:
+            raise ArchiveError('Checkpoint boundary row has a physical generator ID')
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or int(value) < 0:
+            raise ArchiveError(f'Checkpoint generator system index is invalid: {value!r}')
+        physical.append((local_index, int(value)))
+
+    if observed_boundaries != boundary_set:
+        raise ArchiveError('Checkpoint boundary indices do not match generator identities')
+    if boundary_set and len(getattr(network, 'boundary_generators', ()) or ()) != len(boundary_set):
+        raise ArchiveError('Checkpoint boundary generator metadata is incomplete')
+    return tuple(physical), boundary_set
+
+
 def validate_network_source(network, source_path, *, expected_scheme=None,
                             expected_solvent_mode=None):
     """Validate a loaded network against its recorded molecular source.
@@ -111,20 +157,17 @@ def validate_network_source(network, source_path, *, expected_scheme=None,
     # Local generator order and stable IDs are part of the trust boundary;
     # do not infer or repair them during recovery.
     balls = getattr(network, 'balls', None)
-    generator_indices = getattr(network, 'generator_system_indices', None)
     stable_ids = getattr(network, 'generator_stable_ids', None)
-    if balls is None or generator_indices is None or stable_ids is None:
-        raise ArchiveError('Checkpoint lacks explicit generator identity metadata')
-    generator_indices = tuple(
-        None if value is None else int(value) for value in generator_indices
-    )
-    stable_ids = tuple(str(value) for value in stable_ids)
-    if len(generator_indices) != len(balls) or len(stable_ids) != len(balls):
+    physical_rows, boundary_indices = _physical_generator_rows(network)
+    if stable_ids is None or len(stable_ids) != len(balls):
         raise ArchiveError('Checkpoint generator metadata disagrees with its balls table')
-    if any(value is None for value in generator_indices):
-        raise ArchiveError('Recovery source contains non-source boundary generators')
+    stable_ids = tuple(str(value) for value in stable_ids)
+    generator_indices = tuple(system_index for _, system_index in physical_rows)
     if len(set(generator_indices)) != len(generator_indices):
         raise ArchiveError('Checkpoint generator system indices are not unique')
+    for local_index in boundary_indices:
+        if not stable_ids[local_index]:
+            raise ArchiveError('Checkpoint boundary generator identity is missing')
 
     # Import locally to keep archive loading independent of molecular input
     # readers and to make it explicit that this path does not build geometry.
@@ -143,8 +186,11 @@ def validate_network_source(network, source_path, *, expected_scheme=None,
     if tuple(generator_indices) != tuple(range(len(source_balls))):
         raise ArchiveError('Checkpoint generators are not the ordered source PDB universe')
 
-    expected_stable_ids = tuple(f'system:{index}' for index in generator_indices)
-    if stable_ids != expected_stable_ids:
+    expected_stable_ids = tuple(
+        f'system:{system_index}' for _, system_index in physical_rows
+    )
+    physical_stable_ids = tuple(stable_ids[local_index] for local_index, _ in physical_rows)
+    if physical_stable_ids != expected_stable_ids:
         raise ArchiveError('Checkpoint generator stable IDs do not match source order')
 
     # A checkpoint may retain the source-generator policy separately from the
@@ -180,7 +226,7 @@ def validate_network_source(network, source_path, *, expected_scheme=None,
     if identity_balls is None or len(identity_balls) != len(source_balls):
         raise ArchiveError('Checkpoint lacks the archived source atom table')
     comparable = ('name', 'res_name', 'res_seq', 'chain_id', 'element')
-    for local_index, system_index in enumerate(generator_indices):
+    for local_index, system_index in physical_rows:
         archived = identity_balls.iloc[system_index]
         geometry = balls.iloc[local_index]
         original = source_balls.iloc[system_index]
@@ -207,6 +253,11 @@ def validate_network_source(network, source_path, *, expected_scheme=None,
         int(complete.astype(bool).sum())
         if complete is not None else None
     )
+    scientific_result_status = str(
+        provenance.get('scientific_result_status')
+        or provenance.get('analysis_status')
+        or 'NOT_CALCULATED'
+    ).upper()
     return {
         'source_path': str(source),
         'source_sha256': actual_hash,
@@ -220,6 +271,11 @@ def validate_network_source(network, source_path, *, expected_scheme=None,
         'generator_policy': generator_policy,
         'geometry_status': provenance.get('geometry_status'),
         'analysis_status': provenance.get('analysis_status'),
+        # Source/dependency validation succeeded; this is independent of
+        # whether optional scientific measurements are certified.
+        'geometry_checkpoint_valid': True,
+        'scientific_result_status': scientific_result_status,
+        'scientific_result_certified': scientific_result_status == 'CERTIFIED',
         'settings': settings,
     }
 
@@ -311,6 +367,11 @@ FIELDS['network'] += (
     'solvent_cells_complete', 'solvent_generator_digest',
     'retained_system_indices', 'retained_generator_ids',
     'retained_generator_digest',
+)
+# v3 optional extension: preserve explicit polyhedral Gaussian availability.
+FIELDS['group'] += (
+    'gaussian_curvature_status',
+    'gaussian_curvature_unavailable_reason',
 )
 # v3 optional extension: preserve the producer namespace separately from the
 # archive object ID. Missing legacy values remain unavailable on load.

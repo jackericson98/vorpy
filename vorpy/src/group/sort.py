@@ -469,6 +469,8 @@ def get_info(group):
     group.int_gauss_curv_edge = 0.0
     group.int_gauss_curv_vertex = 0.0
     group.int_gauss_curv = 0.0
+    group.gaussian_curvature_status = "NOT_CALCULATED"
+    group.gaussian_curvature_unavailable_reason = None
     group.euler_characteristic = None
     group.gauss_bonnet_expected = None
     group.gauss_bonnet_error = None
@@ -507,6 +509,8 @@ def get_info(group):
     group.concave_avg_mean_curv = 0.0
     group.oriented_surface_count = 0
     group.unoriented_surface_count = 0
+    mean_curvature_complete = True
+    gaussian_curvature_complete = True
     # Center of masses
     com, vdw_com = [0, 0, 0], [0, 0, 0]
     # Get the balls in the group
@@ -607,9 +611,21 @@ def get_info(group):
             # Integrated curvature
             # --------------------------------------------------------------
 
-            int_mean_curv = surf.get('int_mean_curv', 0.0)
-            int_mean_curv_sq = surf.get('int_mean_curv_sq', 0.0)
-            int_gauss_curv = surf.get('int_gauss_curv', 0.0)
+            int_mean_curv = surf.get('int_mean_curv', None)
+            int_mean_curv_sq = surf.get('int_mean_curv_sq', None)
+            int_gauss_curv = surf.get('int_gauss_curv', None)
+
+            for value in (int_mean_curv, int_mean_curv_sq):
+                try:
+                    if value is None or not np.isfinite(float(value)):
+                        mean_curvature_complete = False
+                except (TypeError, ValueError):
+                    mean_curvature_complete = False
+            try:
+                if int_gauss_curv is None or not np.isfinite(float(int_gauss_curv)):
+                    gaussian_curvature_complete = False
+            except (TypeError, ValueError):
+                gaussian_curvature_complete = False
 
             # Protect against missing/None values
             if int_mean_curv is not None:
@@ -773,6 +789,9 @@ def get_info(group):
             boundary_vertices.update(int(_) for _ in net.edges.iloc[edge_id].get('verts', []))
         except (IndexError, TypeError, ValueError):
             group.boundary_missing_edges += 1
+    if not boundary_surfaces:
+        mean_curvature_complete = False
+        gaussian_curvature_complete = False
     edge_faces = {edge_id: set() for edge_id in boundary_edges}
     vertex_faces = {vert_id: set() for vert_id in boundary_vertices}
     for surf_id in boundary_surfaces:
@@ -785,6 +804,28 @@ def get_info(group):
         except (IndexError, TypeError, ValueError):
             group.boundary_missing_faces += 1
 
+    network_type = str((net.settings or {}).get("net_type", "aw")).lower()
+    polyhedral_network = network_type in {"pow", "prm"}
+    polyhedral_result = None
+    if polyhedral_network:
+        from vorpy.src.calculations.polyhedral_gaussian_curvature import (
+            POLYHEDRAL_STATUS_UNAVAILABLE,
+            PolyhedralGaussianCurvatureResult,
+            calculate_polyhedral_gaussian_curvature,
+        )
+
+        if group.boundary_missing_faces or len(surface_cells) != len(boundary_surfaces):
+            polyhedral_result = PolyhedralGaussianCurvatureResult(
+                status=POLYHEDRAL_STATUS_UNAVAILABLE,
+                total=None,
+                reasons=("group boundary face ownership is incomplete",),
+            )
+        else:
+            polyhedral_result = calculate_polyhedral_gaussian_curvature(
+                net,
+                sorted(boundary_surfaces),
+            )
+
     edge_mean = edge_gauss = vertex_gauss = 0.0
     invalid_edges = invalid_vertices = 0
     edge_diagnostics = []
@@ -792,15 +833,18 @@ def get_info(group):
     # Edge Gaussian values are stored per directed face incidence.  A group
     # boundary edge contributes exactly its retained boundary-face incidences;
     # cell totals are never reused for this reduction.
-    edge_face_values = getattr(net, "edges", {}).get("int_gauss_curv_by_face", None)
-    if edge_face_values is None:
-        cache = getattr(net, "_aw_fused_edge_curvature_cache", {})
-        edge_face_values = cache.get("gaussian_by_face") if isinstance(cache, dict) else None
+    edge_face_values = None
+    if not polyhedral_network:
+        edge_face_values = getattr(net, "edges", {}).get("int_gauss_curv_by_face", None)
+        if edge_face_values is None:
+            cache = getattr(net, "_aw_fused_edge_curvature_cache", {})
+            edge_face_values = cache.get("gaussian_by_face") if isinstance(cache, dict) else None
     resolved_edges = {}
-    try:
-        resolved_edges, _, _ = get_aw_edge_geometry_cache(net, tolerance=1e-7)
-    except Exception:
-        resolved_edges = {}
+    if not polyhedral_network:
+        try:
+            resolved_edges, _, _ = get_aw_edge_geometry_cache(net, tolerance=1e-7)
+        except Exception:
+            resolved_edges = {}
 
     for edge_id, faces in edge_faces.items():
         boundary_face_ids = sorted(s for s in faces if s in surface_cells)
@@ -834,6 +878,8 @@ def get_info(group):
         except (IndexError, KeyError, StopIteration, TypeError, ValueError):
             invalid_edges += 1
             continue
+        if polyhedral_network:
+            continue
         if edge_face_values is None or edge_id >= len(edge_face_values):
             invalid_edges += 1
             continue
@@ -856,6 +902,8 @@ def get_info(group):
         edge_diagnostics.append((int(edge_id), edge_contribution, boundary_face_ids))
 
     for vert_id, faces in vertex_faces.items():
+        if polyhedral_network:
+            continue
         boundary_face_ids = sorted(s for s in faces if s in surface_cells)
         if not boundary_face_ids:
             invalid_vertices += 1
@@ -882,17 +930,64 @@ def get_info(group):
     group.boundary_missing_vertices = invalid_vertices
     group.int_mean_curv_edge = edge_mean
     group.int_mean_curv = group.int_mean_curv_face + edge_mean
-    group.int_gauss_curv_edge = edge_gauss
-    group.int_gauss_curv_vertex = vertex_gauss
-    group.int_gauss_curv = group.int_gauss_curv_face + edge_gauss + vertex_gauss
+    if polyhedral_network:
+        group.boundary_edge_gaussian_contributions = {}
+        if polyhedral_result is not None and polyhedral_result.available:
+            group.gaussian_curvature_status = "CALCULATED"
+            group.int_gauss_curv_face = 0.0
+            group.int_gauss_curv_edge = 0.0
+            group.int_gauss_curv_vertex = float(polyhedral_result.total)
+            group.int_gauss_curv = float(polyhedral_result.total)
+            group.boundary_vertex_gaussian_contributions = dict(
+                polyhedral_result.vertex_curvatures
+            )
+        else:
+            group.gaussian_curvature_status = "UNAVAILABLE"
+            group.gaussian_curvature_unavailable_reason = "; ".join(
+                polyhedral_result.reasons if polyhedral_result is not None
+                else ("polyhedral curvature was not calculated",)
+            )
+            group.int_gauss_curv_face = None
+            group.int_gauss_curv_edge = None
+            group.int_gauss_curv_vertex = None
+            group.int_gauss_curv = None
+            group.avg_gauss_curv = None
+            group.boundary_vertex_gaussian_contributions = {}
+    else:
+        if getattr(net, "curvature_calculated", None) is False:
+            group.gaussian_curvature_status = "NOT_CALCULATED"
+            group.gaussian_curvature_unavailable_reason = (
+                "network was built without curvature calculation"
+            )
+            group.int_gauss_curv_face = None
+            group.int_gauss_curv_edge = None
+            group.int_gauss_curv_vertex = None
+            group.int_gauss_curv = None
+            group.avg_gauss_curv = None
+        elif not gaussian_curvature_complete or invalid_edges or invalid_vertices:
+            group.gaussian_curvature_status = "UNRESOLVED"
+            group.gaussian_curvature_unavailable_reason = (
+                "one or more boundary surfaces lack finite Gaussian curvature"
+            )
+            group.int_gauss_curv_face = None
+            group.int_gauss_curv_edge = None
+            group.int_gauss_curv_vertex = None
+            group.int_gauss_curv = None
+            group.avg_gauss_curv = None
+        else:
+            group.gaussian_curvature_status = "CALCULATED"
+            group.int_gauss_curv_edge = edge_gauss
+            group.int_gauss_curv_vertex = vertex_gauss
+            group.int_gauss_curv = group.int_gauss_curv_face + edge_gauss + vertex_gauss
     # Preserve measured contributions for component-level diagnostic reduction.
     # These are the same values used above, never Gauss--Bonnet substitutions.
-    group.boundary_edge_gaussian_contributions = dict(
-        (edge, value) for edge, value, _ in edge_diagnostics
-    )
-    group.boundary_vertex_gaussian_contributions = dict(
-        (vertex, value) for vertex, value, _, _ in vertex_diagnostics
-    )
+    if not polyhedral_network:
+        group.boundary_edge_gaussian_contributions = dict(
+            (edge, value) for edge, value, _ in edge_diagnostics
+        )
+        group.boundary_vertex_gaussian_contributions = dict(
+            (vertex, value) for vertex, value, _, _ in vertex_diagnostics
+        )
 
     # Boundary-complex topology: faces are exposed pairwise patches, with
     # network edges/vertices deduplicated by their topology identifiers.
@@ -964,19 +1059,46 @@ def get_info(group):
         and group.boundary_missing_edges == 0
         and group.boundary_missing_vertices == 0
     )
+    if (
+        polyhedral_network
+        and group.gaussian_curvature_status == "CALCULATED"
+        and not group.boundary_is_complete
+    ):
+        group.gaussian_curvature_status = "UNAVAILABLE"
+        group.gaussian_curvature_unavailable_reason = (
+            "group boundary topology is incomplete after curvature validation"
+        )
+        group.int_gauss_curv_face = None
+        group.int_gauss_curv_edge = None
+        group.int_gauss_curv_vertex = None
+        group.int_gauss_curv = None
+        group.avg_gauss_curv = None
+        group.boundary_vertex_gaussian_contributions = {}
     if group.boundary_is_closed and group.boundary_is_manifold and group.boundary_is_orientable:
         group.gauss_bonnet_expected = 2.0 * np.pi * group.euler_characteristic
-        group.gauss_bonnet_error = group.int_gauss_curv - group.gauss_bonnet_expected
-        group.gauss_bonnet_relative_error = (
-            abs(group.gauss_bonnet_error) / abs(group.gauss_bonnet_expected)
-            if group.gauss_bonnet_expected else 0.0
-        )
+        if group.int_gauss_curv is not None:
+            group.gauss_bonnet_error = group.int_gauss_curv - group.gauss_bonnet_expected
+            group.gauss_bonnet_relative_error = (
+                abs(group.gauss_bonnet_error) / abs(group.gauss_bonnet_expected)
+                if group.gauss_bonnet_expected else 0.0
+            )
+        else:
+            group.gauss_bonnet_error = None
+            group.gauss_bonnet_relative_error = None
         group.boundary_genus = group.boundary_component_count - group.euler_characteristic / 2.0
 
     if os.environ.get("VORPY_CURVATURE_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}:
         print("GROUP BOUNDARY CURVATURE DIAGNOSTICS")
-        print(f"G_face={group.int_gauss_curv_face:.12g} G_edge={group.int_gauss_curv_edge:.12g} "
-              f"G_vertex={group.int_gauss_curv_vertex:.12g} G_total={group.int_gauss_curv:.12g}")
+        print(
+            "G_face="
+            f"{group.int_gauss_curv_face if group.int_gauss_curv_face is not None else 'UNAVAILABLE'} "
+            "G_edge="
+            f"{group.int_gauss_curv_edge if group.int_gauss_curv_edge is not None else 'UNAVAILABLE'} "
+            "G_vertex="
+            f"{group.int_gauss_curv_vertex if group.int_gauss_curv_vertex is not None else 'UNAVAILABLE'} "
+            "G_total="
+            f"{group.int_gauss_curv if group.int_gauss_curv is not None else 'UNAVAILABLE'}"
+        )
         print(f"F={group.boundary_face_count} E={group.boundary_edge_count} V={group.boundary_vertex_count} "
               f"chi={group.euler_characteristic} components={group.boundary_component_count}")
         print(f"open_edges={sum(len(f) != 2 for f in edge_faces.values())} "
@@ -1003,6 +1125,7 @@ def get_info(group):
 
         group.avg_gauss_curv = (
                 group.int_gauss_curv / group.sa
+                if group.int_gauss_curv is not None else None
         )
 
 
@@ -1024,9 +1147,21 @@ def get_info(group):
                 group.concave_int_mean_curv / group.concave_sa
         )
 
-    group.abs_int_mean_curv = (
+    if getattr(net, "curvature_calculated", None) is False or not mean_curvature_complete:
+        group.int_mean_curv_face = None
+        group.int_mean_curv_edge = None
+        group.int_mean_curv = None
+        group.int_mean_curv_sq = None
+        group.avg_mean_curv = None
+        group.oriented_int_mean_curv = None
+        group.oriented_avg_mean_curv = None
+        group.convex_int_mean_curv = None
+        group.concave_int_mean_curv = None
+        group.abs_int_mean_curv = None
+    else:
+        group.abs_int_mean_curv = (
             group.convex_int_mean_curv - group.concave_int_mean_curv
-    )
+        )
 
 
     if orientation_debug:

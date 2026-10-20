@@ -127,6 +127,25 @@ def _format_metric(value, decimals=6):
     return f"{value:.{decimals}f}"
 
 
+def _optional_float(value):
+    """Return finite measured values while preserving unavailable fields."""
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if np.isfinite(number) else None
+
+
+def _network_curvature_status(network):
+    if network is None:
+        return "NOT_CALCULATED"
+    if getattr(network, "curvature_calculated", None) is False:
+        return "NOT_CALCULATED"
+    return None
+
+
 def _write_empty_off(directory, file_name):
     """Write a valid empty OFF file for an explicitly requested layer."""
     with open(os.path.join(directory, f"{file_name}.off"), "w", encoding="utf-8") as stream:
@@ -349,7 +368,9 @@ def _triangle_areas(points, tris):
         return None
 
 
-def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-10):
+def summarize_direct_interface_orientation(
+    iface, direct_surfaces, flat_tol=1e-10, *, include_surface_energy=False
+):
     """
     Summarize direct interface geometry from both side perspectives.
 
@@ -363,7 +384,9 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
         "c21": 0.0,
         "q": 0.0,
         "x": 0.0,
-        "surf_energy": 0.0,
+        "surf_energy": 0.0 if include_surface_energy else None,
+        "curvature_status": "NOT_CALCULATED",
+        "curvature_unavailable_count": 0,
         "g1_convex_sa": 0.0,
         "g1_concave_sa": 0.0,
         "g2_convex_sa": 0.0,
@@ -387,19 +410,42 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
 
     context = _build_interface_orientation_context(iface)
     tol = 1e-10
+    network_status = _network_curvature_status(iface.net)
+    curvature_complete = True
+    energy_complete = True
+    missing_status = network_status
 
     for _, surf in direct_surfaces.iterrows():
         sa = float(surf.get("sa", 0.0) or 0.0)
-        raw_c = float(surf.get("int_mean_curv", 0.0) or 0.0)
-        q = float(surf.get("int_mean_curv_sq", 0.0) or 0.0)
-        x = float(surf.get("int_gauss_curv", 0.0) or 0.0)
-        energy = float(surf.get("surf_energy", 0.0) or 0.0)
+        if network_status == "NOT_CALCULATED":
+            raw_c = q = x = None
+            curvature_complete = False
+            summary["curvature_unavailable_count"] += 1
+            missing_status = "NOT_CALCULATED"
+        else:
+            raw_c = _optional_float(surf.get("int_mean_curv"))
+            q = _optional_float(surf.get("int_mean_curv_sq"))
+            x = _optional_float(surf.get("int_gauss_curv"))
+            if raw_c is None or q is None or x is None:
+                curvature_complete = False
+                summary["curvature_unavailable_count"] += 1
+                if missing_status is None:
+                    missing_status = "NOT_CALCULATED"
 
         summary["surface_count"] += 1
         summary["area"] += sa
-        summary["q"] += q
-        summary["x"] += x
-        summary["surf_energy"] += energy
+        if q is not None:
+            summary["q"] += q
+        if x is not None:
+            summary["x"] += x
+        if include_surface_energy:
+            energy = _optional_float(surf.get("surf_energy"))
+            if energy is None and q is not None:
+                energy = 2.0 * q
+            if energy is None:
+                energy_complete = False
+            else:
+                summary["surf_energy"] += energy
 
         orientation, ball_g1, ball_g2 = _surface_interface_orientation(surf, context)
         is_flat = bool(surf.get("flat", False))
@@ -413,6 +459,8 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
             summary["failed_sa"] += sa
             summary["orientation_failed"] += 1
         else:
+            if raw_c is None:
+                continue
             oriented_c = orientation * raw_c
             summary["c12"] += oriented_c
 
@@ -455,7 +503,7 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
                 summary["equal_radius_flat"] += 1
             else:
                 summary["equal_radius_nonflat"] += 1
-            if abs(raw_c) > tol:
+            if raw_c is not None and abs(raw_c) > tol:
                 summary["equal_radius_nonzero_h"] += 1
         else:
             summary["curved_tested"] += 1
@@ -469,7 +517,18 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
             else:
                 summary["radius_sign_disagree"] += 1
 
-    summary["c21"] = -summary["c12"]
+    if not curvature_complete:
+        summary["c12"] = None
+        summary["q"] = None
+        summary["x"] = None
+        missing_status = missing_status or "UNRESOLVED"
+    summary["c21"] = -summary["c12"] if summary["c12"] is not None else None
+    if include_surface_energy and not energy_complete:
+        summary["surf_energy"] = None
+    summary["curvature_status"] = (
+        "CERTIFIED" if curvature_complete and summary["surface_count"] else
+        (missing_status or "NOT_CALCULATED")
+    )
     summary["g2_convex_sa"] = summary["g1_concave_sa"]
     summary["g2_concave_sa"] = summary["g1_convex_sa"]
     summary["validation_pass"] = (
@@ -482,8 +541,12 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
     return summary
 
 
-def write_interface_orientation_statistics(info, iface, direct_surfaces):
-    summary = summarize_direct_interface_orientation(iface, direct_surfaces)
+def write_interface_orientation_statistics(
+    info, iface, direct_surfaces, *, include_surface_energy=False
+):
+    summary = summarize_direct_interface_orientation(
+        iface, direct_surfaces, include_surface_energy=include_surface_energy
+    )
     group1_name = getattr(iface.group1, "name", "group1")
     group2_name = getattr(iface, "group2_name", None) or getattr(iface.group2, "name", "group2")
     area = summary["area"]
@@ -496,7 +559,16 @@ def write_interface_orientation_statistics(info, iface, direct_surfaces):
     info.write(f"  Integrated H dA ({group2_name} -> {group1_name}): {_format_metric(summary['c21'])} Å\n")
     info.write(f"  Integrated H² dA (orientation invariant): {_format_metric(summary['q'])}\n")
     info.write(f"  Integrated K dA (orientation invariant): {_format_metric(summary['x'])}\n")
-    info.write(f"  Representative surface energy (orientation invariant): {_format_metric(summary['surf_energy'])} kBT\n\n")
+    if include_surface_energy:
+        info.write(
+            f"  Representative surface energy (orientation invariant): "
+            f"{_format_metric(summary['surf_energy'])} kBT\n\n"
+        )
+    else:
+        info.write(
+            "  Representative surface energy: NOT_CALCULATED "
+            "(experimental; opt-in only)\n\n"
+        )
 
     info.write(f"  {group1_name} perspective:\n")
     info.write(f"    Convex area: {_format_metric(summary['g1_convex_sa'])} Å²\n")
@@ -865,6 +937,48 @@ def _interface_physical_scope(iface):
     )
 
 
+def _physical_scope_closure_diagnostics(physical_scope):
+    """Return missing selected incidence records without hiding them."""
+    network = physical_scope.network
+
+    def topology_position(table, identifier):
+        try:
+            position = table.index.get_loc(identifier)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            position = int(identifier)
+        if isinstance(position, slice):
+            position = position.start
+        position = int(position)
+        if position < 0 or position >= len(table):
+            raise IndexError(position)
+        return position
+
+    missing = []
+    for surface_position in physical_scope.surfaces:
+        surface = network.surfs.iloc[int(surface_position)]
+        for field, table, label in (
+            ("edges", network.edges, "edge"),
+            ("verts", network.verts, "vertex"),
+        ):
+            for identifier in surface.get(field, ()) or ():
+                try:
+                    topology_position(table, identifier)
+                except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+                    missing.append(
+                        f"surface {surface_position} references missing {label} {identifier}"
+                    )
+    for edge_position in physical_scope.edges:
+        edge = network.edges.iloc[int(edge_position)]
+        for identifier in edge.get("verts", ()) or ():
+            try:
+                topology_position(network.verts, identifier)
+            except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+                missing.append(
+                    f"edge {edge_position} references missing vertex {identifier}"
+                )
+    return tuple(dict.fromkeys(missing))
+
+
 def _csv_value(value):
     if value is None:
         return ""
@@ -1044,7 +1158,7 @@ def _residue_expanded_atoms(system, atoms):
     return selected
 
 
-def _write_interface_atom_exports(iface, physical_scope):
+def _write_interface_atom_exports(iface, physical_scope, include_surrounding=True):
     group_a, group_b, surrounding = _interface_scope_atom_sets(iface, physical_scope)
     surrounding = _validated_surrounding_atoms(iface, surrounding)
     system = iface.sys
@@ -1068,12 +1182,30 @@ def _write_interface_atom_exports(iface, physical_scope):
         contact_path = os.path.join(iface.dir, "interface_atoms.pdb")
         if not os.path.exists(contact_path):
             open(contact_path, "w", encoding="utf-8").close()
+        if include_surrounding:
+            write_pdb(surrounding, "surr_atoms", system, directory=iface.dir)
+            write_pdb(_residue_expanded_atoms(system, surrounding), "surr_residues", system, directory=iface.dir)
         return {"group_a": group_a, "group_b": group_b, "surrounding": surrounding}
     write_pdb(group_a, "group_a_atoms", system, directory=iface.dir)
     write_pdb(group_b, "group_b_atoms", system, directory=iface.dir)
-    write_pdb(surrounding, "surr_atoms", system, directory=iface.dir)
-    write_pdb(_residue_expanded_atoms(system, surrounding), "surr_residues", system, directory=iface.dir)
+    if include_surrounding:
+        write_pdb(surrounding, "surr_atoms", system, directory=iface.dir)
+        write_pdb(_residue_expanded_atoms(system, surrounding), "surr_residues", system, directory=iface.dir)
     return {"group_a": group_a, "group_b": group_b, "surrounding": surrounding}
+
+
+def _write_interface_surrounding_exports(iface, physical_scope, *, atoms=True, residues=True):
+    """Write only the explicitly requested validated surrounding selections."""
+    _, _, surrounding = _interface_scope_atom_sets(iface, physical_scope)
+    surrounding = _validated_surrounding_atoms(iface, surrounding)
+    system = iface.sys
+    if atoms:
+        write_pdb(surrounding, "surr_atoms", system, directory=iface.dir)
+    if residues:
+        write_pdb(
+            _residue_expanded_atoms(system, surrounding),
+            "surr_residues", system, directory=iface.dir,
+        )
 
 
 def _generator_text(network, topology_ids, metadata):
@@ -1234,7 +1366,7 @@ def _write_interface_physical_tables(iface, physical_scope):
             writer.writerows(rows)
 
 
-def write_surface_statistics(info, title, surfaces):
+def write_surface_statistics(info, title, surfaces, *, curvature_status=None):
     """
     Write area, curvature, contact, and overlap statistics for a collection
     of surfaces.
@@ -1255,25 +1387,13 @@ def write_surface_statistics(info, title, surfaces):
         "sa",
     )
 
-    mean_curvatures = _numeric_series(
-        surfaces,
-        "mean_curv",
-    )
+    mean_curvatures = _numeric_series(surfaces, "mean_curv")
 
-    average_mean_curvatures = _numeric_series(
-        surfaces,
-        "avg_mean_curv",
-    )
+    average_mean_curvatures = _numeric_series(surfaces, "avg_mean_curv")
 
-    gaussian_curvatures = _numeric_series(
-        surfaces,
-        "gauss_curv",
-    )
+    gaussian_curvatures = _numeric_series(surfaces, "gauss_curv")
 
-    average_gaussian_curvatures = _numeric_series(
-        surfaces,
-        "avg_gauss_curv",
-    )
+    average_gaussian_curvatures = _numeric_series(surfaces, "avg_gauss_curv")
 
     # Integrated curvature geometry
     integrated_mean_curvatures = _numeric_series(
@@ -1293,6 +1413,24 @@ def write_surface_statistics(info, title, surfaces):
         "int_gauss_curv",
         "Integrated Gaussian Curvature",
     )
+
+    if curvature_status is None:
+        required_series = (
+            integrated_mean_curvatures,
+            integrated_mean_curvature_squared,
+            integrated_gaussian_curvatures,
+        )
+        if any(series is None or len(series) != len(surfaces) for series in required_series):
+            curvature_status = "UNRESOLVED"
+
+    if curvature_status in {"NOT_CALCULATED", "NOT_SUPPORTED", "UNRESOLVED", "UNAVAILABLE"}:
+        mean_curvatures = None
+        average_mean_curvatures = None
+        gaussian_curvatures = None
+        average_gaussian_curvatures = None
+        integrated_mean_curvatures = None
+        integrated_mean_curvature_squared = None
+        integrated_gaussian_curvatures = None
 
     contact_areas = _numeric_series(
         surfaces,
@@ -1571,6 +1709,12 @@ def _write_buried_water_summary(iface):
         total_c = 0.0
         total_q = 0.0
         total_x = 0.0
+        total_c_available = True
+        total_q_available = True
+        total_x_available = True
+
+        def report_value(value):
+            return _format_metric(value)
 
         for group in groups:
             metadata = getattr(group, "buried_water_metadata", {})
@@ -1578,29 +1722,57 @@ def _write_buried_water_summary(iface):
             shell_color = metadata.get("shell_color_map", "default")
             volume = float(getattr(group, "vol", 0.0) or 0.0)
             sa = float(getattr(group, "sa", 0.0) or 0.0)
-            c = float(getattr(group, "oriented_int_mean_curv", 0.0) or 0.0)
-            q = float(getattr(group, "int_mean_curv_sq", 0.0) or 0.0)
-            x = float(getattr(group, "int_gauss_curv", 0.0) or 0.0)
-            energy = 2.0 * q
+            network_status = _network_curvature_status(getattr(group, "net", None))
+            group_status = getattr(group, "gaussian_curvature_status", None)
+            all_curvature_unavailable = (
+                network_status == "NOT_CALCULATED"
+                or group_status == "NOT_CALCULATED"
+            )
+            gaussian_unavailable = (
+                all_curvature_unavailable
+                or group_status in {"NOT_SUPPORTED", "UNRESOLVED", "UNAVAILABLE"}
+            )
+            c = None if all_curvature_unavailable else _optional_float(
+                getattr(group, "oriented_int_mean_curv", None)
+            )
+            q = None if all_curvature_unavailable else _optional_float(
+                getattr(group, "int_mean_curv_sq", None)
+            )
+            x = None if gaussian_unavailable else _optional_float(
+                getattr(group, "int_gauss_curv", None)
+            )
+            energy = 2.0 * q if q is not None else None
 
             total_volume += volume
             total_sa += sa
-            total_c += c
-            total_q += q
-            total_x += x
+            if c is None:
+                total_c_available = False
+            elif total_c_available:
+                total_c += c
+            if q is None:
+                total_q_available = False
+            elif total_q_available:
+                total_q += q
+            if x is None:
+                total_x_available = False
+            elif total_x_available:
+                total_x += x
 
             info.write(
                 f"{group.name} | {labels} | {shell_color} | {volume:.6f} | {sa:.6f} | "
-                f"{c:.6f} | {q:.6f} | {x:.6f} | {energy:.6f}\n"
+                f"{report_value(c)} | {report_value(q)} | {report_value(x)} | {report_value(energy)}\n"
             )
 
         info.write("\nAggregate sums across buried groups:\n")
         info.write(f"  Volume: {total_volume:.6f} A^3\n")
         info.write(f"  Surface area: {total_sa:.6f} A^2\n")
-        info.write(f"  Oriented int H dA: {total_c:.6f} A\n")
-        info.write(f"  int H^2 dA: {total_q:.6f}\n")
-        info.write(f"  int K dA: {total_x:.6f}\n")
-        info.write(f"  Representative surface energy: {2.0 * total_q:.6f} kBT\n")
+        info.write(f"  Oriented int H dA: {report_value(total_c if total_c_available else None)} A\n")
+        info.write(f"  int H^2 dA: {report_value(total_q if total_q_available else None)}\n")
+        info.write(f"  int K dA: {report_value(total_x if total_x_available else None)}\n")
+        info.write(
+            f"  Representative surface energy: "
+            f"{report_value(2.0 * total_q if total_q_available else None)} kBT\n"
+        )
 
     return path
 
@@ -1948,15 +2120,25 @@ def export_info(iface, directory=None, physical_scope=None):
                 completeness = "Not available"
                 diagnostics = "Not available"
             else:
-                values = surface_table["complete"]
+                selected_positions = (
+                    physical_scope.surfaces
+                    if physical_scope is not None
+                    else tuple(range(len(surface_table)))
+                )
+                values = [surface_table.iloc[int(position)].get("complete")
+                          for position in selected_positions]
                 complete = all(
                     value is not None
                     and not (isinstance(value, float) and np.isnan(value))
                     and bool(value)
                     for value in values
                 )
-                completeness = "COMPLETE" if complete else "INCOMPLETE"
-                diagnostics = "None" if complete else "Selected physical facets include incomplete records"
+                closure = _physical_scope_closure_diagnostics(physical_scope)
+                completeness = "COMPLETE" if complete and not closure else "INCOMPLETE"
+                diagnostics = "None" if completeness == "COMPLETE" else (
+                    "Selected physical facets include incomplete records"
+                    if not closure else "Selected physical closure is incomplete: " + "; ".join(closure)
+                )
         if physical_scope is not None and physical_scope.view is not None:
             info.write(f"  Missing physical surfaces: {len(unresolved_surface_ids)}\n")
             if unresolved_surface_ids:
@@ -1990,12 +2172,14 @@ def export_info(iface, directory=None, physical_scope=None):
             "Selected interface-network surface statistics"
             if physical_scope is not None else "Full interface-network surface statistics",
             net.surfs if net is not None else None,
+            curvature_status=_network_curvature_status(net),
         )
 
         write_surface_statistics(
             info,
             "Direct inter-group surface statistics",
             direct_surfaces,
+            curvature_status=_network_curvature_status(net),
         )
 
         write_interface_orientation_statistics(
@@ -2101,7 +2285,8 @@ def export_info(iface, directory=None, physical_scope=None):
         shutil.copyfile(file_path, os.path.join(directory, "network_info.txt"))
 
 
-def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
+def interface_exports(iface, all_=False, atoms=False, interface_atoms=False, surr_atoms=False,
+                      surr_resids=False, surfs=False, edges=False, verts=False, logs=False, info=False,
                       group_info=False, round_to=3, dual=False, buried_water=None, contact_tables=False):
     """
     Export data belonging to an Interface and its dedicated Network.
@@ -2208,11 +2393,15 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
 
         _profile_stage(profile, "group_info", export_group_info)
 
-    if atoms or all_:
+    contact_atoms_requested = atoms or interface_atoms or all_
+    if contact_atoms_requested:
         atom_counts = _profile_stage(
             profile,
             "contact_atom_pdb",
-            lambda: _write_interface_atom_exports(iface, scope),
+            lambda: _write_interface_atom_exports(
+                iface, scope,
+                include_surrounding=(all_ or (atoms and not interface_atoms)),
+            ),
         )
         if profile is not None and atom_counts is not None:
             profile["counts"].update({
@@ -2220,6 +2409,15 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
                 "group_b_contact_atoms": len(atom_counts["group_b"]),
                 "surrounding_atoms": len(atom_counts["surrounding"]),
             })
+
+    if surr_atoms or surr_resids:
+        _profile_stage(
+            profile,
+            "surrounding_atom_pdb",
+            lambda: _write_interface_surrounding_exports(
+                iface, scope, atoms=surr_atoms, residues=surr_resids,
+            ),
+        )
 
     if info or all_:
         _profile_stage(

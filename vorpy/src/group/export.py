@@ -290,7 +290,7 @@ def _export_group_source_view(
             write_pdb(atoms=list(neighbors), file_name="surr_atoms", directory=grp.dir, sys=grp.sys)
 
 
-def export_info(grp, directory=None):
+def export_info(grp, directory=None, *, include_surface_energy=False):
     """
     Export a detailed human-readable summary of a VorPy group.
     """
@@ -326,6 +326,13 @@ def export_info(grp, directory=None):
         value = getattr(obj, name, default)
         return default if value is None else value
 
+    def status_value(value, missing="UNRESOLVED"):
+        return missing if value is None else value
+
+    def status_fmt(value, decimals=6, missing="UNRESOLVED"):
+        result = fmt(value, decimals)
+        return missing if result == "N/A" else result
+
     def safe_sum(values):
         vals = []
         for value in values:
@@ -349,17 +356,17 @@ def export_info(grp, directory=None):
         atoms = grp.sys.balls.iloc[[]]
 
     # --------------------------------------------------------------
-    # Surface-energy estimate
-    # --------------------------------------------------------------
-
-    # Prefer the value already calculated and stored on the group.
-    # Fall back to the current representative model only for objects
-    # created before surf_energy was added.
-    int_mean_sq = get_attr(grp, "int_mean_curv_sq", 0.0)
-    representative_energy = get_attr(grp, "surf_energy", None)
-
-    if representative_energy is None:
-        representative_energy = 2.0 * float(int_mean_sq or 0.0)
+    # Surface-energy estimates are experimental and opt-in.  Do not derive a
+    # value from curvature merely because this human-readable report exists.
+    representative_energy = None
+    if include_surface_energy:
+        int_mean_sq = get_attr(grp, "int_mean_curv_sq", None)
+        representative_energy = get_attr(grp, "surf_energy", None)
+        curvature_calculated = getattr(getattr(grp, "net", None), "curvature_calculated", None)
+        if curvature_calculated is False:
+            representative_energy = None
+        elif representative_energy is None and int_mean_sq is not None:
+            representative_energy = 2.0 * float(int_mean_sq)
 
     # --------------------------------------------------------------
     # Write file
@@ -548,7 +555,7 @@ def export_info(grp, directory=None):
 
         info.write(
             f"Surface Area:              "
-            f"{fmt(grp.sa)} Å²\n"
+            f"{status_fmt(getattr(grp, 'sa', None), 5)} Å²\n"
         )
 
         info.write(
@@ -575,29 +582,38 @@ def export_info(grp, directory=None):
 
         info.write(
             f"Integrated Mean Curvature:          "
-            f"{fmt(get_attr(grp, 'int_mean_curv'))} Å\n"
+            f"{status_fmt(get_attr(grp, 'int_mean_curv'), 5)} Å\n"
         )
 
         info.write(
             f"Integrated Mean Curvature Squared:  "
-            f"{fmt(get_attr(grp, 'int_mean_curv_sq'))}\n"
+            f"{status_fmt(get_attr(grp, 'int_mean_curv_sq'), 5)}\n"
         )
 
         info.write(
             f"Integrated Gaussian Curvature:      "
-            f"{fmt(get_attr(grp, 'int_gauss_curv'))}\n"
+            f"{status_fmt(get_attr(grp, 'int_gauss_curv'), 5)}\n"
         )
+        info.write(
+            f"Gaussian Curvature Status:           "
+            f"{status_value(get_attr(grp, 'gaussian_curvature_status'))}\n"
+        )
+        unavailable_reason = get_attr(
+            grp, 'gaussian_curvature_unavailable_reason', None
+        )
+        if unavailable_reason:
+            info.write(f"Gaussian Curvature Note:             {unavailable_reason}\n")
 
         info.write("\n")
 
         info.write(
             f"Area-Weighted Mean Curvature:        "
-            f"{fmt(get_attr(grp, 'avg_mean_curv'))} Å⁻¹\n"
+            f"{status_fmt(get_attr(grp, 'avg_mean_curv'), 5)} Å⁻¹\n"
         )
 
         info.write(
             f"Area-Weighted Gaussian Curvature:    "
-            f"{fmt(get_attr(grp, 'avg_gauss_curv'))} Å⁻²\n"
+            f"{status_fmt(get_attr(grp, 'avg_gauss_curv'), 5)} Å⁻²\n"
         )
 
         info.write("\n")
@@ -609,51 +625,56 @@ def export_info(grp, directory=None):
         info.write("CURVATURE COMPONENTS\n")
         info.write("-" * 72 + "\n")
         info.write("Boundary component            Integrated Mean       Integrated Gaussian\n")
-        info.write(f"Smooth faces                 {get_attr(grp, 'int_mean_curv_face', 0.0):>18.6f}        {get_attr(grp, 'int_gauss_curv_face', 0.0):>18.6f}\n")
-        info.write(f"Edges                        {get_attr(grp, 'int_mean_curv_edge', 0.0):>18.6f}        {get_attr(grp, 'int_gauss_curv_edge', 0.0):>18.6f}\n")
-        info.write(f"Vertices                     {0.0:>18.6f}        {get_attr(grp, 'int_gauss_curv_vertex', 0.0):>18.6f}\n")
-        info.write(f"Complete boundary            {get_attr(grp, 'int_mean_curv', 0.0):>18.6f}        {get_attr(grp, 'int_gauss_curv', 0.0):>18.6f}\n")
+        info.write(f"Smooth faces                 {status_fmt(get_attr(grp, 'int_mean_curv_face')):>18}        {status_fmt(get_attr(grp, 'int_gauss_curv_face')):>18}\n")
+        info.write(f"Edges                        {status_fmt(get_attr(grp, 'int_mean_curv_edge')):>18}        {status_fmt(get_attr(grp, 'int_gauss_curv_edge')):>18}\n")
+        info.write(f"Vertices                     {status_fmt(None, missing='NOT_APPLICABLE'):>18}        {status_fmt(get_attr(grp, 'int_gauss_curv_vertex')):>18}\n")
+        boundary_label = (
+            "Complete boundary"
+            if get_attr(grp, 'boundary_is_complete') is True
+            else "Supported boundary (not certified complete)"
+        )
+        info.write(f"{boundary_label:<28} {status_fmt(get_attr(grp, 'int_mean_curv')):>18}        {status_fmt(get_attr(grp, 'int_gauss_curv')):>18}\n")
         info.write("\n")
         info.write("BOUNDARY TOPOLOGY\n")
         info.write("-" * 72 + "\n")
-        info.write(f"Boundary faces/edges/vertices: {get_attr(grp, 'boundary_face_count', 0)}/{get_attr(grp, 'boundary_edge_count', 0)}/{get_attr(grp, 'boundary_vertex_count', 0)}\n")
-        info.write(f"Connected components:       {get_attr(grp, 'boundary_component_count', 0)}\n")
-        info.write(f"Euler characteristic:       {get_attr(grp, 'euler_characteristic', 'unavailable')}\n")
-        info.write(f"Genus:                      {get_attr(grp, 'boundary_genus', 'unavailable')}\n")
-        info.write(f"Complete:                   {get_attr(grp, 'boundary_is_complete', False)}\n")
-        info.write(f"Closed:                     {get_attr(grp, 'boundary_is_closed', False)}\n")
-        info.write(f"Manifold:                   {get_attr(grp, 'boundary_is_manifold', False)}\n")
-        info.write(f"Orientable:                 {get_attr(grp, 'boundary_is_orientable', False)}\n")
+        info.write(f"Boundary faces/edges/vertices: {status_value(get_attr(grp, 'boundary_face_count'))}/{status_value(get_attr(grp, 'boundary_edge_count'))}/{status_value(get_attr(grp, 'boundary_vertex_count'))}\n")
+        info.write(f"Connected components:       {status_value(get_attr(grp, 'boundary_component_count'))}\n")
+        info.write(f"Euler characteristic:       {status_value(get_attr(grp, 'euler_characteristic'))}\n")
+        info.write(f"Genus:                      {status_value(get_attr(grp, 'boundary_genus'))}\n")
+        info.write(f"Complete:                   {status_value(get_attr(grp, 'boundary_is_complete'))}\n")
+        info.write(f"Closed:                     {status_value(get_attr(grp, 'boundary_is_closed'))}\n")
+        info.write(f"Manifold:                   {status_value(get_attr(grp, 'boundary_is_manifold'))}\n")
+        info.write(f"Orientable:                 {status_value(get_attr(grp, 'boundary_is_orientable'))}\n")
         expected = get_attr(grp, 'gauss_bonnet_expected', None)
-        if expected is None:
+        expected_text = fmt(expected, 6)
+        if expected_text == "N/A":
             info.write("Gauss-Bonnet validation:    unavailable (boundary is not a closed orientable manifold)\n")
         else:
-            info.write(f"Gauss-Bonnet expected:       {expected:.6f}\n")
-            info.write(f"Gauss-Bonnet error:          {get_attr(grp, 'gauss_bonnet_error', 0.0):.6f}\n")
-            info.write(f"Gauss-Bonnet relative error: {get_attr(grp, 'gauss_bonnet_relative_error', 0.0):.6g}\n")
-        info.write(f"Missing faces/edges/vertices: {get_attr(grp, 'boundary_missing_faces', 0)}/{get_attr(grp, 'boundary_missing_edges', 0)}/{get_attr(grp, 'boundary_missing_vertices', 0)}\n")
-        info.write(f"Nonmanifold edges/vertices:    {get_attr(grp, 'boundary_nonmanifold_edges', 0)}/{get_attr(grp, 'boundary_nonmanifold_vertices', 0)}\n")
+            info.write(f"Gauss-Bonnet expected:       {expected_text}\n")
+            info.write(f"Gauss-Bonnet error:          {status_fmt(get_attr(grp, 'gauss_bonnet_error'))}\n")
+            info.write(f"Gauss-Bonnet relative error: {status_fmt(get_attr(grp, 'gauss_bonnet_relative_error'))}\n")
+        info.write(f"Missing faces/edges/vertices: {status_value(get_attr(grp, 'boundary_missing_faces'))}/{status_value(get_attr(grp, 'boundary_missing_edges'))}/{status_value(get_attr(grp, 'boundary_missing_vertices'))}\n")
+        info.write(f"Nonmanifold edges/vertices:    {status_value(get_attr(grp, 'boundary_nonmanifold_edges'))}/{status_value(get_attr(grp, 'boundary_nonmanifold_vertices'))}\n")
         info.write("\n")
 
-        # ==========================================================
-        # SURFACE ENERGY ESTIMATE
-        # ==========================================================
-
-        info.write("SURFACE ENERGY ESTIMATE\n")
-        info.write("-" * 72 + "\n")
-
-        info.write(
-            f"Representative Surface Energy:       "
-            f"{fmt(representative_energy)} kBT\n"
-        )
-
-        if grp.sa and grp.sa > 0:
-            info.write(
-                f"Representative Energy / Area:        "
-                f"{fmt(representative_energy / grp.sa)} kBT Å⁻²\n"
+        if include_surface_energy:
+            info.write("SURFACE ENERGY ESTIMATE\n")
+            info.write("-" * 72 + "\n")
+            energy_missing = (
+                "NOT_CALCULATED"
+                if getattr(getattr(grp, "net", None), "curvature_calculated", None) is False
+                else "UNRESOLVED"
             )
-
-        info.write("\n")
+            info.write(
+                f"Representative Surface Energy:       "
+                f"{status_fmt(representative_energy, 5, missing=energy_missing)} kBT\n"
+            )
+            if representative_energy is not None and grp.sa and grp.sa > 0:
+                info.write(
+                    f"Representative Energy / Area:        "
+                    f"{fmt(representative_energy / grp.sa)} kBT Å⁻²\n"
+                )
+            info.write("\n")
 
         # ==========================================================
         # CHAIN / RESIDUE GEOMETRY
@@ -1049,7 +1070,8 @@ def export_info(grp, directory=None):
 def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
                   sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False,
                   verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False,
-                  surr_resids=False, logs=False, ext_atoms=False, concave_colors=False, round_to=3, file_type=None):
+                  surr_resids=False, logs=False, ext_atoms=False, concave_colors=False, round_to=3, file_type=None,
+                  surface_energy=False):
     """
     Exports various components of a Group object to files based on specified parameters.
     This function provides flexible export options for different aspects of a molecular group,
@@ -1107,6 +1129,9 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     file_type : {'off', 'ply', 'vtp'}, optional
         Geometry format used for surface, edge, and vertex meshes. Defaults to
         the format stored in the Group settings.
+    surface_energy : bool, optional
+        Include the experimental representative surface-energy estimate in the
+        human-readable information report. Default is False.
 
     Returns
     -------
@@ -1391,7 +1416,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         os.chdir(grp.dir)
     # If the user wants a full information file on the group
     if info or all_:
-        export_info(grp)
+        export_info(grp, include_surface_energy=surface_energy)
     # Direct surface-neighbor atoms only (no residue expansion).
     if surr_atoms or all_:
         surrounding_atoms = _surface_neighbor_system_indices(grp)
