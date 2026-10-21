@@ -27,6 +27,7 @@ from vorpy.src.calculations import compare_networks
 from vorpy.src.calculations import get_time
 from vorpy.src.boundary import (
     BoundaryConfig,
+    has_explicit_water,
     has_explicit_solvent,
     normalize_solvent_mode,
     normalize_retained_system_indices,
@@ -752,6 +753,11 @@ class System:
     def has_explicit_solvent(self):
         """Whether loaded physical atoms include a recognized solvent/ion residue."""
         return has_explicit_solvent(self.balls)
+
+    @property
+    def has_explicit_water(self):
+        """Whether loaded physical atoms include explicit water molecules."""
+        return has_explicit_water(self.balls)
 
     def set_radii(self, my_element_radii=None, my_special_radii=None):
         """Set the atom radii in the spheres dataframe.

@@ -20,6 +20,7 @@ from vorpy.src.boundary import (
     ION_RESIDUES,
     SolventMode,
     WATER_RESIDUES,
+    has_explicit_water,
     normalize_solvent_mode,
     resolve_boundary,
 )
@@ -1596,6 +1597,7 @@ class Command:
             and plan.full_system_request
             and not plan.interface_requests
             and not plan.declared_group_requests
+            and plan.calculation_requests
         ):
             # A plain ``-c system`` is the historical ordinary full-system
             # solve: molecular cells use the loaded structure as context.
@@ -2497,7 +2499,7 @@ class Command:
         return self._resolve_generator_policy()
 
     def _resolve_default_solvent_mode(self):
-        """Preserve the historical full-system context for wet inputs."""
+        """Resolve the generator universe for implicit CLI calculations."""
         if self.sys is None:
             return False
         plan = self.calculation_plan
@@ -2511,11 +2513,14 @@ class Command:
         elif (
             not interface_source
             and not self._solvent_mode_explicit
-            and self.sys.has_explicit_solvent
+            and plan is not None
+            and not plan.declared_group_requests
         ):
-            # The original full-system CLI solved molecular cells against the
-            # loaded wet structure while selecting only molecular cells.
-            self.solvent_mode = SolventMode.SOLVENT_CONTEXT
+            self.solvent_mode = (
+                SolventMode.SOLVENT_CONTEXT
+                if has_explicit_water(self.sys.balls)
+                else SolventMode.MOLECULE_ONLY
+            )
             self.sys.solvent_mode = self.solvent_mode
         self._resolve_generator_policy()
         return True
@@ -2577,12 +2582,12 @@ class Command:
                 )
                 network = interface.net
                 context = network.get_solve_context_key()
-                if context.scheme not in {'aw', 'pow'}:
-                    raise ValueError(
-                        f'CLI typed interface Results do not support geometry '
-                        f'scheme {context.scheme!r}; the exact interface geometry '
-                        'was still constructed.'
+                if context.scheme not in {'aw', 'pow', 'prm'}:
+                    self.interface_result_errors += (
+                        f'Typed interface Results do not support geometry '
+                        f'scheme {context.scheme!r}',
                     )
+                    continue
 
                 source_view = getattr(interface, 'source_view', None)
                 source_network_id = (

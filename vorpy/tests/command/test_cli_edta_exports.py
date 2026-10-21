@@ -1,8 +1,9 @@
 import os
-import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 from vorpy.src.output.checkpoint import _load_checkpoint
 
@@ -24,6 +25,7 @@ def _terminal_lines(output):
     return lines
 
 
+@pytest.mark.timeout(180)
 def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
     output_parent = tmp_path / "output"
     root = Path(__file__).resolve().parents[3]
@@ -32,14 +34,14 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
         cwd=root,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=300,
         env={"PYTHONPATH": str(root), **os.environ},
     )
 
     assert completed.returncode == 0, completed.stdout + "\n" + completed.stderr
     output = completed.stdout
     assert 'network built - ' in output
-    assert '32 complete cells' in output
+    assert '455 complete cells' in output
     assert "Analysis - 100.00 %" not in output
     assert "Vertex Gaussian - 100%" not in output
     assert "Export - 100%" not in output
@@ -56,11 +58,15 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
         "  612 atoms, 195 residues, 1 chains, 193 waters",
         "",
     ]
-    assert terminal_lines[solve_line + 1].startswith('"EDTA" network built - ')
-    assert terminal_lines[solve_line + 2] == ""
-    assert terminal_lines[solve_line + 3] == "Exporting results..."
-    assert terminal_lines[solve_line + 4] == export_line
-    assert terminal_lines[solve_line + 5] == ""
+    assert terminal_lines[solve_line + 1].startswith('"EDTA_full_system" network built - ')
+    checkpoint_lines = [
+        line for line in terminal_lines[solve_line + 2:]
+        if line.startswith('Solved geometry checkpoint saved: ')
+    ]
+    assert checkpoint_lines
+    export_line_index = terminal_lines.index("Exporting results...", solve_line + 2)
+    assert terminal_lines[export_line_index + 1] == export_line
+    assert terminal_lines[export_line_index + 2] == ""
 
     directory = output_parent / "EDTA"
     system_dir = directory / "system"

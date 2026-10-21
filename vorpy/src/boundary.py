@@ -186,6 +186,19 @@ def has_explicit_solvent(atoms) -> bool:
     return any(str(name).strip().upper() in SOLVENT_RESIDUES for name in names)
 
 
+def has_explicit_water(atoms) -> bool:
+    """Return whether physical atom records contain explicit water molecules."""
+    if atoms is None:
+        return False
+    if hasattr(atoms, "columns"):
+        if "res_name" not in atoms.columns:
+            return False
+        names = atoms["res_name"].fillna("")
+    else:
+        names = (getattr(atom, "residue_name", "") for atom in atoms)
+    return any(str(name).strip().upper() in WATER_RESIDUES for name in names)
+
+
 def resolve_boundary(config: BoundaryConfig, solvent_present: bool) -> BoundaryConfig:
     """Resolve auto mode and reject unavailable or impossible requested modes."""
     mode = config.mode or BoundaryMode.NONE

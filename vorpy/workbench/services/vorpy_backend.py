@@ -541,7 +541,14 @@ class VorPyBackend:
             raise ValueError("Result network identity must remain distinct from producer identity")
 
         context = network.get_solve_context_key()
-        partition = {"aw": "aw", "pow": "power"}.get(context.scheme)
+        partition = {
+            "aw": "aw",
+            "pow": "power",
+            "power": "power",
+            "prm": "prm",
+            "primitive": "prm",
+            "del": "prm",
+        }.get(context.scheme)
         if partition is None:
             raise ValueError(
                 f"Typed interface Results do not support geometry scheme {context.scheme!r}"

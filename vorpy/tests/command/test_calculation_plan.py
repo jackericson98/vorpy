@@ -502,10 +502,13 @@ def test_ordinary_dry_calculation_keeps_molecule_only_default():
         [str(source)], input_source=str(source)
     )
 
-    command._resolve_full_system_solvent_mode()
+    command._resolve_default_solvent_mode()
 
     assert command.solvent_mode is SolventMode.MOLECULE_ONLY
     assert system.solvent_mode is SolventMode.MOLECULE_ONLY
+    assert system.has_explicit_water is False
+    assert command._source_generator_policy['active_generator_count'] == 2119
+    assert command._source_generator_policy['excluded_water_generator_count'] == 0
 
 
 def test_implicit_wet_default_restores_solvent_context_source_counts():
@@ -526,6 +529,7 @@ def test_implicit_wet_default_restores_solvent_context_source_counts():
         'waters': 193,
         'molecular_chains': 1,
     }
+    assert system.has_explicit_water is True
     assert command._resolve_default_solvent_mode() is True
     assert command.solvent_mode is SolventMode.SOLVENT_CONTEXT
     assert system.solvent_mode is SolventMode.SOLVENT_CONTEXT

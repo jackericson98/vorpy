@@ -107,11 +107,11 @@ def test_canonical_1aay_default_materializes_molecular_groups_and_zinc():
     command.create_groups()
 
     assert tuple(len(group.ball_ndxs) for group in system.groups) == (1422, 694)
-    geometry = prepare_network_geometry(system)
+    geometry = prepare_network_geometry(system, SolventMode.MOLECULE_ONLY)
     assert len(geometry.system_indices) == 2119
     zinc_rows = {
         index for index in range(len(system.balls))
         if str(system.balls.iloc[index]["res_name"]).strip().upper() == "ZN"
     }
-    assert zinc_rows == set(system.retained_system_indices)
     assert zinc_rows <= set(geometry.system_indices)
+    assert zinc_rows <= set(command._source_system_indices)

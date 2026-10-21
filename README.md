@@ -53,6 +53,16 @@ cd vorpy
 python -m pip install -e ".[gui]"
 ```
 
+Alpha-complex workflows that use GUDHI are optional:
+
+```bash
+python -m pip install "vorpy3[gudhi]"
+```
+
+The core physical geometry path does not require GUDHI. The published GUI
+extra installs PySide6, PyVista, and PyVistaQt; the Conda package currently
+follows the core/headless dependency contract.
+
 This keeps the installed `vorpy` command connected to the checkout, so future
 `git pull` updates take effect without reinstalling. The repository root also
 contains double-clickable application launchers:

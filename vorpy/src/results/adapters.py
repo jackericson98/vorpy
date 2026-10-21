@@ -130,7 +130,14 @@ def _check_cached_identity(metadata, identity):
     )
 
     def normalize_partition(value):
-        aliases = {"aw": "aw", "power": "power", "pow": "power"}
+        aliases = {
+            "aw": "aw",
+            "power": "power",
+            "pow": "power",
+            "prm": "prm",
+            "primitive": "prm",
+            "del": "prm",
+        }
         try:
             return aliases[value]
         except (KeyError, TypeError):
@@ -771,7 +778,14 @@ def adapt_group_view_analysis(
             status = Status.PARTIAL
 
     partition = results_partition or identity.partition_scheme
-    partition_aliases = {"aw": "aw", "pow": "power", "power": "power"}
+    partition_aliases = {
+        "aw": "aw",
+        "pow": "power",
+        "power": "power",
+        "prm": "prm",
+        "primitive": "prm",
+        "del": "prm",
+    }
     try:
         partition = partition_aliases[partition]
     except KeyError as error:

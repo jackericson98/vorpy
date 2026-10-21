@@ -8,6 +8,7 @@ from vorpy.src.boundary import (
     prepare_network_geometry,
 )
 from vorpy.src.group import Group
+from vorpy.src.command.group import ggroup
 from vorpy.src.interface import Interface
 from vorpy.src.network import Network
 from vorpy.src.network.views import NetworkView
@@ -94,6 +95,37 @@ def test_group_default_network_maps_local_generators_to_system_ids():
             make_net=True,
             build_net=False,
         )
+
+
+def test_full_selector_does_not_create_an_empty_group_warning(capsys):
+    system = System(
+        spheres=_balls(),
+        name="solvent-mode",
+        make_dir=False,
+        solvent_mode=SolventMode.SOLVENT_CONTEXT,
+    )
+
+    ggroup(system, {0: [["f"]]}, make_net=False)
+
+    assert [*system.groups[0].ball_ndxs] == [0, 1, 2]
+    assert "empty group" not in capsys.readouterr().out.lower()
+
+
+def test_explicit_empty_group_keeps_warning(capsys):
+    system = System(spheres=_balls(), name="solvent-mode", make_dir=False)
+
+    ggroup(system, {0: []}, make_net=False)
+
+    assert system.groups == []
+    assert "empty group" in capsys.readouterr().out.lower()
+
+
+def test_explicit_atom_group_does_not_expand_to_solvent():
+    system = System(spheres=_balls(), name="solvent-mode", make_dir=False)
+
+    ggroup(system, {0: [["a", "2"]]}, make_net=False)
+
+    assert [*system.groups[0].ball_ndxs] == [2]
 
 
 def test_boundary_identity_is_local_and_deterministic():

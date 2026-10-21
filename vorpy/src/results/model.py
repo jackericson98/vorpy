@@ -1173,7 +1173,7 @@ class ResultIdentity:
                 object.__setattr__(self, name, float(value) if value != 0 else 0.0)
         object.__setattr__(self, "network_scope", normalize_network_scope(self.network_scope))
         object.__setattr__(self, "environment", normalize_environment(self.environment))
-        if self.partition not in {"aw", "power"}:
+        if self.partition not in {"aw", "power", "prm"}:
             raise ValueError("Use canonical partition names")
         if self.representation not in {
             "voronoi",
