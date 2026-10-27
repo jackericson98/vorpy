@@ -265,11 +265,17 @@ python vorpy example.pdb -g a 0-100
 python vorpy example.pdb -e small and shell
 ```
 
-To process every frame in a multi-model PDB trajectory in one invocation:
+To process every frame in a user-provided multi-model PDB trajectory in one
+invocation:
 
 ```bash
-python -m vorpy vorpy/data/1bna_DB1976.pdb --all-frames -e small
+python -m vorpy /path/to/trajectory.pdb --all-frames -e small
 ```
+
+The installed package includes the small synthetic `HO_cube.pdb` example.
+Large molecular structures, trajectory frames, benchmark datasets, and
+research-specific PDB inputs remain external files and are not bundled in the
+redistributable package.
 
 Each frame runs independently with the same settings, groups, and export
 selection. Results use the usual filenames and layout inside

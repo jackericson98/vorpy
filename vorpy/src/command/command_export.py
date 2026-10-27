@@ -1,5 +1,8 @@
 import os
-from vorpy.src.command.calculation_plan import build_export_plan
+from vorpy.src.command.calculation_plan import (
+    build_export_plan,
+    validate_export_dependencies,
+)
 from vorpy.src.output import export_micro
 from vorpy.src.output import export_tiny
 from vorpy.src.output import export_med
@@ -116,7 +119,10 @@ def _run_component_plan(system, plan):
     # A successful geometry calculation always gets its validated canonical
     # checkpoint before any optional writer runs. ``no_archive`` suppresses
     # optional archive products, not the recovery checkpoint.
-    checkpoint = getattr(system, 'balls', None) is not None
+    checkpoint = (
+        getattr(system, 'balls', None) is not None
+        and not getattr(system, '_source_structure_only_export', False)
+    )
     total = len(system_calls) + group_call_count + interface_call_count + int(checkpoint)
     progress = output.ExportProgress(total, system)
 
@@ -124,6 +130,20 @@ def _run_component_plan(system, plan):
         output._run_export(
             progress, 'network archive', output._export_network_archive, sys=system
         )
+
+    # Validate profile/output compatibility only after the mandatory
+    # checkpoint succeeds.  Geometry-only profiles do not populate analysis
+    # fields used by info/log/result writers; fail with a direct CLI contract
+    # error instead of allowing a writer-side KeyError such as ``vol``.
+    try:
+        validate_export_dependencies(
+            getattr(system, '_execution_profile', None)
+            or getattr(plan, 'analysis_profile', None),
+            components,
+            scope=getattr(plan, 'scope', 'system'),
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
 
     if not plan.included_components:
         progress.finish()

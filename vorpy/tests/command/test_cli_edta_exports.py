@@ -41,7 +41,7 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
     assert completed.returncode == 0, completed.stdout + "\n" + completed.stderr
     output = completed.stdout
     assert 'network built - ' in output
-    assert '455 complete cells' in output
+    assert '32 complete target cells (32 target cells)' in output
     assert "Analysis - 100.00 %" not in output
     assert "Vertex Gaussian - 100%" not in output
     assert "Export - 100%" not in output
@@ -77,6 +77,8 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
     assert "Waters:                193" in system_info
     assert "Total Atoms:            612" in system_info
     assert "Active Generators:      612" in system_info
+    assert "Cell Target Policy:     MOLECULAR" in system_info
+    assert "Target Cells:           32" in system_info
     assert "Excluded Water:         0" in system_info
     assert (network_dir / "surfs.off").stat().st_size > 0
     # The public default is the small tier; full edge/vertex meshes remain in

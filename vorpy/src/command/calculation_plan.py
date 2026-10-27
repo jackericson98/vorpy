@@ -172,6 +172,16 @@ _CANONICAL_EXPORT_COMPONENTS = frozenset(
     'txt',
 })
 
+# These writers consume analysis fields populated by ``Network.analyze``.
+# Geometry/interface profiles deliberately omit those fields, so allowing a
+# bundled preset to reach the writer would turn a declared profile mismatch
+# into an incidental KeyError (usually for ``vol``).  Geometry-only callers
+# can still request geometry components explicitly with ``only``/``add``.
+_ANALYSIS_REQUIRED_EXPORT_COMPONENTS = frozenset({
+    'info', 'logs', 'results', 'provenance', 'legacy_results',
+    'contact_tables', 'curvature', 'topology',
+})
+
 
 def canonical_export_component(token):
     """Normalize one CLI export component without applying precedence."""
@@ -260,6 +270,39 @@ class ExportPlan:
             'checkpoint_policy': self.checkpoint_policy,
             'operations': self.operations,
         }
+
+
+def validate_export_dependencies(profile, components, *, scope='system'):
+    """Validate export components against the selected execution profile.
+
+    The validation is intentionally separate from plan construction: command
+    execution persists the mandatory geometry checkpoint before calling this
+    function, so an incompatible optional export cannot discard a recoverable
+    solve.  A ``ValueError`` gives callers a stable, actionable contract while
+    the CLI adapts it to a clean ``SystemExit`` message.
+    """
+    profile = None if profile is None else str(profile).strip().lower()
+    if profile != 'geometry':
+        return
+    allowed = set()
+    # Interface ``info`` is a geometry/provenance summary emitted by the
+    # physical interface writer and does not require whole-cell volume or the
+    # full analysis dictionary.  System/group info and logs do.
+    if str(scope).strip().lower() == 'interface':
+        allowed.add('info')
+    unavailable = tuple(
+        component for component in components
+        if component in _ANALYSIS_REQUIRED_EXPORT_COMPONENTS and component not in allowed
+    )
+    if not unavailable:
+        return
+    names = ', '.join(unavailable)
+    raise ValueError(
+        f"Execution profile '{profile}' is geometry-only and cannot export "
+        f"analysis-dependent component(s): {names}. Use --profile full or "
+        "request geometry-only components explicitly with '-e only ...'; "
+        "the mandatory checkpoint was saved before this export validation."
+    )
 
 
 def build_export_plan(exports=(), *, scope='system'):
@@ -843,5 +886,6 @@ __all__ = [
     'CalculationPlan', 'CalculationRequest', 'CommandBlock', 'ExportPlan',
     'EXPORT_PRESETS', 'GroupRequest', 'InterfaceRequest',
     'build_calculation_plan', 'build_export_plan', 'canonical_export_component',
+    'validate_export_dependencies',
     'expand_group_tokens', 'parse_command_blocks',
 ]

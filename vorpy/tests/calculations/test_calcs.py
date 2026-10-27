@@ -3,7 +3,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from hypothesis import given, strategies as st, settings
+from hypothesis import example, given, strategies as st, settings
 
 from vorpy.src.calculations.calcs import (
     round_func,
@@ -141,6 +141,36 @@ FLOAT = st.floats(min_value=-1e6, max_value=1e6, allow_nan=False, allow_infinity
 # 3D points (tweak min/max size for nD if desired)
 POINT3 = st.tuples(FLOAT, FLOAT, FLOAT).map(lambda t: np.array(t, dtype=float))
 
+# Translation invariance is only testable when coordinate addition preserves
+# the displacement vectors.  Generate nonzero, representable displacements;
+# unrestricted POINT3 values can contain a 1e-48 separation that vanishes when
+# translated by a unit-scale coordinate.
+ANGLE_BASE_FLOAT = st.floats(
+    min_value=-1e6, max_value=1e6,
+    allow_nan=False, allow_infinity=False, allow_subnormal=False,
+)
+ANGLE_COMPONENT = st.one_of(
+    st.floats(min_value=-10.0, max_value=-1e-3,
+              allow_nan=False, allow_infinity=False, allow_subnormal=False),
+    st.floats(min_value=1e-3, max_value=10.0,
+              allow_nan=False, allow_infinity=False, allow_subnormal=False),
+)
+
+
+@st.composite
+def WELL_CONDITIONED_ANGLE_CASE(draw):
+    p0 = np.array(draw(st.tuples(ANGLE_BASE_FLOAT, ANGLE_BASE_FLOAT, ANGLE_BASE_FLOAT)),
+                  dtype=float)
+    v0 = np.array(draw(st.tuples(ANGLE_COMPONENT, ANGLE_COMPONENT, ANGLE_COMPONENT)),
+                  dtype=float)
+    v1 = np.array(draw(st.tuples(ANGLE_COMPONENT, ANGLE_COMPONENT, ANGLE_COMPONENT)),
+                  dtype=float)
+    translation = np.array(
+        draw(st.tuples(ANGLE_BASE_FLOAT, ANGLE_BASE_FLOAT, ANGLE_BASE_FLOAT)),
+        dtype=float,
+    )
+    return p0, p0 + v0, p0 + v1, translation
+
 
 @given(POINT3, POINT3, POINT3)
 def test_triangle_inequality(a, b, c):
@@ -235,8 +265,15 @@ def test_angle_origin_mode_in_range(a, b):
     assert 0.0 <= ang <= math.pi
 
 
-@given(POINT3, POINT3, POINT3, POINT3)
-def test_angle_translation_invariance(p0, p1, p2, t):
+@example((
+    np.array([0.0, 0.0, 0.0]),
+    np.array([1.0, 1e-6, 0.0]),
+    np.array([1.0, 0.0, 0.0]),
+    np.array([1e6, -2e6, 3e6]),
+))
+@given(WELL_CONDITIONED_ANGLE_CASE())
+def test_angle_translation_invariance(case):
+    p0, p1, p2, t = case
     ang0 = calc_angle(p0, p1, p2)
     ang1 = calc_angle(p0 + t, p1 + t, p2 + t)
 
@@ -255,7 +292,18 @@ def test_angle_translation_invariance(p0, p1, p2, t):
     )
 
     if near_degenerate:
-        assert np.isclose(ang0, ang1, atol=1e-7, rtol=0.0)
+        coordinate_scale = max(
+            float(np.max(np.abs(np.vstack((p0 + t, p1 + t, p2 + t))))),
+            1.0,
+        )
+        shortest_vector = min(
+            np.linalg.norm(p1 - p0),
+            np.linalg.norm(p2 - p0),
+        )
+        roundoff_bound = (
+            128.0 * np.finfo(float).eps * coordinate_scale / shortest_vector
+        )
+        assert np.isclose(ang0, ang1, atol=max(1e-7, roundoff_bound), rtol=0.0)
     else:
         assert np.isclose(ang0, ang1, atol=1e-9, rtol=1e-9)
 

@@ -30,10 +30,7 @@ addopts = "--cov=vorpy --cov-report=term-missing"
 
 [tool.setuptools.package-data]
 vorpy = [
-    "data/*.pdb",
-    "data/2KAI_Frames/*.pdb",
-    "data/*.gro",
-    "data/*.txt",
+    "data/HO_cube.pdb",
     "src/**/*.py",
     "src/GUI/Images/*.png",
     "src/GUI/Images/*.ico",
@@ -50,7 +47,7 @@ exclude = ["vorpy.tests*"]
 
 [project]
 name = "vorpy3"
-version = "3.5.2"
+version = "3.5.3"
 description = "A Python package for Voronoi analysis of molecular structures"
 readme = "README.md"
 requires-python = ">=3.10"

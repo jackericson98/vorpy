@@ -4,7 +4,8 @@ from vorpy.src.group.sort import get_info
 from vorpy.src.group.export import group_exports
 from vorpy.src.network import Network
 from vorpy.src.boundary import (
-    SolventMode,
+    CellTarget,
+    normalize_cell_target,
     normalize_solvent_mode,
     prepare_network_geometry,
 )
@@ -124,7 +125,7 @@ class Group:
                  make_net=True, verts=None, vert_col='red', edge_col='grey', output_directory=None,
                  mode='complete', interfaces=None, interface_metadata=None, parent_interface_id=None,
                  interface_side=None, interface_groups=None, group_id=None,
-                 solvent_mode=None):
+                 solvent_mode=None, cell_target=None):
         """
 
         Initialize a Group.
@@ -192,6 +193,12 @@ class Group:
         if configured_mode is None:
             configured_mode = getattr(sys, "solvent_mode", None)
         self.solvent_mode = normalize_solvent_mode(configured_mode)
+        configured_target = cell_target
+        if configured_target is None and isinstance(settings, dict):
+            configured_target = settings.get("cell_target")
+        if configured_target is None:
+            configured_target = getattr(sys, "cell_target", None)
+        self.cell_target = normalize_cell_target(configured_target)
 
         # ------------------------------------------------------------------
         # Interface and partial-network state
@@ -316,6 +323,7 @@ class Group:
             edge_col=edge_col,
             round_to=sys.round_to,
             solvent_mode=self.solvent_mode,
+            cell_target=self.cell_target,
         )
 
         # ------------------------------------------------------------------
@@ -413,7 +421,7 @@ class Group:
                      box_size=1.25, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
                      sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True, round_to=6,
                      edge_width=DEFAULT_EDGE_RADIUS, vertex_size=DEFAULT_VERTEX_RADIUS,
-                     solvent_mode=None):
+                     solvent_mode=None, cell_target=None):
         """
         Sets the settings for the network building
         """
@@ -426,6 +434,9 @@ class Group:
                     'conc_col': conc_col, 'round_to': round_to,
                     'solvent_mode': normalize_solvent_mode(
                         self.solvent_mode if solvent_mode is None else solvent_mode
+                    ).value,
+                    'cell_target': normalize_cell_target(
+                        getattr(self, 'cell_target', cell_target)
                     ).value}
         # Create the settings dictionary
         if self.settings is None:
@@ -543,7 +554,7 @@ class Group:
                 "Selected group contains generators excluded by solvent_mode "
                 f"{geometry.solvent_mode}: {missing[:5]}"
             )
-        if self.solvent_mode is SolventMode.FULL_SOLVENT:
+        if self.cell_target is CellTarget.ALL:
             group_indices = [
                 local_index for local_index, system_index in enumerate(geometry.system_indices)
                 if system_index is not None
@@ -578,6 +589,7 @@ class Group:
             solvent_local_indices=geometry.solvent_local_indices,
             solvent_generator_ids=geometry.solvent_generator_ids,
             solvent_mode=geometry.solvent_mode,
+            cell_target=self.cell_target,
             retained_system_indices=geometry.retained_system_indices,
             retained_generator_ids=geometry.retained_generator_ids,
         )

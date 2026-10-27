@@ -150,6 +150,8 @@ def export_sys_info(sys, directory=None):
             info.write(f"Resolution:             {clean(policy.get('solvent_mode_resolution'))}\n")
             info.write(f"Source Generators:      {int(policy.get('source_generator_count', 0)):,}\n")
             info.write(f"Active Generators:      {int(policy.get('active_generator_count', 0)):,}\n")
+            info.write(f"Cell Target Policy:     {clean(policy.get('cell_target', 'MOLECULAR'))}\n")
+            info.write(f"Target Cells:           {int(policy.get('target_cell_count', 0)):,}\n")
             info.write(f"Excluded Generators:    {int(policy.get('excluded_generator_count', 0)):,}\n")
             info.write(f"Excluded Water:         {int(policy.get('excluded_water_generator_count', 0)):,}\n")
             info.write(f"Excluded Na/Cl:         {int(policy.get('excluded_bulk_counterion_generator_count', 0)):,}\n")

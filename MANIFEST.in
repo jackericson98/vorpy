@@ -7,12 +7,13 @@ include CMakeLists.txt
 
 recursive-include vorpy *.cpp
 recursive-include vorpy *.hpp
-recursive-include vorpy *.txt
-recursive-include vorpy *.md
-recursive-include vorpy *.json
-recursive-include vorpy *.pdb
-recursive-include vorpy *.png
-recursive-include vorpy *.ico
+recursive-include vorpy/src/GUI/Images *.png *.ico
+recursive-include vorpy/workbench/assets *.png
+# Keep the redistributable example explicit.  Research structures and
+# trajectory collections must not enter an sdist through stale egg-info.
+recursive-exclude vorpy/data *.pdb
+recursive-exclude vorpy/data 2KAI_Frames *
+include vorpy/data/HO_cube.pdb
 
 recursive-exclude _skbuild *
 recursive-exclude build *
@@ -26,8 +27,8 @@ recursive-exclude * .gitignore
 recursive-exclude * .idea
 recursive-exclude * .vscode
 
-# Exclude verification foam datasets
-recursive-exclude vorpy/data/VerificationFoams *
+# Research structures, trajectory frames, and generated verification datasets
+# are intentionally not part of the redistributable source/package payload.
 recursive-exclude vorpy/tests *
 
 # Exclude agent state and generated diagnostics from source distributions.

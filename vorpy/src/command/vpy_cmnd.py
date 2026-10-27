@@ -17,10 +17,13 @@ from time import perf_counter, process_time
 
 from vorpy.src.boundary import (
     BoundaryConfig,
+    CellTarget,
     ION_RESIDUES,
     SolventMode,
     WATER_RESIDUES,
     has_explicit_water,
+    molecular_target_system_indices,
+    normalize_cell_target,
     normalize_solvent_mode,
     resolve_boundary,
 )
@@ -53,6 +56,7 @@ FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
                  'boundary_explicitly_requested', 'boundary_warning_printed',
                  'solvent_mode',
                  '_solvent_mode_explicit',
+                 'cell_target', '_cell_target_explicit',
                  'apollonius_requested', 'alpha_value', 'power_settings',
                  'power_vs_aw_requested', 'power_cli_arguments',
                  'aw_alpha_values', 'aw_alpha_pair_overlap_only',
@@ -553,6 +557,36 @@ def solvent_cli_options(args):
     return remaining, mode
 
 
+def cell_target_cli_options(args):
+    """Extract explicit cell-target options from the public CLI."""
+    remaining = []
+    target = None
+    args = iter(args)
+    for arg in args:
+        if arg == '--cell-target':
+            if target is not None:
+                raise SystemExit('--cell-target may only be specified once')
+            try:
+                target = normalize_cell_target(next(args))
+            except StopIteration:
+                raise SystemExit(
+                    '--cell-target requires MOLECULAR or ALL'
+                ) from None
+            except ValueError as error:
+                raise SystemExit(str(error)) from None
+        elif arg in {'--all-cells', '--molecular-cells'}:
+            if target is not None:
+                raise SystemExit('cell target may only be specified once')
+            target = (
+                CellTarget.ALL
+                if arg == '--all-cells'
+                else CellTarget.MOLECULAR
+            )
+        else:
+            remaining.append(arg)
+    return remaining, target
+
+
 def visualization_cli_options(args):
     """Extract read-only dual visualization flags before legacy parsing."""
     remaining = []
@@ -657,6 +691,8 @@ class Command:
         self.boundary_warning_printed = False
         self.solvent_mode = SolventMode.MOLECULE_ONLY
         self._solvent_mode_explicit = False
+        self.cell_target = CellTarget.MOLECULAR
+        self._cell_target_explicit = False
         self.apollonius_requested = False
         self.alpha_value = None
         self.power_settings = {'preset': None, 'probe_radius': 1.4, 'alpha': 0.0,
@@ -943,6 +979,10 @@ class Command:
             'solvent_mode': getattr(
                 getattr(self, 'solvent_mode', None), 'value', self.solvent_mode
             ),
+            'cell_target': getattr(
+                getattr(self, 'cell_target', None), 'value', self.cell_target
+            ),
+            'target_cell_count': policy.get('target_cell_count'),
             'active_generator_count': policy.get('active_generator_count'),
             'active_system_indices': tuple(getattr(self, '_source_system_indices', ()) or ()),
             'scope': plan.export_plan.scope if plan.export_plan is not None else None,
@@ -1015,6 +1055,12 @@ class Command:
                 f"  Source generator universe: {summary['active_generator_count']:,} active system IDs",
                 flush=True,
             )
+        if summary['target_cell_count'] is not None:
+            print(
+                f"  Cell targets: {summary['target_cell_count']:,} "
+                f"({summary['cell_target']})",
+                flush=True,
+            )
         return summary
 
     def _print_network_cell_counts(self):
@@ -1025,14 +1071,43 @@ class Command:
             balls = getattr(network, 'balls', None)
             total = len(balls) if balls is not None else None
             complete = None
+            target_count = None
+            target_complete = None
             if balls is not None and hasattr(balls, 'columns') and 'complete' in balls:
                 complete = int(balls['complete'].astype(bool).sum())
+                if not hasattr(network, 'group'):
+                    print(
+                        f'Network cells ({name}): constructed={total:,}; '
+                        f'complete={complete:,}'
+                    )
+                    continue
+                target_indices = tuple(getattr(network, 'group', ()) or ())
+                target_count = len(target_indices)
+                if 'num' in balls.columns:
+                    num_to_position = {
+                        int(value): position
+                        for position, value in enumerate(balls['num'])
+                    }
+                    target_positions = [
+                        num_to_position[int(target)]
+                        for target in target_indices
+                        if int(target) in num_to_position
+                    ]
+                else:
+                    target_positions = [
+                        int(target) for target in target_indices
+                        if 0 <= int(target) < len(balls)
+                    ]
+                target_complete = int(
+                    sum(bool(balls.iloc[index]['complete']) for index in target_positions)
+                )
             if total is None or complete is None:
                 print(f'Network cells ({name}): constructed=unavailable; complete=unavailable')
             else:
                 print(
-                    f'Network cells ({name}): constructed={total:,}; '
-                    f'complete={complete:,}'
+                    f'Network cells ({name}): source={total:,}; '
+                    f'targets={target_count:,}; complete_targets={target_complete:,}; '
+                    f'complete_source_rows={complete:,}'
                 )
 
     def _timing_phase_start(self):
@@ -1269,6 +1344,10 @@ class Command:
         if requested_solvent_mode is not None:
             self.solvent_mode = requested_solvent_mode
             self._solvent_mode_explicit = True
+        self._arguments, requested_cell_target = cell_target_cli_options(self._arguments)
+        if requested_cell_target is not None:
+            self.cell_target = requested_cell_target
+            self._cell_target_explicit = True
         (self._arguments, self.visualize_dual_requested,
          self.visualize_alpha_value) = visualization_cli_options(self._arguments)
         if len(self._arguments) > 1:
@@ -1382,11 +1461,13 @@ class Command:
                     boundary_config=self.boundary_config,
                     solvent_mode=self.solvent_mode,
                 )
+                self.sys.cell_target = self.cell_target
                 if comparison_temp is not None:
                     self.sys.name = Path(self.base_file).stem
             else:
                 self.sys.boundary_config = self.boundary_config
                 self.sys.solvent_mode = self.solvent_mode
+                self.sys.cell_target = self.cell_target
             self.sys._fail_if_exists = self.fail_if_exists
         finally:
             if comparison_temp is not None:
@@ -1466,6 +1547,8 @@ class Command:
                 command.boundary_warning_printed = self.boundary_warning_printed
                 command.solvent_mode = self.solvent_mode
                 command._solvent_mode_explicit = self._solvent_mode_explicit
+                command.cell_target = self.cell_target
+                command._cell_target_explicit = self._cell_target_explicit
                 if output_root is None:
                     command.parse_commands()
                     if frame_system.files['dir'] is None:
@@ -1618,14 +1701,19 @@ class Command:
         source_indices = getattr(self, '_source_system_indices', None)
         if source_indices is None:
             source_indices = tuple(range(len(self.sys.balls)))
+        target_indices = self._cell_target_system_indices(source_indices)
         self._full_system_group = Group(
             sys=self.sys,
             name=f'{self.sys.name}_full_system',
-            atoms=list(source_indices),
+            # The Network retains ``source_indices`` as its competitor
+            # universe, while this Group's ball_ndxs identifies the cells to
+            # materialize.  Do not turn a wet source into 612 cell targets.
+            atoms=list(target_indices),
             settings=settings,
             make_net=True,
             build_net=False,
             print_metrics=False,
+            cell_target=self.cell_target,
         )
         calculate_curvature = getattr(
             self.sys, '_network_calculate_curvature', True
@@ -1638,6 +1726,23 @@ class Command:
                 source_network,
                 scope='full_system_source',
             )
+
+    def _cell_target_system_indices(self, active_system_indices=None):
+        """Resolve cell targets without changing the source competitors."""
+        active = tuple(
+            int(index) for index in (
+                active_system_indices
+                if active_system_indices is not None
+                else getattr(self, '_source_system_indices', ())
+            )
+        )
+        target = normalize_cell_target(self.cell_target)
+        if target is CellTarget.ALL:
+            return tuple(sorted(active))
+        return molecular_target_system_indices(
+            self.sys,
+            active_system_indices=active,
+        )
 
     def _full_system_reuse_enabled(self):
         """Whether selected targets must be read-only views of the source solve."""
@@ -1715,6 +1820,12 @@ class Command:
     def _attach_full_system_group_views(self):
         """Attach read-only group views without creating subgroup Networks."""
         plan = self.calculation_plan
+        # Geometry-only execution intentionally does not populate cell volume
+        # or analysis dictionaries. Group-view attachment is an analysis
+        # consumer; defer it so source geometry can be checkpointed and
+        # exported without turning the profile mismatch into a KeyError.
+        if self.execution_profile == 'geometry':
+            return
         # Interface-only commands use groups as interface sides.  Validating
         # whole group views here would pull unrelated incomplete cells into the
         # dependency check before the interface facets are selected.
@@ -2403,6 +2514,8 @@ class Command:
         active = tuple(
             int(index) for index in geometry.system_indices if index is not None
         )
+        self.cell_target = normalize_cell_target(self.cell_target)
+        target_system_indices = self._cell_target_system_indices(active)
         active_set = set(active)
         excluded = tuple(index for index in range(len(rows)) if index not in active_set)
         excluded_water = tuple(
@@ -2444,6 +2557,9 @@ class Command:
             'source_provenance': source_provenance,
             'source_generator_count': len(rows),
             'active_generator_count': len(active),
+            'cell_target': self.cell_target.value,
+            'target_cell_count': len(target_system_indices),
+            'target_system_indices': target_system_indices,
             'excluded_generator_count': len(excluded),
             'excluded_water_generator_count': len(excluded_water),
             'excluded_bulk_counterion_generator_count': len(excluded_bulk_ions),
@@ -2460,10 +2576,12 @@ class Command:
         self._source_system_indices = active
         self.sys._source_generator_policy = policy
         self.sys.solvent_mode = mode
+        self.sys.cell_target = self.cell_target
         self.sys.solvent_mode_resolution = resolution
         if self.settings_dict is None:
             self.settings_dict = {}
         self.settings_dict['solvent_mode'] = mode.value
+        self.settings_dict['cell_target'] = self.cell_target.value
         self.settings_dict['solvent_mode_resolution'] = resolution
         self.settings_dict['generator_policy'] = policy
         return excluded
@@ -2479,6 +2597,7 @@ class Command:
         network.settings['solvent_mode_resolution'] = policy['solvent_mode_resolution']
         for key in (
             'source_generator_count', 'active_generator_count',
+            'cell_target', 'target_cell_count', 'target_system_indices',
             'excluded_generator_count', 'excluded_water_generator_count',
             'excluded_bulk_counterion_generator_count',
         ):
@@ -2817,11 +2936,19 @@ class Command:
         self._resolve_full_system_solvent_mode()
 
         plan = self.calculation_plan
+        structure_only_export = bool(
+            plan is not None
+            and not self.interface_mode
+            and not plan.calculation_requests
+            and tuple(plan.export_plan.included_components) == ('source_structure',)
+            and self.save_network_path is None
+        )
+        self.sys._source_structure_only_export = structure_only_export
         if self.interface_mode:
             self._cli_stage_enabled = True
             self.sys._cli_stage_output_enabled = True
             self.sys._cli_export_stage_callback = self._cli_export_stage_callback
-        if not self.verbose:
+        if not self.verbose and not structure_only_export:
             net_type = (self.settings_dict or {}).get('net_type', 'aw')
             if isinstance(net_type, str):
                 if self.interface_mode and not (
@@ -2834,7 +2961,8 @@ class Command:
                 else:
                     print(f'\nSolving {net_type.upper()} network...', flush=True)
 
-        self._build_full_system_target()
+        if not structure_only_export:
+            self._build_full_system_target()
 
         # Create the requested groups after solvent membership is resolved.
         # In interface mode they are selection containers, not new Networks.
@@ -3599,6 +3727,12 @@ class Command:
             self._solvent_mode_explicit = True
             if self.sys is not None:
                 self.sys.solvent_mode = requested_solvent_mode
+        my_args, requested_cell_target = cell_target_cli_options(my_args)
+        if requested_cell_target is not None:
+            self.cell_target = requested_cell_target
+            self._cell_target_explicit = True
+            if self.sys is not None:
+                self.sys.cell_target = requested_cell_target
         my_args, apollonius_requested, alpha_value = apollonius_cli_options(my_args)
         self.apollonius_requested = self.apollonius_requested or apollonius_requested
         if alpha_value is not None:

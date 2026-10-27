@@ -389,9 +389,12 @@ class NetworkView:
             _validate_indices(ball_refs, len(balls), "edge balls", edge_position)
             selected_vertices.update(vertex_refs)
 
-        # Group views own every selected cell. Interface views own only the
-        # complete local dependency closure of retained A/B facets; unrelated
-        # incomplete cells must not invalidate an otherwise supported view.
+        # Group views own every selected cell, but competitor cells are not
+        # necessarily materialized under the molecular-cell target policy.
+        # Keep all incident generators in the support/lineage record (including
+        # numerical boundary generators), while validating completeness only
+        # for the selected target cells. Interface views retain the stricter
+        # dependency closure for their selected physical facets.
         relevant_generators = set(selected_local) if selection_kind == "group" else set()
         for vertex_position in sorted(selected_vertices):
             vertex = verts.iloc[vertex_position]
@@ -407,9 +410,15 @@ class NetworkView:
                 _row_indices(surfs.iloc[surface_position], "balls", "surface", surface_position)
             )
 
+        complete_generators = (
+            set(selected_local)
+            if selection_kind == "group"
+            else set(relevant_generators)
+        )
+
         _validate_complete_cells(
             balls,
-            relevant_generators,
+            complete_generators,
             boundary_completeness_exemptions,
         )
         _validate_complete_features(

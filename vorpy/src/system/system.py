@@ -29,6 +29,7 @@ from vorpy.src.boundary import (
     BoundaryConfig,
     has_explicit_water,
     has_explicit_solvent,
+    normalize_cell_target,
     normalize_solvent_mode,
     normalize_retained_system_indices,
 )
@@ -226,7 +227,7 @@ class System:
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
                  atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False,
                  name=None, make_dir=True, boundary_config=None, solvent_mode=None,
-                 retained_system_indices=None):
+                 retained_system_indices=None, cell_target=None):
         """
         Initialize a new System object for managing molecular systems and networks.
 
@@ -346,6 +347,7 @@ class System:
         self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
         self.boundary_config = boundary_config or BoundaryConfig()
         self.solvent_mode = normalize_solvent_mode(solvent_mode)
+        self.cell_target = normalize_cell_target(cell_target)
         self.retained_system_indices = normalize_retained_system_indices(
             retained_system_indices
         )
@@ -1147,6 +1149,47 @@ class System:
             Iterable of ``(group1, group2)`` pairs. ``group2`` may be None when
             constructing an interface against the surrounding system.
         """
+        interface_pairs = list(interface_pairs)
+        existing_ids = {
+            str(getattr(interface, 'interface_id', ''))
+            for interface in (self.ifaces or [])
+        }
+        planned_ids = set()
+
+        # Validate the target set before constructing any Interface objects.
+        # Interface IDs are unordered physical identities, while the stored
+        # group selections remain ordered for Results/views.  Rejecting a
+        # duplicate here prevents two targets from sharing an archive/output
+        # identity and makes overlap/empty-selection failures deterministic.
+        for group1, group2 in interface_pairs:
+            group1_indices = {
+                int(index) for index in (getattr(group1, 'ball_ndxs', ()) or ())
+            }
+            if not group1_indices:
+                raise ValueError('Interface group A must contain at least one generator.')
+            if group2 is None:
+                interface_id = f"{getattr(group1, 'group_id', None) or group1.name}__surrounding"
+            else:
+                group2_indices = {
+                    int(index) for index in (getattr(group2, 'ball_ndxs', ()) or ())
+                }
+                if not group2_indices:
+                    raise ValueError('Interface group B must contain at least one generator.')
+                overlap = group1_indices.intersection(group2_indices)
+                if overlap:
+                    raise ValueError(
+                        'Interface groups must be disjoint; overlapping generators: '
+                        f'{sorted(overlap)}'
+                    )
+                group1_id = str(getattr(group1, 'group_id', None) or group1.name)
+                group2_id = str(getattr(group2, 'group_id', None) or group2.name)
+                interface_id = '__'.join(sorted((group1_id, group2_id)))
+            if interface_id in existing_ids or interface_id in planned_ids:
+                raise ValueError(
+                    f'Duplicate interface target identity: {interface_id}'
+                )
+            planned_ids.add(interface_id)
+
         num_interfaces = len(interface_pairs)
         for i, (group1, group2) in enumerate(interface_pairs):
             name1 = group1.name

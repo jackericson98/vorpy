@@ -378,6 +378,24 @@ def _cached_result_identity(iface, *, result_kind='interface', representation='v
     )
 
 
+def _archived_interface_identity_is_complete(details):
+    """Return whether archived provenance already identifies this cache.
+
+    A complete legacy provenance mapping may legitimately omit geometry
+    lineage.  That omission is unavailable evidence, not permission to add a
+    synthetic field.  Sparse historical mappings still receive an explicit
+    unresolved lineage so callers can distinguish them from complete cache
+    identity.
+    """
+    if not isinstance(details, Mapping):
+        return False
+    required = (
+        'network_id', 'system_id', 'network_scope', 'partition',
+        'interface_id', 'environment', 'representation', 'alpha', 'query_id',
+    )
+    return all(details.get(name) is not None for name in required)
+
+
 def _cached_interface_result(iface):
     # A producer-attested typed result is the authoritative cache snapshot.
     # The archive loader validates its archive/producer ownership before this
@@ -401,7 +419,10 @@ def _cached_interface_result(iface):
     # Preserve producer lineage loaded from the archive; synthesize only for
     # legacy caches that have no archived lineage record.
     geometry_lineage = None
-    if provenance.geometry_lineage is None:
+    if (
+        provenance.geometry_lineage is None
+        and not _archived_interface_identity_is_complete(archive_provenance)
+    ):
         solver_evidence = getattr(iface.net, 'aw_solver_provenance', None)
         try:
             lineage_metadata = build_geometry_lineage_metadata(
@@ -978,6 +999,18 @@ def _compact_physical_interface(iface, directory):
         if surface_mesh is not None:
             write_mesh(surface_mesh, surface_target.name, directory=directory)
             names['surfaces'] = surface_target
+            # Preserve the historical cache-only AW visualization filename.
+            # The canonical interface contract remains interface_surfs.off;
+            # this alias points to the same selected physical mesh so legacy
+            # replay consumers do not silently lose their surface layer.
+            if scheme == 'aw':
+                legacy_target = directory / 'aw_surfs.off'
+                if not legacy_target.exists():
+                    try:
+                        os.link(surface_target, legacy_target)
+                    except OSError:
+                        legacy_target.write_bytes(surface_target.read_bytes())
+                names['legacy_surfaces'] = legacy_target
 
         edges = getattr(mesh_network, 'edges', None)
         edge_mesh = (_physical_edge_mesh(mesh_network, edge_positions, DEFAULT_EDGE_RADIUS)

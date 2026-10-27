@@ -31,6 +31,18 @@ class SolventMode(str, Enum):
     FULL_SOLVENT = "FULL_SOLVENT"
 
 
+class CellTarget(str, Enum):
+    """Generators whose cells are actually materialized by a network.
+
+    This is deliberately separate from :class:`SolventMode`: the latter
+    describes the geometric competitor universe, while this enum describes
+    the requested cell targets.
+    """
+
+    MOLECULAR = "MOLECULAR"
+    ALL = "ALL"
+
+
 def normalize_retained_system_indices(values, atom_count=None):
     """Return a deterministic explicit allowlist of retained System rows."""
     if values is None:
@@ -87,6 +99,70 @@ def normalize_solvent_mode(value=None) -> SolventMode:
         raise ValueError(
             "solvent_mode must be MOLECULE_ONLY, SOLVENT_CONTEXT, or FULL_SOLVENT"
         ) from error
+
+
+def normalize_cell_target(value=None) -> CellTarget:
+    """Normalize the cell-target policy independently of solvent handling."""
+    if value is None:
+        return CellTarget.MOLECULAR
+    if isinstance(value, CellTarget):
+        return value
+    normalized = str(value).strip().upper().replace("-", "_")
+    aliases = {
+        "MOLECULAR_CELLS": CellTarget.MOLECULAR,
+        "ALL_CELLS": CellTarget.ALL,
+    }
+    try:
+        if normalized in aliases:
+            return aliases[normalized]
+        return CellTarget(normalized)
+    except ValueError as error:
+        raise ValueError(
+            "cell_target must be MOLECULAR or ALL"
+        ) from error
+
+
+def molecular_target_system_indices(system, active_system_indices=None):
+    """Return System rows whose cells belong to the molecular target.
+
+    Solvent and retained environment rows remain available to
+    ``prepare_network_geometry`` as competitors.  They are not promoted to
+    cell targets merely because they participate in that universe.
+    """
+    active = (
+        tuple(int(index) for index in active_system_indices)
+        if active_system_indices is not None
+        else tuple(range(len(getattr(system, "balls", ()))))
+    )
+    active_set = set(active)
+    residues = tuple(getattr(system, "residues", ()) or ())
+    selected = set()
+    for residue in residues:
+        selected.update(int(index) for index in (getattr(residue, "atoms", ()) or ()))
+    selected.intersection_update(active_set)
+
+    # Raw ball systems have no residue hierarchy.  Preserve their historical
+    # all-ball default, while molecular systems with an empty hierarchy fall
+    # back to non-solvent active rows.
+    if getattr(system, "type", None) == "balls":
+        return tuple(sorted(active_set))
+    if selected:
+        return tuple(sorted(selected))
+
+    balls = getattr(system, "balls", None)
+    if balls is None:
+        return tuple(sorted(active_set))
+    solvent_names = WATER_RESIDUES | ION_RESIDUES
+    non_solvent = []
+    for index in sorted(active_set):
+        try:
+            row = balls.iloc[index]
+            residue = str(row.get("res_name", "")).strip().upper()
+        except (AttributeError, IndexError, KeyError):
+            residue = ""
+        if residue not in solvent_names:
+            non_solvent.append(index)
+    return tuple(non_solvent or sorted(active_set))
 
 
 # Core loader and Workbench solvent names are merged here to keep detection

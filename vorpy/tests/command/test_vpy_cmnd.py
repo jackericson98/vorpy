@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import subprocess
@@ -291,6 +292,67 @@ def test_actual_cli_ordered_pow_interface_archive_reload_and_cache_export(tmp_pa
     assert profile['export_phases']['operations']
     logs = list(cache_output.rglob('*logs.csv'))
     assert logs
+
+
+def test_round14_shell_checkpoint_replay_preserves_unique_group_membership(tmp_path):
+    """Replay the Round 13 AW shell checkpoint path without rebuilding.
+
+    ``-g f`` materializes a selection from the recovered network.  The
+    selection must not mutate the list later used as the checkpoint atom
+    membership source while ``Group`` processes it.
+    """
+    root = Path(__file__).resolve().parents[3]
+    source = Path(__file__).resolve().parents[2] / 'data' / 'HO_cube.pdb'
+    solve_output = tmp_path / 'solve'
+    replay_output = tmp_path / 'replay'
+    archive = tmp_path / 'HO_cube_checkpoint.vpy'
+    solve = subprocess.run(
+        [
+            sys.executable, '-m', 'vorpy', '--fail-if-exists', str(source),
+            '-s', 'nt', 'aw', 'and', 'sr', '0.2', 'and', 'mv', '5',
+                '--boundary', 'shell', '--all-cells', '-e', 'none', '-e', 'dir',
+            str(solve_output), '--save-network', str(archive),
+        ],
+        cwd=root, capture_output=True, text=True, timeout=120,
+        env={**os.environ, 'PYTHONPATH': str(root)},
+    )
+    assert solve.returncode == 0, solve.stdout + '\n' + solve.stderr
+    assert archive.is_file()
+    before = hashlib.sha256(archive.read_bytes()).hexdigest()
+
+    replay_code = (
+        'import sys; '
+        'from vorpy.src.network import Network; '
+        'from vorpy.src.command.vpy_cmnd import Command; '
+        'Network.build = lambda *args, **kwargs: (_ for _ in ()).throw('
+        'RuntimeError("Network.build called during replay")); '
+        'sys.argv = ["vorpy", "--load-network", sys.argv[1], "-g", "f", '
+        '"-e", "medium", "and", "dir", sys.argv[2], "--fail-if-exists"]; '
+        'Command().run(); print("ROUND14_REPLAY_OK")'
+    )
+    replay = subprocess.run(
+        [sys.executable, '-c', replay_code, str(archive), str(replay_output)],
+        cwd=tmp_path, capture_output=True, text=True, timeout=120,
+        env={**os.environ, 'PYTHONPATH': str(root)},
+    )
+    assert replay.returncode == 0, replay.stdout + '\n' + replay.stderr
+    assert 'ROUND14_REPLAY_OK' in replay.stdout
+    off_files = [path for path in replay_output.rglob('*.off') if path.stat().st_size]
+    assert off_files
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == before
+
+
+def test_checkpoint_atom_rejects_duplicate_membership_ids():
+    """Repeated IDs across atoms are valid; duplicates within one atom fail."""
+    from vorpy.src.results.checkpoint import CheckpointAtom, CheckpointContractError
+
+    with pytest.raises(CheckpointContractError, match='atom group_ids must not contain duplicates'):
+        CheckpointAtom(
+            atom_id='system:0', source_index=0, atom_name='O', element='O',
+            residue_id='residue:A:1', residue_name='HOH', residue_seq=1,
+            chain_id='A', coordinates=(0.0, 0.0, 0.0), radius=1.5,
+            group_ids=('HO_cube_all', 'HO_cube_all'),
+        )
 
 
 def test_diagnose_edges_flag_is_removed_before_grouped_parsing(monkeypatch):

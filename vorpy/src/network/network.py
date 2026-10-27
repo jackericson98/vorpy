@@ -26,6 +26,7 @@ from vorpy.src.network.find_net_verts import find_net_verts
 from vorpy.src.network.net_logs_connect import net_logs_connect
 from vorpy.src.network.edge_geometry_diagnostics import diagnose_aw_edge_geometry
 from vorpy.src.boundary import (
+    normalize_cell_target,
     normalize_retained_system_indices,
     normalize_solvent_mode,
 )
@@ -155,7 +156,7 @@ class Network:
                  generator_system_indices=None, generator_stable_ids=None,
                  solvent_local_indices=None, solvent_generator_ids=None,
                  solvent_mode=None, retained_system_indices=None,
-                 retained_generator_ids=None):
+                 retained_generator_ids=None, cell_target=None):
         """
         Initialize a Network object with the given parameters.
 
@@ -232,6 +233,10 @@ class Network:
         self.solvent_local_indices = tuple(solvent_local_indices or ())
         self.solvent_generator_ids = tuple(str(value) for value in (solvent_generator_ids or ()))
         self.solvent_mode = solvent_mode
+        configured_cell_target = cell_target
+        if configured_cell_target is None and isinstance(settings, dict):
+            configured_cell_target = settings.get('cell_target')
+        self.cell_target = normalize_cell_target(configured_cell_target).value
         self.solvent_cells_complete = None
         self.solvent_generator_digest = None
         self.retained_system_indices = normalize_retained_system_indices(
@@ -358,6 +363,12 @@ class Network:
                 list(self.solvent_generator_ids), separators=(",", ":"), ensure_ascii=True
             ).encode("utf-8")
             self.solvent_generator_digest = sha256(payload).hexdigest()
+        elif mode.value == "FULL_SOLVENT":
+            # FULL_SOLVENT is also a valid explicit policy for a structure
+            # containing no solvent.  Preserve an attested empty participant
+            # set so typed Results can distinguish this policy from an
+            # unrecorded/legacy solvent universe.
+            self.solvent_generator_digest = sha256(b"[]").hexdigest()
         else:
             self.solvent_generator_digest = None
 
@@ -382,6 +393,7 @@ class Network:
         )
         if isinstance(self.settings, dict):
             self.settings["solvent_mode"] = mode.value
+            self.settings["cell_target"] = self.cell_target
             self.settings["solvent_generator_digest"] = self.solvent_generator_digest
             self.settings["solvent_cells_complete"] = self.solvent_cells_complete
         return self.solvent_provenance
@@ -1350,7 +1362,28 @@ class Network:
         # Stop the timer and measure the time
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
-        num_complete = len([_ for _ in self.balls['complete'] if _])
+        target_indices = tuple(self.group or ())
+        if 'num' in self.balls.columns:
+            num_to_position = {
+                int(value): position
+                for position, value in enumerate(self.balls['num'])
+            }
+            target_positions = {
+                num_to_position[int(target)]
+                for target in target_indices
+                if int(target) in num_to_position
+            }
+        else:
+            target_positions = {
+                int(position) for position in target_indices
+                if 0 <= int(position) < len(self.balls)
+            }
+        num_complete = sum(
+            bool(self.balls.iloc[position]['complete'])
+            for position in target_positions
+        )
+        self.target_cell_count = len(target_positions)
+        self.complete_target_cell_count = num_complete
         completion_kind = getattr(self, 'completion_kind', None) or "network"
         completion_name = (
             getattr(self, 'progress_network_name', None)
@@ -1362,12 +1395,15 @@ class Network:
         if parent is None or getattr(parent, 'verbose', False):
             print()
         print(
-            '"{}" {} built - {} complete cell{}, {:,} vertices, {:,} edges, '
+            '"{}" {} built - {} complete target cell{} ({} target cells), '
+            '{:,} source rows, {:,} vertices, {:,} edges, '
             '{:,} surfaces - elapsed {:.2f} s\n'.format(
                 completion_name,
                 completion_kind,
                 num_complete,
                 '' if num_complete == 1 else 's',
+                len(target_positions),
+                len(self.balls),
                 len(self.verts),
                 len(self.edges),
                 len(self.surfs),

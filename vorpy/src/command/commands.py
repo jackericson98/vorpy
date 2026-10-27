@@ -331,6 +331,11 @@ Boundary and solvent:
   --solvent-mode MOLECULE_ONLY|SOLVENT_CONTEXT|FULL_SOLVENT
   --solvent-context  --full-solvent
     Select the generator universe used for the solve.
+  --cell-target MOLECULAR|ALL
+  --molecular-cells  --all-cells
+    Select which source generators receive materialized cells.  The default
+    is MOLECULAR; solvent-mode remains the independent competitor-universe
+    setting.
 
 Visualization:
   --export-dual-visualization

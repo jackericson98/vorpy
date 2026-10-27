@@ -1674,7 +1674,12 @@ def group_from_network(network, atom_indices, name='selection'):
     system = network.sys
     if system.files['dir'] is None:
         system.files['dir'] = str(Path.cwd() / 'VorPy_Output')
-    group = Group(system, name=name, atoms=indices, settings=dict(network.settings), make_net=False)
+    # Group.process_inputs() records the selected atoms in ``group.atms`` and
+    # inserts into that list while it builds ``ball_ndxs``.  Keep the
+    # canonical, de-duplicated selection owned by this recovery helper out of
+    # that mutable construction path; otherwise the same list is modified
+    # during iteration and every selected atom can be recorded twice.
+    group = Group(system, name=name, atoms=list(indices), settings=dict(network.settings), make_net=False)
     group.net = copy(network)
     # A new selection is a distinct network view; shallow-copying its archive
     # identity would create two objects with the same persisted identity.

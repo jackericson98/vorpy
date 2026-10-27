@@ -342,6 +342,8 @@ def build_checkpoint_container(system):
     dependencies = []
     networks = []
     network_ids = {}
+    dependency_digests = set()
+    payload_ids = set()
     for scope, owner_id, network in _owner_networks(system):
         key = id(network)
         if key in network_ids:
@@ -372,7 +374,13 @@ def build_checkpoint_container(system):
             generator_ids=generator_ids,
             topology=topology,
         )
-        dependencies.append(dependency)
+        # Distinct recovered network views can have distinct network
+        # identities while sharing the same immutable geometry dependency.
+        # Checkpoint dependencies and payloads are content-addressed records,
+        # so retain one record per digest and let each network reference it.
+        if dependency.content_digest not in dependency_digests:
+            dependencies.append(dependency)
+            dependency_digests.add(dependency.content_digest)
         try:
             payload_kind, content = _network_payload(network)
         except Exception:
@@ -386,7 +394,9 @@ def build_checkpoint_container(system):
                 dependency_digest=dependency.content_digest,
                 status=status,
             )
-            payloads.append(payload)
+            if payload.payload_id not in payload_ids:
+                payloads.append(payload)
+                payload_ids.add(payload.payload_id)
         networks.append(CheckpointNetworkState(
             network_id=network_id,
             source_network_id=dependency.source_network_id,

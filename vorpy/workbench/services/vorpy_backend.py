@@ -28,12 +28,14 @@ from vorpy.src.system import System
 from vorpy.src.boundary import (
     BoundaryConfig,
     BoundaryMode,
+    CellTarget,
     SolventMode,
     DEFAULT_PROBE_RADIUS,
     DEFAULT_BOUNDARY_GENERATOR_RADIUS,
     DEFAULT_SHELL_OFFSET,
     DEFAULT_SHELL_SPACING,
     normalize_retained_system_indices,
+    normalize_cell_target,
     normalize_solvent_mode,
     prepare_network_geometry,
 )
@@ -74,6 +76,7 @@ class VorPySolveSettings:
     # Scientific generator-universe contract shared with the CLI. Boundary
     # mode remains a separate numerical boundary setting.
     solvent_mode: str = SolventMode.MOLECULE_ONLY.value
+    cell_target: str = CellTarget.MOLECULAR.value
 
     def __post_init__(self):
         object.__setattr__(
@@ -85,6 +88,11 @@ class VorPySolveSettings:
             self,
             "retained_system_indices",
             normalize_retained_system_indices(self.retained_system_indices),
+        )
+        object.__setattr__(
+            self,
+            "cell_target",
+            normalize_cell_target(self.cell_target).value,
         )
 
 
@@ -249,6 +257,7 @@ class VorPyBackend:
             build_net=False,
             mode="interface",
             solvent_mode=self.settings.solvent_mode,
+            cell_target=self.settings.cell_target,
         )
         group_a = Group(
             name=selection.group_a_id,
@@ -788,6 +797,7 @@ class VorPyBackend:
         if frame_count > 1:
             system_options["output_directory"] = directory
         system = System(**system_options)
+        system.cell_target = normalize_cell_target(self.settings.cell_target)
         # The temporary solve input contains one model, but progress should
         # identify its position in the original trajectory.
         system.frame_index = frame_index
@@ -826,6 +836,7 @@ class VorPyBackend:
                 box_size=self.settings.box_size,
                 surf_res=self.settings.surface_resolution,
                 print_metrics=False,
+                cell_target=self.settings.cell_target,
             )
             if group not in system.groups:
                 system.groups.append(group)

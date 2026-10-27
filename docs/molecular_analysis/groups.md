@@ -106,6 +106,15 @@ This default is useful for conventional molecular analyses because the molecular
 
 VorPy also supports an explicit full-system grouping path in which all system balls are selected.
 
+The cell-target policy is separate from the solvent policy.  A default
+molecular calculation materializes cells only for the selected molecular
+residue atoms, while retaining the active solvent/environment generators as
+geometric competitors.  Use `--cell-target all` (or `--all-cells`) when
+complete cells for every active source generator are intentionally required.
+`--solvent-mode MOLECULE_ONLY|SOLVENT_CONTEXT|FULL_SOLVENT` controls which
+generators compete geometrically; it does not by itself request solvent-cell
+materialization.
+
 These two cases should not be confused:
 
 ```text
@@ -113,7 +122,7 @@ Default molecular Group
     selected non-solvent residues
 
 Full-system Group
-    selected all system balls
+    selected all system balls (explicit target)
 ```
 
 The distinction becomes especially important for solvent exposure and interface analysis.

@@ -39,10 +39,25 @@ quantity, value, units, status, provenance); it serializes cached state only
 and does not rebuild geometry. The `small` preset also writes this canonical
 log for its compact interface bundle.
 
-Use `-e large -e no_archive` to retain the preset outputs without the automatic
-archive. `-e none` disables automatic exports, and `-e none -e logs` or
-`-e only logs` exports only the requested component without an archive.
-An explicit `--save-network path.vpy` still saves the requested archive.
+Use `-e none` to disable optional files; a completed geometry solve still
+writes its mandatory canonical checkpoint. The compatibility modifiers
+`-e no_archive` and `-e no checkpoint` do not suppress that durability
+checkpoint. An explicit `--save-network path.vpy` still saves the requested
+archive. `-e only logs` remains an explicit analysis export and therefore
+requires an analysis-capable execution profile.
+
+## Execution-profile dependencies
+
+`--profile geometry` is deliberately geometry-only: it does not populate cell
+volume, curvature, or the full analysis dictionary. Geometry-only components
+such as edges, surfaces, and vertices can be requested explicitly with
+`-e only ...` or `-e add ...`. The bundled `small`, `medium`, `large`, and
+`all` presets include analysis-dependent summaries/logs for system and group
+scopes, so VorPy rejects those combinations with an actionable message after
+the mandatory checkpoint has been verified. Use `--profile full` for those
+bundles, or use `-e none` for checkpoint-only geometry. Interface scope keeps
+its compact physical-interface summary available under the geometry profile;
+unsupported curvature/topology fields remain explicitly unavailable.
 
 For a cache-only archive run, add `--profile-cache-export`. The opt-in
 `cache_export_profile.json` beside the normal export directory records load,
