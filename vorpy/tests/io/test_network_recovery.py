@@ -217,6 +217,9 @@ def test_synthetic_recovery_wraps_existing_network_and_keeps_order(tmp_path, mon
     assert recovered.source_identity.generator_count == 5
     assert recovered.source_identity.source_network_id == 'producer:synthetic-pow-dry'
     assert recovered.source_identity.solve_universe_id == expected_solve_universe_id
+    assert recovered.source_identity.geometry_checkpoint_valid is True
+    assert recovered.source_identity.scientific_result_status == 'NOT_CALCULATED'
+    assert recovered.source_identity.scientific_result_certified is False
     assert view.group_a_ids == (0,)
     assert view.group_b_ids == (1,)
     assert view.completeness.proven

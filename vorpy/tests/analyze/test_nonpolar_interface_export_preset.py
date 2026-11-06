@@ -30,3 +30,26 @@ def test_large_export_geometry_helper_writes_analysis_subdirectory(tmp_path):
     assert (output / "nonpolar_interface_geometry_atoms.csv").is_file()
     assert (output / "nonpolar_interface_geometry_metadata.json").is_file()
     assert "interface_label" in (output / "nonpolar_interface_geometry_surfaces.csv").read_text()
+
+
+def test_nonpolar_geometry_is_opt_in_for_export_presets(tmp_path, monkeypatch):
+    import vorpy.src.output.output as output
+
+    calls = []
+    monkeypatch.setattr(output, "_export_nonpolar_geometry", lambda **kwargs: calls.append(kwargs))
+    group = SimpleNamespace(
+        name="group", net=SimpleNamespace(), settings={"net_type": "aw"},
+        exports=lambda **kwargs: None,
+    )
+    system = SimpleNamespace(
+        name="sample", groups=[group], ifaces=[], files={"dir": str(tmp_path)},
+        exports=lambda **kwargs: None, update_progress=lambda **kwargs: None,
+        _export_skip_archive=True,
+    )
+
+    output.export_preset(system, "large")
+    assert calls == []
+
+    output.other_exports(system, "nonpolar")
+    assert len(calls) == 1
+    assert calls[0]["network"] is group.net

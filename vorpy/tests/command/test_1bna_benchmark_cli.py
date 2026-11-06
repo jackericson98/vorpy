@@ -31,7 +31,7 @@ def test_benchmark_cli_matrix_is_parser_valid_and_output_isolated(
         # Exercise settings, source-universe resolution, and group selection;
         # the real solver is deliberately not entered in this parser contract test.
         self.apply_settings()
-        self._resolve_full_system_solvent_mode()
+        self._resolve_default_solvent_mode()
         self.create_groups()
         captured.append(self)
 

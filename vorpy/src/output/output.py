@@ -123,6 +123,7 @@ INTERFACE_PRESETS = {
         ('atoms', {'atoms': True}),
         ('surfaces', {'surfs': True}),
         ('edges', {'edges': True}),
+        ('logs', {'logs': True}),
         ('vertices', {'verts': True}),
         ('info', {'info': True}),
     ],
@@ -360,23 +361,80 @@ def _group_export_cache(group):
             group._export_topology_indices = previous_indices
 
 
-def export_preset(sys, preset):
-    """Execute one named export plan."""
+def _export_entry_excluded(name, kwargs, excluded):
+    aliases = {
+        'surface': {'surface', 'surfaces', 'surfs'},
+        'edge': {'edge', 'edges'},
+        'vertex': {'vertex', 'vertices', 'verts'},
+        'log': {'log', 'logs'},
+        'info': {'info', 'network_info', 'system_info'},
+        'atom': {'atom', 'atoms', 'pdb', 'group_atoms'},
+        'shell': {'shell', 'shell_surfs', 'shell_edges', 'shell_verts'},
+    }
+    name = str(name).strip().lower()
+    keys = {str(key).strip().lower() for key in kwargs}
+    for token in excluded:
+        names = aliases.get(token, {token})
+        if name in names or keys.intersection(names):
+            return True
+    return False
+
+
+def effective_export_plan(sys, preset, *, exclude=()):
+    """Record the concrete plan before running any potentially large export."""
+    excluded = tuple(str(value).strip().lower() for value in exclude)
     groups = [
         group for group in sys.groups
         if group.net is not None or getattr(group, "source_view", None) is not None
     ]
     ifaces = [] if sys.ifaces is None else list(sys.ifaces)
-    system_plan = SYSTEM_PRESETS[preset]
-    group_plan = GROUP_PRESETS[preset]
-    interface_plan = INTERFACE_PRESETS[preset]
+    plan = {
+        'preset': preset,
+        'system': tuple(name for name, kwargs in SYSTEM_PRESETS[preset]
+                        if not _export_entry_excluded(name, kwargs, excluded)),
+        'groups': tuple(name for name, kwargs in GROUP_PRESETS[preset]
+                        if not _export_entry_excluded(name, kwargs, excluded)),
+        'interfaces': tuple(name for name, kwargs in INTERFACE_PRESETS[preset]
+                            if not _export_entry_excluded(name, kwargs, excluded)),
+        'group_count': len(groups),
+        'interface_count': len(ifaces),
+        'archive': not getattr(sys, '_export_skip_archive', False)
+                   and not getattr(sys, '_export_archive_written', False)
+                   and 'archive' not in excluded,
+        'excluded': excluded,
+    }
+    sys.effective_export_plan = plan
+    return plan
+
+
+def export_preset(sys, preset, *, exclude=()):
+    """Execute one named export plan, optionally omitting components."""
+    excluded = tuple(str(value).strip().lower() for value in exclude)
+    plan = effective_export_plan(sys, preset, exclude=excluded)
+    groups = [
+        group for group in sys.groups
+        if group.net is not None or getattr(group, "source_view", None) is not None
+    ]
+    ifaces = [] if sys.ifaces is None else list(sys.ifaces)
+    system_plan = [
+        entry for entry in SYSTEM_PRESETS[preset]
+        if not _export_entry_excluded(*entry, excluded)
+    ]
+    group_plan = [
+        entry for entry in GROUP_PRESETS[preset]
+        if not _export_entry_excluded(*entry, excluded)
+    ]
+    interface_plan = [
+        entry for entry in INTERFACE_PRESETS[preset]
+        if not _export_entry_excluded(*entry, excluded)
+    ]
     # ``logs`` still includes the legacy sectioned interface CSV.  Whenever it
     # is requested, also emit the canonical Results log: it preserves status,
     # units, identity, and provenance without recalculating geometry.  ``small``
     # has always supplied that canonical log even though its interface plan has
     # no legacy ``logs`` entry.
     write_canonical_interface_logs = (
-        preset == 'small'
+        (preset == 'small' and 'log' not in excluded and 'logs' not in excluded)
         or any(kwargs.get('logs', False) for _, kwargs in interface_plan)
     )
     canonical_interface_logs = (
@@ -388,12 +446,8 @@ def export_preset(sys, preset):
         if iface.net is not None
         and getattr(iface, "source_view", None) is None
         and iface.net.settings.get('net_type', 'aw') == 'aw'
-    ] if preset in {'large', 'all'} else []
-    archive_enabled = (
-        preset != 'interface'
-        and not getattr(sys, '_export_skip_archive', False)
-        and not getattr(sys, '_export_archive_written', False)
-    )
+    ] if preset in {'large', 'all'} and 'dual' not in excluded else []
+    archive_enabled = plan['archive']
     total = (len(system_plan) + len(group_plan) * len(groups)
              + len(interface_plan) * len(ifaces) + len(canonical_interface_logs)
              + len(dual_interfaces) + int(archive_enabled))
@@ -435,10 +489,26 @@ def export_preset(sys, preset):
 def _export_network_archive(sys):
     from vorpy.src.io import save_network
     destination = os.path.join(sys.files['dir'], str(sys.name) + '.vpy')
-    if getattr(sys, '_fail_if_exists', False):
+    checkpoint = getattr(sys, '_geometry_checkpoint_path', None)
+    checkpoint_network = getattr(sys, '_geometry_checkpoint_network', None)
+    checkpoint_provenance = getattr(sys, '_geometry_checkpoint_provenance', None)
+    same_checkpoint = False
+    if checkpoint and checkpoint_network is not None and os.path.isfile(checkpoint):
+        try:
+            same_checkpoint = Path(checkpoint).resolve() == Path(destination).resolve()
+        except OSError:
+            same_checkpoint = False
+    unchanged_checkpoint = same_checkpoint and checkpoint_provenance == getattr(
+        checkpoint_network, 'archive_provenance', None
+    )
+    if unchanged_checkpoint:
+        # The solve already wrote the canonical archive; avoid a duplicate
+        # serialization/compression pass for a preset requesting the archive.
+        pass
+    elif getattr(sys, '_fail_if_exists', False) and not same_checkpoint:
         save_network(sys, destination, fail_if_exists=True)
     else:
-        save_network(sys, destination)
+        save_network(checkpoint_network or sys, destination)
     # Command._save_archive can reuse this completed archive for an explicit
     # destination, avoiding a second serialization/compression pass.
     sys._last_export_archive_path = str(Path(destination).resolve())
@@ -538,7 +608,7 @@ def export_interface_default(sys):
 
 
 def export_micro(sys):
-    export_preset(sys, 'micro')
+    export_preset(sys, 'tiny')
 
 
 def export_tiny(sys):

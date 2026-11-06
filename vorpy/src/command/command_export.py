@@ -10,6 +10,15 @@ from vorpy.src.output import other_exports
 FORMAT_COMMANDS = {'ft', 'file_type', 'file_format', 'format', 'mesh_format'}
 FORMAT_VALUES = {'off': 'off', 'ply': 'ply', 'vtp': 'vtp', 'vtk': 'vtp'}
 ONLY_COMMANDS = {'only', 'just'}
+PRESET_ALIASES = {
+    'micro': 'micro', 'tiny': 'tiny', 'i': 'tiny', 'info': 'tiny',
+    '0': 'tiny', 'smallest': 'tiny',
+    'small': 'small', 's': 'small', '1': 'small',
+    'medium': 'medium', 'med': 'medium', '2': 'medium',
+    'large': 'large', 'l': 'large', '3': 'large',
+    'all': 'all', 'a': 'all', 'everything': 'all',
+    'interface': 'interface', 'interfaces': 'interface',
+}
 
 
 def _set_mesh_format(my_sys, value):
@@ -50,7 +59,12 @@ def argv_export(my_sys, usr_npt, add_on=None):
 
     # First pass: handle export modifiers and collect actual export commands.
     export_commands = []
+    preset_commands = []
+    add_commands = []
+    remove_components = []
     skip_archive = False
+    disable_base = False
+    customized = False
 
     for npt in usr_npt:
         if len(npt) == 0:
@@ -95,17 +109,45 @@ def argv_export(my_sys, usr_npt, add_on=None):
                 )
             export_commands.extend([[export_name] for export_name in npt[1:]])
 
-        else:
-            export_commands.append(npt)
+        elif command in {'add', 'append', '+'}:
+            if len(npt) < 2:
+                raise ValueError("'add' requires at least one export type.")
+            customized = True
+            add_commands.extend(npt[1:])
 
-    # Interface results have a first-class default bundle. Legacy non-interface
-    # commands retain the historical Large preset.
-    if len(export_commands) == 0:
-        if getattr(my_sys, '_compact_interface_workflow', False):
-            from vorpy.src.output.output import export_interface_default
-            export_interface_default(my_sys)
-            return
-        export_commands.append(['large'])
+        elif command in {'no', 'remove', 'without'}:
+            customized = True
+            if len(npt) < 2:
+                # Preserve the historical ``-e no`` archive-suppression
+                # spelling when no component follows it.
+                skip_archive = True
+                disable_base = True
+            else:
+                remove_components.extend(npt[1:])
+
+        else:
+            if command in {'none', 'skip'}:
+                disable_base = True
+                skip_archive = True
+                export_commands.append(npt)
+            else:
+                preset = PRESET_ALIASES.get(command)
+                if preset is None:
+                    export_commands.append(npt)
+                else:
+                    preset_commands.append(preset)
+
+    implicit_interface_default = (
+        not preset_commands
+        and not export_commands
+        and not customized
+        and getattr(my_sys, '_compact_interface_workflow', False)
+    )
+    if not preset_commands and not export_commands and not disable_base:
+        preset_commands.append(
+            'interface' if getattr(my_sys, '_compact_interface_workflow', False)
+            else 'large'
+        )
 
     skip_archive = skip_archive or any(npt[0].lower() in {'none', 'no', 'skip'} for npt in export_commands)
     # Keep archive policy scoped to this invocation, including repeated presets.
@@ -114,8 +156,23 @@ def argv_export(my_sys, usr_npt, add_on=None):
     my_sys._export_skip_archive = skip_archive
     my_sys._export_archive_written = False
     try:
-        for npt in export_commands:
-            export_npt(my_sys, npt[0])
+        if implicit_interface_default:
+            from vorpy.src.output.output import export_interface_default
+            export_interface_default(my_sys)
+        else:
+            from vorpy.src.output.output import export_preset
+            for preset in preset_commands:
+                export_preset(
+                    my_sys, preset, exclude=remove_components,
+                )
+            for npt in export_commands:
+                export_npt(my_sys, npt[0])
+            for command in add_commands:
+                preset = PRESET_ALIASES.get(str(command).lower())
+                if preset is None:
+                    export_npt(my_sys, command)
+                else:
+                    export_preset(my_sys, preset)
     finally:
         for name in ('_export_skip_archive', '_export_archive_written'):
             if name in previous:

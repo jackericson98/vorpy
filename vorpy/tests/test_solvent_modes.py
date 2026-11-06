@@ -14,6 +14,7 @@ from vorpy.src.network.views import NetworkView
 from vorpy.src.group.shared_view import analyze_group_view
 from vorpy.src.system.system import System
 from vorpy.src.command.vpy_cmnd import solvent_cli_options
+from vorpy.src.command.group import ggroup
 from vorpy.workbench.services.vorpy_backend import VorPySolveSettings
 
 
@@ -29,7 +30,12 @@ def _balls():
 
 
 def test_molecule_only_preserves_system_rows_but_excludes_solvent_generators():
-    system = System(spheres=_balls(), name="solvent-mode", make_dir=False)
+    system = System(
+        spheres=_balls(),
+        name="solvent-mode",
+        make_dir=False,
+        solvent_mode=SolventMode.MOLECULE_ONLY,
+    )
 
     geometry = prepare_network_geometry(system)
 
@@ -42,7 +48,12 @@ def test_molecule_only_preserves_system_rows_but_excludes_solvent_generators():
 
 
 def test_explicit_modes_record_membership_and_completeness():
-    system = System(spheres=_balls(), name="solvent-mode", make_dir=False)
+    system = System(
+        spheres=_balls(),
+        name="solvent-mode",
+        make_dir=False,
+        solvent_mode=SolventMode.MOLECULE_ONLY,
+    )
 
     context = prepare_network_geometry(system, SolventMode.SOLVENT_CONTEXT)
     assert context.system_indices == (0, 1, 2)
@@ -70,8 +81,52 @@ def test_explicit_modes_record_membership_and_completeness():
     assert network.generator_membership_evidence[1][3] is True
 
 
-def test_group_default_network_maps_local_generators_to_system_ids():
+def test_default_full_selector_includes_wet_source_without_empty_warning(capsys):
+    system = System(
+        spheres=_balls(),
+        name="solvent-mode",
+        make_dir=False,
+        solvent_mode=SolventMode.SOLVENT_CONTEXT,
+    )
+
+    ggroup(system, {0: [["f"]]}, make_net=False)
+
+    captured = capsys.readouterr()
+    assert "WARNING: Group command produced an empty group." not in captured.out
+    assert [*system.groups[0].ball_ndxs] == [0, 1, 2]
+
+
+def test_explicit_empty_group_still_warns(capsys):
     system = System(spheres=_balls(), name="solvent-mode", make_dir=False)
+
+    ggroup(system, {0: []}, make_net=False)
+
+    captured = capsys.readouterr()
+    assert "WARNING: Group command produced an empty group." in captured.out
+    assert system.groups == []
+
+
+def test_explicit_group_selection_is_not_expanded_to_solvent():
+    system = System(
+        spheres=_balls(),
+        name="solvent-mode",
+        make_dir=False,
+        solvent_mode=SolventMode.SOLVENT_CONTEXT,
+    )
+
+    ggroup(system, {0: [["a", "2"]]}, make_net=False)
+
+    assert len(system.groups) == 1
+    assert [*system.groups[0].ball_ndxs] == [2]
+
+
+def test_group_default_network_maps_local_generators_to_system_ids():
+    system = System(
+        spheres=_balls(),
+        name="solvent-mode",
+        make_dir=False,
+        solvent_mode=SolventMode.MOLECULE_ONLY,
+    )
     group = Group(
         system,
         name="solute",
@@ -101,6 +156,7 @@ def test_boundary_identity_is_local_and_deterministic():
         spheres=_balls(),
         name="solvent-mode",
         make_dir=False,
+        solvent_mode=SolventMode.MOLECULE_ONLY,
         boundary_config=BoundaryConfig("shell", shell_spacing=4.0),
     )
     first = prepare_network_geometry(system)
@@ -285,6 +341,7 @@ def test_solved_molecule_only_network_supports_two_views_without_rebuild(monkeyp
         spheres=balls,
         name="f10-solved",
         make_dir=False,
+        solvent_mode=SolventMode.MOLECULE_ONLY,
         boundary_config=BoundaryConfig("shell", shell_spacing=4.0),
     )
     group = Group(
@@ -341,6 +398,7 @@ def test_f10_metadata_survives_valid_molecular_archive_round_trip(tmp_path):
         file=str(path),
         output_directory=str(tmp_path),
         make_dir=False,
+        solvent_mode=SolventMode.MOLECULE_ONLY,
         boundary_config=BoundaryConfig("shell", shell_spacing=4.0),
     )
     group = Group(

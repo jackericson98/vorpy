@@ -9,7 +9,13 @@ import hashlib
 import json
 from typing import Any, Mapping
 
-from .network_archive import ArchiveError, validate_network_source
+from .network_archive import (
+    ArchiveError,
+    _canonical_scheme,
+    _canonical_solvent_mode,
+    _recovery_source_system,
+    validate_network_source,
+)
 
 
 @dataclass(frozen=True)
@@ -45,11 +51,22 @@ class SourceSystemIdentity:
     complete_cell_evidence: bool
     geometry_status: str | None
     analysis_status: str | None
+    geometry_checkpoint_valid: bool
+    scientific_result_status: str
+    scientific_result_certified: bool
     solve_universe_id: str
     radii_digest: str
     generator_policy: Mapping[str, Any] | None
     source_network_id: str | None
     settings: Mapping[str, Any]
+    source_atom_count: int | None = None
+    frame_count: int | None = None
+    physical_system_indices: tuple[int, ...] = ()
+    excluded_system_indices: tuple[int, ...] = ()
+    excluded_generator_ids: tuple[str, ...] = ()
+    boundary_indices: tuple[int, ...] = ()
+    boundary_generator_ids: tuple[str, ...] = ()
+    solvent_cells_complete: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -118,20 +135,21 @@ def recover_network_source(
     network,
     source_path=None,
     *,
-    expected_scheme='pow',
-    expected_solvent_mode='MOLECULE_ONLY',
+    expected_scheme=None,
+    expected_solvent_mode=None,
     expected_settings=None,
     expected_solve_universe_id=None,
     expected_radii_digest=None,
     expected_source_network_id=None,
+    expected_frame_index=None,
+    expected_boundary_mode=None,
 ) -> RecoveredSourceNetwork:
     """Validate and wrap a loaded solved network for source-view recovery.
 
     ``source_path`` defaults to the checkpoint's recorded original structure.
-    The default contract is the current POW molecular-only recovery path; the
-    expected settings can be overridden for another explicitly selected mode.
-    The source is parsed only for identity verification; no Network or Group
-    build is performed.
+    The checkpoint's explicit scheme and solvent mode are authoritative unless
+    an expected value is supplied by the caller.  The source is parsed only
+    for identity verification; no Network or Group build is performed.
 
     ``expected_solve_universe_id`` and ``expected_radii_digest`` are optional
     compatibility checks for callers that hold an independent producer record;
@@ -146,14 +164,23 @@ def recover_network_source(
         source_path,
         expected_scheme=expected_scheme,
         expected_solvent_mode=expected_solvent_mode,
+        expected_frame_index=expected_frame_index,
+        expected_boundary_mode=expected_boundary_mode,
     )
 
     if expected_settings:
         actual_settings = dict(validation['settings'])
         for key, expected in expected_settings.items():
+            actual_value = actual_settings.get(key)
+            if key == 'net_type':
+                actual_value = _canonical_scheme(actual_value)
+                expected = _canonical_scheme(expected)
+            elif key == 'solvent_mode':
+                actual_value = _canonical_solvent_mode(actual_value)
+                expected = _canonical_solvent_mode(expected)
             if (
                 key not in actual_settings
-                or _normalized_setting(actual_settings[key]) != _normalized_setting(expected)
+                or _normalized_setting(actual_value) != _normalized_setting(expected)
             ):
                 raise ArchiveError(
                     f'Recovery setting mismatch for {key!r}: '
@@ -192,15 +219,17 @@ def recover_network_source(
 
     # Keep this local to the persistence boundary.  It is the same read-only
     # source parse used by validation and is never passed to a solver.
-    from vorpy.src.system.system import System
-
-    source_system = System(
-        validation['source_path'], make_dir=False, print_actions=False,
-        solvent_mode=expected_solvent_mode,
+    source_system = _recovery_source_system(
+        validation['source_path'], validation['solvent_mode'], validation['frame_index']
     )
     source_balls = source_system.balls
-    generator_indices = tuple(network.generator_system_indices)
-    stable_ids = tuple(str(value) for value in network.generator_stable_ids)
+    generator_indices = tuple(validation['physical_system_indices'])
+    stable_ids_all = tuple(str(value) for value in network.generator_stable_ids)
+    local_indices = tuple(
+        index for index, value in enumerate(network.generator_system_indices)
+        if value is not None
+    )
+    stable_ids = tuple(stable_ids_all[index] for index in local_indices)
     generators = []
     for system_index, stable_id in zip(generator_indices, stable_ids):
         row = source_balls.iloc[system_index]
@@ -234,7 +263,7 @@ def recover_network_source(
         source_identity=SourceSystemIdentity(
             source_path=validation['source_path'],
             source_sha256=validation['source_sha256'],
-            frame_index=getattr(getattr(network, 'sys', None), 'frame_index', None),
+            frame_index=validation['frame_index'],
             generator_count=validation['generator_count'],
             generator_system_indices=generator_indices,
             generator_stable_ids=stable_ids,
@@ -246,11 +275,22 @@ def recover_network_source(
             complete_cell_evidence=validation['complete_cell_evidence'],
             geometry_status=validation['geometry_status'],
             analysis_status=validation['analysis_status'],
+            geometry_checkpoint_valid=bool(validation['geometry_checkpoint_valid']),
+            scientific_result_status=str(validation['scientific_result_status']),
+            scientific_result_certified=bool(validation['scientific_result_certified']),
             solve_universe_id=solve_universe_id,
             radii_digest=radii_digest,
             generator_policy=validation['generator_policy'],
             source_network_id=source_network_id,
             settings=dict(validation['settings']),
+            source_atom_count=validation.get('source_atom_count'),
+            frame_count=validation.get('frame_count'),
+            physical_system_indices=tuple(validation.get('physical_system_indices', ())),
+            excluded_system_indices=tuple(validation.get('excluded_system_indices', ())),
+            excluded_generator_ids=tuple(validation.get('excluded_generator_ids', ())),
+            boundary_indices=tuple(validation.get('boundary_indices', ())),
+            boundary_generator_ids=tuple(validation.get('boundary_generator_ids', ())),
+            solvent_cells_complete=validation.get('solvent_cells_complete'),
         ),
         validation=dict(validation),
     )

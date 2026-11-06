@@ -834,6 +834,10 @@ def get_info(group):
         except (IndexError, KeyError, StopIteration, TypeError, ValueError):
             invalid_edges += 1
             continue
+        if net.settings.get('net_type') in {'pow', 'prm'}:
+            # Straight edges on planar faces have zero intrinsic Gaussian curvature.
+            edge_diagnostics.append((int(edge_id), 0.0, boundary_face_ids))
+            continue
         if edge_face_values is None or edge_id >= len(edge_face_values):
             invalid_edges += 1
             continue
@@ -864,11 +868,28 @@ def get_info(group):
             alphas = []
             for surf_id in boundary_face_ids:
                 cell = surface_cells[surf_id]
-                alpha = aw_vertex_face_angle(
-                    net=net, vertex_index=vert_id, cell_index=cell,
-                    surface_index=surf_id, resolved_edges=resolved_edges,
-                    tolerance=1e-7,
-                )
+                if net.settings.get('net_type') in {'pow', 'prm'}:
+                    incident = set(net.surfs.iloc[surf_id]['edges']) & set(net.verts.iloc[vert_id]['edges'])
+                    if len(incident) != 2:
+                        raise ValueError('planar face corner needs two incident edges')
+                    tangents = []
+                    for edge_id in incident:
+                        endpoints = list(net.edges.iloc[int(edge_id)]['verts'])
+                        if len(endpoints) != 2 or vert_id not in endpoints:
+                            raise ValueError('invalid planar edge endpoints')
+                        other = next(v for v in endpoints if v != vert_id)
+                        tangent = np.asarray(net.verts.iloc[int(other)]['loc']) - np.asarray(net.verts.iloc[vert_id]['loc'])
+                        length = float(np.linalg.norm(tangent))
+                        if not np.isfinite(length) or length == 0:
+                            raise ValueError('degenerate planar edge')
+                        tangents.append(tangent / length)
+                    alpha = np.arccos(np.clip(np.dot(*tangents), -1.0, 1.0))
+                else:
+                    alpha = aw_vertex_face_angle(
+                        net=net, vertex_index=vert_id, cell_index=cell,
+                        surface_index=surf_id, resolved_edges=resolved_edges,
+                        tolerance=1e-7,
+                    )
                 if not np.isfinite(alpha):
                     raise ValueError("non-finite sector angle")
                 alphas.append(float(alpha))

@@ -228,7 +228,7 @@ def build_perimeter(
         if not np.all(np.isfinite(points)):
             raise ValueError(f"Invalid edge {edge_index}: non-finite point detected.")
 
-    if net_type == 'aw' and edge_endpoints is not None:
+    if edge_endpoints is not None:
         try:
             return _canonical_boundary_perimeter(
                 locs, rads, epnts, edge_endpoints, net_type

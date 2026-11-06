@@ -231,7 +231,7 @@ def test_folded_planar_patch_has_extrinsic_crease_mean_but_zero_intrinsic_gaussi
     assert gb["certified"]
     assert gb["total_GB_left"] == pytest.approx(2 * math.pi)
     assert mean["internal_edge_H"] == pytest.approx(crease)
-    assert mean["boundary_H"] == 0
+    assert mean["boundary_H"] is None
     assert mean["total_H"] == pytest.approx(crease)
     assert gb["intrinsic_total_K"] == pytest.approx(0)
     assert planar_crease_mean(tuple(reversed(cycles[0])),
@@ -277,7 +277,7 @@ def test_spherical_parameterization_integrals_and_boundary_mean(radius, theta):
     kg = math.cos(theta)/(radius*math.sin(theta))*2*math.pi*radius*math.sin(theta)
     mean = integrated_mean_curvature([smooth_h], [])
     assert mean["total_H"] == pytest.approx(2*math.pi*radius*(1-math.cos(theta)))
-    assert mean["boundary_H"] == 0
+    assert mean["boundary_H"] is None
     gb = gauss_bonnet_accounting(smooth_K=smooth_k, face_boundary_geodesic=kg,
         vertex_corner_terms=0, euler_characteristic=1)
     assert gb["certified"]
@@ -316,7 +316,7 @@ def test_open_boundary_corner_is_gaussian_only_and_mean_total_can_certify():
     mean = integrated_mean_curvature([0.], [])
 
     assert gaussian["boundary_corner_K"] == pytest.approx(2 * math.pi)
-    assert mean["boundary_H"] == 0.
+    assert mean["boundary_H"] is None
     assert mean["total_H"] == 0.
     assert mean["certified"] is True
 
@@ -329,7 +329,7 @@ def test_closed_regular_interface_has_no_boundary_or_corner_mean_term():
     assert topology["boundary_components"] == 0
     assert topology["boundary_is_manifold"] and topology["orientable"]
     assert topology["genus_sum"] == 0
-    assert mean["boundary_H"] == 0.
+    assert mean["boundary_H"] is None
     assert mean["total_H"] == 0.
     assert mean["certified"] is True
 

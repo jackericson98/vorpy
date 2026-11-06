@@ -101,11 +101,18 @@ def test_canonical_1aay_default_materializes_molecular_groups_and_zinc():
     command.create_groups()
 
     assert tuple(len(group.ball_ndxs) for group in system.groups) == (1422, 694)
-    geometry = prepare_network_geometry(system)
-    assert len(geometry.system_indices) == 2119
+    # The interface source is wet/full-solvent; this assertion is about the
+    # molecular group policy and structural Zn retention, so request the
+    # molecular-only view explicitly.
     zinc_rows = {
         index for index in range(len(system.balls))
         if str(system.balls.iloc[index]["res_name"]).strip().upper() == "ZN"
     }
-    assert zinc_rows == set(system.retained_system_indices)
+    geometry = prepare_network_geometry(
+        system,
+        SolventMode.MOLECULE_ONLY,
+        retained_system_indices=zinc_rows,
+    )
+    assert len(geometry.system_indices) == 2119
     assert zinc_rows <= set(geometry.system_indices)
+    assert zinc_rows <= set(command._source_system_indices)

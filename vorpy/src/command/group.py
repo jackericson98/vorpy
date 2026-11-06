@@ -636,12 +636,24 @@ def ggroup(my_sys, group_commands, settings=None, make_net=True):
                 )
             ]
         return
+    # The calculation planner stores one group's selectors as ``[['f']]``;
+    # normalize that shape before checking the legacy full/no-sol aliases.
+    first_group = group_commands.get(0, ()) if isinstance(group_commands, dict) else (
+        group_commands[0] if group_commands else ()
+    )
+    first_command = first_group[0] if first_group else ()
+    first_selector = (
+        str(first_command[0]).lower()
+        if isinstance(first_command, (list, tuple)) and first_command
+        else str(first_command).lower() if first_command else None
+    )
+
     # First check if there are specific names without identifiers, no sol, full
-    if group_commands[0][0] in noSOL_objs:
+    if first_selector in noSOL_objs:
         my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings,
                                make_net=make_net)]
         return
-    if group_commands[0][0] in full_objs:
+    if first_selector in full_objs:
         # Group atom membership always uses zero-based SYSTEM row indices.
         # ``balls['num']`` may contain PDB serial numbers and is metadata only.
         my_sys.groups = [

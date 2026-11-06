@@ -124,15 +124,20 @@ def test_normal_interface_build_path_is_used_for_logs_export(tmp_path, capsys):
     command.load_files = lambda: None
     command._build_full_system_target = lambda: None
     command.create_groups = lambda: setattr(system, 'groups', [StubGroup(), StubGroup()])
+    command._build_direct_interface_target = lambda pairs: built.append(
+        ('direct_interface', pairs)
+    )
     command.run_exports = lambda: None
     command._save_archive = lambda: None
     command.build_groups_from_logs = lambda: pytest.fail('log reconstruction selected')
-    system.make_interfaces = lambda pairs, *, analyze_waters: None
+    system.make_interfaces = lambda pairs, *, analyze_waters: pytest.fail(
+        'legacy interface construction selected'
+    )
 
     command._process_system()
     output = capsys.readouterr().out
 
-    assert built == ['make_net', 'build', 'make_net', 'build']
+    assert built and built[0][0] == 'direct_interface'
     assert 'Solving AW network...' in output
     assert 'Extracting ' not in output
     assert 'Source generators:' not in output

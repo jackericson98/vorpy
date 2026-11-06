@@ -19,6 +19,7 @@ class ExportPanel(QWidget):
         self.config = ExportConfig()
         self._busy = False
         self._result = None
+        self.export_status = "NOT_EXPORTED"
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 4, 6, 4)
         layout.setSpacing(4)
@@ -207,11 +208,15 @@ class ExportPanel(QWidget):
         self.destination.setToolTip(directory)
 
     def update_state(self, result, busy):
+        if result is not None and result is not self._result:
+            self.export_status = "NOT_EXPORTED"
         self._result, self._busy = result, busy
         ready = result is not None and result.export_group is not None and not result.defaults_stale
         self.export_button.setEnabled(ready and not busy)
         if busy:
             status = 'ⓘ Wait for the current operation to finish.'
+        elif self.export_status == "FAILED":
+            status = 'EXPORT FAILED — partial output is not a valid archived Result.'
         elif result is not None and result.defaults_stale:
             status = 'ⓘ Solve again to export the updated structure.'
         elif not ready:
@@ -261,7 +266,12 @@ class ExportPanel(QWidget):
             QApplication.restoreOverrideCursor()
             self.update_state(self.result_provider(), self._busy)
         if error is not None:
-            self.hint.setText('Export failed. Check the output location and try again.')
+            self.export_status = "FAILED"
+            self.hint.setText(
+                'EXPORT FAILED — partial output is not a valid archived Result. '
+                'Check the output location and try again.'
+            )
             QMessageBox.warning(self, 'Export failed', error)
         else:
+            self.export_status = "EXPORTED"
             self.hint.setText(f'Exported to {destination}')

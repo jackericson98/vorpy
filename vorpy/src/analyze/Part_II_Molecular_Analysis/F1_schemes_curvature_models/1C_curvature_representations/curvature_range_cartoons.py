@@ -14,7 +14,7 @@ sys.path.append(vorpy_root)
 from vorpy.src.network.fill import calc_surf_point
 from vorpy.src.calculations.surf import calc_surf_func, calc_surf_func_reg
 from vorpy.src.calculations.calcs import calc_dist
-from vorpy.src.calculations.curvature import mean_curvature
+from vorpy.src.calculations.curvature import mean_curvature, gaussian_curvature
 
 
 def midpoint_between_surfaces_point(l1, r1, l2, r2):
@@ -23,7 +23,7 @@ def midpoint_between_surfaces_point(l1, r1, l2, r2):
     return np.array([x_mid, 0.0, 0.0], dtype=float)
 
 
-def get_vor_points(l1, r1, l2, r2, res=0.1, height=5):
+def get_vor_points(l1, r1, l2, r2, res=0.1, height=5, curv_choice="mean"):
     """Must be opposite across the y axis"""
     l1, l2 = np.array(l1 + [0]), np.array(l2 + [0])
     func = calc_surf_func_reg(l1, r1, l2, r2)
@@ -51,13 +51,15 @@ def get_vor_points(l1, r1, l2, r2, res=0.1, height=5):
 
     x_pts = x_pts[::-1] + x_pts
     y_pts = [-_ for _ in y_pts[::-1]] + y_pts
-
-    max_curv = mean_curvature(func, midpoint_between_surfaces_point(l1, r1, l2, r2))
+    if curv_choice == "mean":
+        max_curv = mean_curvature(func, midpoint_between_surfaces_point(l1, r1, l2, r2))
+    elif curv_choice == "gaussian":
+        max_curv = gaussian_curvature(func, midpoint_between_surfaces_point(l1, r1, l2, r2))
 
     return x_pts, y_pts, proj_xs, proj_ys, max_curv
 
 
-def plot_voronoi_partition(circle1, circle2, height=5, savename='circles', save_folder=None):
+def plot_voronoi_partition(circle1, circle2, height=5, savename='circles', save_folder=None, curv_choice="mean"):
     """
     Plots two circles and their Voronoi partition.
 
@@ -88,7 +90,8 @@ def plot_voronoi_partition(circle1, circle2, height=5, savename='circles', save_
                 max([max(circle1[1], circle2[1]) + max(circle1[2], circle2[2]) + 1, height]))
 
     # Plot the surface points
-    xs, ys, pxs, pys, max_curv = get_vor_points(circle1[:2], circle1[2], circle2[:2], circle2[2], height=height)
+    xs, ys, pxs, pys, max_curv = get_vor_points(circle1[:2], circle1[2], circle2[:2], circle2[2], height=height, curv_choice=curv_choice)
+    print(f"Max curvature between circles: {max_curv}, 0distance: {calc_dist(circle1[:2], circle2[:2]) - circle1[2] - circle2[2]}, radii ratio: {circle2[2] / circle1[2]}")
     plt.plot(xs, ys, color='k', linewidth=2)
     if circle1[2] == circle2[2]:
         plt.scatter(0.5 * (circle1[0] + circle2[0]), [0])
@@ -156,62 +159,62 @@ folder = filedialog.askdirectory()
 # Plot 5 - 2:1 Circle Ratio, -1r gap
 circle1 = [0, 0, 1]
 circle2 = [1.5, 0, 2]
-plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_n15r_dist', save_folder=folder)
+plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_n15r_dist', save_folder=folder, curv_choice='gaussian')
 
 # Plot 5 - 2:1 Circle Ratio, -1r gap
 circle1 = [0, 0, 1]
 circle2 = [2, 0, 2]
-plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_n1r_dist', save_folder=folder)
+plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_n1r_dist', save_folder=folder, curv_choice='gaussian')
 
 # # Plot 6 - 2:1 Circle Ratio, 0 gap
 circle1 = [0, 0, 1]
 circle2 = [3, 0, 2]
-plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_0r_dist', save_folder=folder)
+plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_0r_dist', save_folder=folder, curv_choice='gaussian')
 
 # # Plot 7 - 2:1 Circle Ratio, 1r gap
 circle1 = [0, 0, 1]
 circle2 = [4, 0, 2]
-plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_1r_dist', save_folder=folder)
+plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_1r_dist', save_folder=folder, curv_choice='gaussian')
 
 # # Plot 8 - 2:1 Circle Ratio, 2r gap
 circle1 = [0, 0, 1]
 circle2 = [4.5, 0, 2]
-plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_15r_dist', save_folder=folder)
+plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_15r_dist', save_folder=folder, curv_choice='gaussian')
 
 # # Plot 8 - 2:1 Circle Ratio, 2r gap
 circle1 = [0, 0, 1]
 circle2 = [5, 0, 2]
-plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_2r_dist', save_folder=folder)
+plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_2r_dist', save_folder=folder, curv_choice='gaussian')
+
+# # Plot 9 - 3:1 Circle Ratio, -1.5r gap
+circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
+circle2 = [2.5, 0, 3]  # (x, y, radius) of the second circle
+plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n15r_dist', save_folder=folder, curv_choice="gaussian")
+
+# # Plot 9 - 3:1 Circle Ratio, -1r gap
+circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
+circle2 = [3, 0, 3]  # (x, y, radius) of the second circle
+plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n1r_dist', save_folder=folder, curv_choice="gaussian")
 #
-# # # Plot 9 - 3:1 Circle Ratio, -1.5r gap
-# circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
-# circle2 = [2.5, 0, 3]  # (x, y, radius) of the second circle
-# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n15r_dist', save_folder=folder)
-#
-# # # Plot 9 - 3:1 Circle Ratio, -1r gap
-# circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
-# circle2 = [3, 0, 3]  # (x, y, radius) of the second circle
-# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n1r_dist', save_folder=folder)
+# # Plot 10 - 3:1 Circle Ratio, 0r gap
+circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
+circle2 = [4, 0, 3]  # (x, y, radius) of the second circle
+plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_0r_dist', save_folder=folder, curv_choice="gaussian")
 # #
-# # # Plot 10 - 3:1 Circle Ratio, 0r gap
-# circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
-# circle2 = [4, 0, 3]  # (x, y, radius) of the second circle
-# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_0r_dist', save_folder=folder)
-# #
-# # # Plot 11 - 3:1 Circle Ratio, 1r gap
-# circle1 = [0, 0, 1]
-# circle2 = [5, 0, 3]
-# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_1r_dist', save_folder=folder)
+# # Plot 11 - 3:1 Circle Ratio, 1r gap
+circle1 = [0, 0, 1]
+circle2 = [5, 0, 3]
+plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_1r_dist', save_folder=folder, curv_choice="gaussian")
 #
-# # # Plot 12 - 3:1 Circle Ratio, 2r gap
-# circle1 = [0, 0, 1]
-# circle2 = [5.5, 0, 3]
-# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_15r_dist', save_folder=folder)
+# # Plot 12 - 3:1 Circle Ratio, 2r gap
+circle1 = [0, 0, 1]
+circle2 = [5.5, 0, 3]
+plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_15r_dist', save_folder=folder, curv_choice="gaussian")
 #
-# # # Plot 12 - 3:1 Circle Ratio, 2r gap
-# circle1 = [0, 0, 1]
-# circle2 = [6, 0, 3]
-# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_2r_dist', save_folder=folder)
+# # Plot 12 - 3:1 Circle Ratio, 2r gap
+circle1 = [0, 0, 1]
+circle2 = [6, 0, 3]
+plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_2r_dist', save_folder=folder, curv_choice="gaussian")
 #
 # # # Plot 13 - 5:1 Circle Ratio, -1r gap
 # circle1 = [0, 0, 1]

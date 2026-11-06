@@ -314,3 +314,21 @@ def test_fail_if_exists_remains_atomic_for_typed_archive(tmp_path):
     with pytest.raises(FileExistsError):
         save_network(network, archive, fail_if_exists=True)
     assert archive.read_bytes() == original
+
+
+def test_staged_archive_validation_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    import vorpy.src.io.network_archive as archive_module
+
+    network, interface = _synthetic_network()
+    _typed_result(network, interface)
+    destination = tmp_path / 'checkpoint.vpy'
+    destination.write_bytes(b'previous checkpoint')
+
+    def reject_staged_archive(path):
+        raise ArchiveError('synthetic staged archive failure')
+
+    monkeypatch.setattr(archive_module, '_validate_staged_archive', reject_staged_archive)
+
+    with pytest.raises(ArchiveError, match='synthetic staged archive failure'):
+        save_network(network, destination)
+    assert destination.read_bytes() == b'previous checkpoint'

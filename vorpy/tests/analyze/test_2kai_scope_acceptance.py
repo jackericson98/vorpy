@@ -9,6 +9,11 @@ import pytest
 
 from vorpy.src.boundary import SolventMode, prepare_network_geometry
 from vorpy.src.analyze.comparative_geometry_study import audit_input, read_pdb
+from vorpy.src.analyze.Part_II_Molecular_Analysis.SuplimentalInformation.cazals_pdb import (
+    PROBE_RADIUS,
+    base_radius,
+    prepare_cazals_pdb,
+)
 from vorpy.src.system.system import System
 
 
@@ -341,3 +346,51 @@ def test_corrected_view_passes_authoritative_group_preflight():
         ("A", 95, "B", "SER", "OXT"),
         ("I", 57, "", "GLY", "OXT"),
     ]
+
+
+def test_dry_pow_pilot_preflight_verifies_heavy_generator_identity_groups_and_radii():
+    _require_fixture_paths(CORRECTED)
+    corrected, _ = read_pdb(CORRECTED)
+    protein = [atom for atom in corrected if atom.category == "protein"]
+    assert len(corrected) == len(protein) == 4340
+    assert Counter(atom.chain for atom in protein) == Counter({"A": 1239, "B": 2243, "I": 858})
+    assert sum(atom.hydrogen for atom in protein) == 2102
+
+    prepared = prepare_cazals_pdb(
+        CORRECTED,
+        ("A", "B"),
+        ("I",),
+        probe_radius=PROBE_RADIUS,
+        include_hydrogens=False,
+        include_hetatm=False,
+        strict_heavy_fallbacks=True,
+        verbose=False,
+    )
+    heavy = [atom for atom in protein if not atom.hydrogen]
+    assert len(heavy) == len(prepared.atoms) == 2238
+    assert len(prepared.group_a) == 1800
+    assert len(prepared.group_b) == 438
+    assert prepared.skipped_altlocs == 0
+    assert prepared.skipped_hydrogens == 2102
+    assert prepared.skipped_unselected_chains == 0
+    assert prepared.fallback_atoms == []
+    assert [record.pdb_serial for record in prepared.atoms] == [
+        int(atom.line[6:11]) for atom in heavy
+    ]
+    assert np.array_equal(
+        prepared.group_a,
+        np.asarray([index for index, atom in enumerate(heavy) if atom.chain in {"A", "B"}]),
+    )
+    assert np.array_equal(
+        prepared.group_b,
+        np.asarray([index for index, atom in enumerate(heavy) if atom.chain == "I"]),
+    )
+    assert all(
+        record.base_radius == base_radius(record.residue_name, record.atom_name, record.element)
+        for record in prepared.atoms
+    )
+    assert Counter(round(float(value), 2) for value in prepared.base_radii) == Counter({
+        1.87: 830, 1.76: 585, 1.40: 428, 1.65: 336, 1.50: 38, 1.85: 21,
+    })
+    assert np.allclose(prepared.expanded_radii, prepared.base_radii + PROBE_RADIUS)
+    assert np.allclose(prepared.weights, prepared.expanded_radii ** 2)

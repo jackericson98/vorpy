@@ -255,6 +255,25 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
         _record_timing(timing, 'total', time.perf_counter() - total_start)
         return
 
+    if net_type in {'pow', 'prm'} and edge_endpoints is not None:
+        # Power/ordinary Voronoi faces are convex planar polygons: this fan is exact.
+        boundary = []
+        for point in perimeter:
+            if not boundary or not np.array_equal(point, boundary[-1]):
+                boundary.append(np.asarray(point, dtype=float))
+        if len(boundary) > 1 and np.array_equal(boundary[0], boundary[-1]):
+            boundary.pop()
+        if len(boundary) < 3:
+            return
+        center = np.mean(boundary, axis=0)
+        spoints = np.asarray(boundary + [center])
+        surf_tris = np.asarray([[len(boundary), i, (i + 1) % len(boundary)]
+                               for i in range(len(boundary))], dtype=int)
+        zeros = [0.0] * len(surf_tris)
+        _record_timing(timing, 'total', time.perf_counter() - total_start)
+        return (spoints, surf_tris, zeros, 0.0, 0.0, zeros.copy(), 0.0, 0.0,
+                0.0, 0.0, 0.0, None, sfunc, center, True, center)
+
     # Surface center
     stage_start = time.perf_counter()
     surf_com, filter_hard = get_com(

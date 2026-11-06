@@ -77,7 +77,7 @@ def normalize_retained_system_indices(values, atom_count=None):
 def normalize_solvent_mode(value=None) -> SolventMode:
     """Normalize the explicit solvent context used by a geometry producer."""
     if value is None:
-        return SolventMode.MOLECULE_ONLY
+        return SolventMode.SOLVENT_CONTEXT
     if isinstance(value, SolventMode):
         return value
     normalized = str(value).strip().upper().replace("-", "_")
@@ -184,6 +184,19 @@ def has_explicit_solvent(atoms) -> bool:
     else:
         names = (getattr(atom, "residue_name", "") for atom in atoms)
     return any(str(name).strip().upper() in SOLVENT_RESIDUES for name in names)
+
+
+def has_explicit_water(atoms) -> bool:
+    """Return whether physical atom records contain explicit water molecules."""
+    if atoms is None:
+        return False
+    if hasattr(atoms, "columns"):
+        if "res_name" not in atoms.columns:
+            return False
+        names = atoms["res_name"].fillna("")
+    else:
+        names = (getattr(atom, "residue_name", "") for atom in atoms)
+    return any(str(name).strip().upper() in WATER_RESIDUES for name in names)
 
 
 def resolve_boundary(config: BoundaryConfig, solvent_present: bool) -> BoundaryConfig:

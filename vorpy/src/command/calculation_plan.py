@@ -370,11 +370,37 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
         interface_requests.append(InterfaceRequest())
     interface_requests = list(_dedupe(interface_requests, key=lambda item: item.key))
 
-    # Top-level ``-g`` always requests an independent group solve.  Group
-    # selectors introduced by ``-i`` are interface definitions only and are
-    # appended below with source ``interface``.  ``-c g`` covers declared
-    # groups as one de-duplicated target.
-    independent = [] if all_groups else list(declared)
+    # A bare ``-i`` makes top-level ``-g`` blocks the ordered interface sides.
+    # They are still retained as declared groups so the legacy adapter can
+    # resolve the selectors, but they are not independent solve targets.
+    # Independent group work remains available through ordinary ``-g`` or an
+    # explicit ``-c group`` request.
+    explicit_group_target = any(
+        request.target == 'group' for request in calculations
+    )
+    bare_interface = any(not request.operands for request in interface_requests)
+    interface_side_groups = (
+        bool(interface_requests)
+        and bare_interface
+        and bool(declared)
+        and not all_groups
+        and not explicit_group_target
+    )
+    if interface_side_groups:
+        operands = tuple(
+            tuple(token for command in group.commands for token in command)
+            for group in declared
+        )
+        interface_requests = [
+            InterfaceRequest(operands if not request.operands else request.operands)
+            for request in interface_requests
+        ]
+        declared = [
+            GroupRequest(group.commands, source='interface')
+            for group in declared
+        ]
+
+    independent = [] if all_groups or interface_side_groups else list(declared)
     independent = list(_dedupe(independent, key=lambda item: item.key))
 
     # An interface selector can itself define groups.  Keep the declarations
@@ -383,8 +409,22 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
     for interface in interface_requests:
         for operand in interface.operands:
             request = GroupRequest((operand,), source='interface')
-            if request.key not in {group.key for group in declared}:
+            if not interface_side_groups and request.key not in {
+                group.key for group in declared
+            }:
                 declared.append(request)
+
+    # No explicit target means the ordinary CLI full-system calculation.  Make
+    # that default visible in the plan instead of leaving the executor to infer
+    # it from an empty group list.
+    if not (
+        declared
+        or interface_requests
+        or calculations
+        or all_groups
+        or all_interfaces
+    ):
+        full_system = True
 
     return CalculationPlan(
         input_source=input_source,

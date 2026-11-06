@@ -34,14 +34,12 @@ def test_group_declarations_are_independent_without_interface():
     assert plan.interface_requests == ()
 
 
-def test_interface_keeps_top_level_group_solves():
+def test_interface_uses_top_level_groups_as_ordered_sides():
     plan = build_calculation_plan(
         ['p53tet', '-g', 'c', '0', '-g', 'c', '1', '-i']
     )
-    assert [request.selector for request in plan.independent_group_requests] == [
-        ('c', '0'), ('c', '1')
-    ]
-    assert plan.interface_requests[0].operands == ()
+    assert plan.independent_group_requests == ()
+    assert plan.interface_requests[0].operands == (('c', '0'), ('c', '1'))
     assert len(plan.declared_group_requests) == 2
 
 
@@ -119,7 +117,7 @@ def test_command_adapter_accepts_long_aliases_and_negative_settings():
     assert command.settings_cmnds == [['mv', '-5']]
     assert command.groups == {0: [['c', '0']]}
     assert command.interface_mode is True
-    assert command.calculation_plan.interface_only is False
+    assert command.calculation_plan.interface_only is True
 
 
 def test_plan_keeps_archive_settings():
@@ -171,7 +169,7 @@ def test_cli_interface_operands_remain_ordered_for_workbench_handoff():
     [
         (
             ['p53tet', '-g', 'c', '0', '-g', 'c', '1', '-i'],
-            [('c', '0'), ('c', '1')], False, False,
+            [], False, True,
         ),
         (
             ['p53tet', '-i', 'g', 'c', '0', 'g', 'c', '1'],
@@ -179,7 +177,7 @@ def test_cli_interface_operands_remain_ordered_for_workbench_handoff():
         ),
         (
             ['p53tet', '-g', 'c', '0', '-g', 'c', '1', '-i', '-c', 's'],
-            [('c', '0'), ('c', '1')], True, False,
+            [], True, True,
         ),
         (
             ['p53tet', '-i', 'g', 'c', '0', 'g', 'c', '1', '-c', 's'],
@@ -199,7 +197,7 @@ def test_final_calculation_contract_resolves_execution_targets(
     assert plan.full_system_request is full_system
     assert bool(plan.interface_requests) is True
     assert command._build_group_networks is bool(independent)
-    assert command._full_system_separate is (full_system or bool(plan.interface_requests))
+    assert command._full_system_separate is (full_system and bool(plan.declared_group_requests))
     assert plan.interface_only is interface_only
     assert len(plan.network_requests) == (
         len(independent) + 1 + (1 if full_system else 0)
@@ -208,6 +206,65 @@ def test_final_calculation_contract_resolves_execution_targets(
     # These are the concrete group definitions handed to the existing
     # executor; operand-only groups remain distinct from top-level -g groups.
     assert list(command.groups.values()) == [[['c', '0']], [['c', '1']]]
+
+
+def test_empty_plan_is_explicit_full_system_default():
+    plan = build_calculation_plan(['p53tet'])
+    assert plan.full_system_request is True
+    assert plan.network_requests == (('system',),)
+
+
+@pytest.mark.parametrize('network_type', ['aw', 'pow', 'prm'])
+def test_interface_only_dispatches_to_direct_producer(monkeypatch, network_type):
+    captured = {}
+
+    class FakeInterface:
+        geometry_source = None
+
+        def build(self, **kwargs):
+            captured['build'] = kwargs
+
+    class FakeBackend:
+        def __init__(self, settings):
+            captured['settings'] = settings
+
+        def make_interface_network(self, system, selection):
+            captured['selection'] = selection
+            return FakeInterface()
+
+    monkeypatch.setattr(
+        'vorpy.workbench.services.vorpy_backend.VorPyBackend', FakeBackend
+    )
+    system = SimpleNamespace(
+        name='synthetic',
+        groups=[
+            SimpleNamespace(name='dna', group_id='dna', ball_ndxs=[0, 1]),
+            SimpleNamespace(name='c_2', group_id='c_2', ball_ndxs=[2]),
+        ],
+        ifaces=[],
+        retained_system_indices=(),
+    )
+    command = Command(sys=system)
+    command.base_file = 'synthetic.pdb'
+    command.settings_dict = {
+        'net_type': network_type, 'max_vert': 5,
+        'box_size': 1.25, 'surf_res': 0.2,
+    }
+    command.solvent_mode = SolventMode.MOLECULE_ONLY
+    command._interface_curvature_requested = True
+    command._interface_water_requested = False
+
+    command._build_direct_interface_target(
+        [(system.groups[0], system.groups[1])]
+    )
+
+    assert captured['settings'].network_type == network_type
+    assert captured['settings'].solvent_mode == 'MOLECULE_ONLY'
+    assert captured['selection'].group_a_id == 'dna'
+    assert captured['selection'].group_b_id == 'c_2'
+    assert captured['build']['analyze_waters'] is False
+    assert captured['build']['calculate_curvature'] is True
+    assert command._direct_interface_producer is True
 
 
 def test_group_backend_build_flag_matches_independent_targets(monkeypatch):
@@ -355,13 +412,16 @@ def test_ordinary_dry_calculation_keeps_molecule_only_default():
         [str(source)], input_source=str(source)
     )
 
-    command._resolve_full_system_solvent_mode()
+    assert system.has_explicit_water is False
+    command._resolve_default_solvent_mode()
 
     assert command.solvent_mode is SolventMode.MOLECULE_ONLY
     assert system.solvent_mode is SolventMode.MOLECULE_ONLY
+    assert command.settings_dict['generator_policy']['active_generator_count'] == 2119
+    assert command.settings_dict['generator_policy']['excluded_generator_count'] == 0
 
 
-def test_implicit_wet_default_keeps_molecular_only_source_counts():
+def test_implicit_wet_default_includes_all_source_counts():
     source = DATA / 'EDTA.pdb'
     system = System(file=str(source), make_dir=False)
     command = Command(sys=system)
@@ -379,16 +439,17 @@ def test_implicit_wet_default_keeps_molecular_only_source_counts():
         'waters': 193,
         'molecular_chains': 1,
     }
+    assert system.has_explicit_water is True
     assert command._resolve_default_solvent_mode() is True
-    assert command.solvent_mode is SolventMode.MOLECULE_ONLY
-    assert system.solvent_mode is SolventMode.MOLECULE_ONLY
-    assert command.settings_dict['solvent_mode'] == 'MOLECULE_ONLY'
+    assert command.solvent_mode is SolventMode.SOLVENT_CONTEXT
+    assert system.solvent_mode is SolventMode.SOLVENT_CONTEXT
+    assert command.settings_dict['solvent_mode'] == 'SOLVENT_CONTEXT'
     assert command.settings_dict['solvent_mode_resolution'] == 'implicit_default'
     policy = command.settings_dict['generator_policy']
-    assert policy['active_generator_count'] == 33
-    assert policy['excluded_water_generator_count'] == 579
+    assert policy['active_generator_count'] == 612
+    assert policy['excluded_water_generator_count'] == 0
     assert policy['excluded_bulk_counterion_generator_count'] == 0
-    assert policy['retained_structural_ion_indices'] == (32,)
+    assert policy['retained_structural_ion_indices'] == ()
 
 
 def test_explicit_molecule_only_stays_respected_for_wet_default():

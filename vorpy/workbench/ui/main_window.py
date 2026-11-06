@@ -60,6 +60,7 @@ from vorpy.workbench.project import (
 from vorpy.workbench.services.result_directory import load_result_directory
 from vorpy.workbench.services.info_parser import Measurement, NetworkSummary, parse_group_info, parse_network_summary
 from vorpy.workbench.services.structure_loader import load_pdb
+from vorpy.src.inputs.source_context import source_display_label
 from vorpy.workbench.session import session_from_workbench, workbench_from_session
 from vorpy.src.io import load_session, save_session
 from vorpy.workbench.workers.load_worker import LoadWorker
@@ -92,6 +93,7 @@ from vorpy.workbench.ui.panels import (
     catalog_presentation_from_results,
     context_presentation_from_owner,
     context_presentation_from_results,
+    result_status_label,
     validated_group_system_ids,
     WorkflowSidebar,
     ViewerPanel,
@@ -1272,13 +1274,17 @@ class MainWindow(QMainWindow):
             energy = self._format_measurement(summary.energy.get("surf_energy"), 5)
             waters = self._format_measurement(summary.classification.get("mapped_surrounding_waters"), 0)
             self.summary_statement.setText(f"{group_label} contains {atoms:,} atoms in {residues:,} residues. The {network_label} network contains {vertices:,} vertices, {edges:,} edges, and {surfaces:,} surfaces.\n\nThe group occupies {volume} with {area} of total boundary surface area. Representative surface energy: {energy}. Mapped surrounding waters: {waters}.")
-            status = ["Parsed network metadata"]
+            status = [f"Status: {result_status_label(result, self._typed_results)}"]
+            status.append("Raw geometry/metadata is not a certified archived Result." if not self._typed_results else "Typed Result status is shown per catalog row.")
             if summary.missing_sections: status.append("Missing: " + ", ".join(summary.missing_sections))
             if summary.warnings: status.append("Warnings: " + "; ".join(summary.warnings))
             self.summary_status.setText(" • ".join(status))
         else:
             self.summary_statement.setText(f"{result.name} contains {atoms:,} atoms in {residues:,} residues and {chains:,} chains.")
-            self.summary_status.setText("Summary generated from loaded structure metrics; no info.txt metadata was found.")
+            self.summary_status.setText(
+                f"Status: {result_status_label(result, self._typed_results)} · "
+                "Summary generated from structure metrics; no system/network info metadata was found."
+            )
         self.results.setRowCount(len(metrics))
         self.results.setColumnCount(2); self.results.setHorizontalHeaderLabels(["Metric", "Value"])
         for row, (label, value) in enumerate(metrics): self.results.setItem(row, 0, QTableWidgetItem(label)); self.results.setItem(row, 1, QTableWidgetItem(str(value)))
@@ -1383,7 +1389,19 @@ class MainWindow(QMainWindow):
         network_state = "loading" if self._loading_structure else "solving" if busy else "outdated" if result and result.defaults_stale else "loaded" if solved else "unsolved"
         self.state_summary.setText(f"Selection: {mode} | {len(self._running_selection):,} selected | Network: {network_state}")
         if loaded:
-            self.viewer_panel.metadata.setText(f"{result.name} | {len(result.atoms):,} atoms | {len(self._residue_groups(result)):,} residues | {len(self._chain_groups(result)):,} chains | {len(self._running_selection):,} selected")
+            input_label = (
+                source_display_label(
+                    result.source,
+                    frame_index=result.frame_index,
+                    frame_count=result.frame_count,
+                )
+                if result.source is not None else result.name
+            )
+            self.viewer_panel.metadata.setText(
+                f"{input_label} | "
+                f"{len(result.atoms):,} atoms | {len(self._residue_groups(result)):,} residues | "
+                f"{len(self._chain_groups(result)):,} chains | {len(self._running_selection):,} selected"
+            )
         else:
             self.viewer_panel.metadata.setText("No structure loaded")
             self.structure_name.setText("No structure loaded")
@@ -2049,7 +2067,13 @@ class MainWindow(QMainWindow):
         self.loaded_structures.blockSignals(True)
         self.loaded_structures.clear()
         for source, result in self._loaded_results.items():
-            item = QListWidgetItem(result.name)
+            item = QListWidgetItem(
+                source_display_label(
+                    source,
+                    frame_index=result.frame_index,
+                    frame_count=result.frame_count,
+                )
+            )
             item.setToolTip(str(source))
             item.setData(Qt.UserRole, source)
             self.loaded_structures.addItem(item)
@@ -2136,8 +2160,13 @@ class MainWindow(QMainWindow):
                                                 frame_ranges=previous_result.frame_ranges)
                                            if switching_frame else {})))
                 if source.is_dir():
-                    info_path = source / "info.txt"
-                    if info_path.exists():
+                    info_path = next(
+                        (source / name for name in
+                         ("network_info.txt", "system_info.txt", "info.txt")
+                         if (source / name).exists()),
+                        None,
+                    )
+                    if info_path is not None:
                         progress("Reading analysis summary…", 100)
                         result.info_sections = parse_group_info(info_path)
                         result.summary = parse_network_summary(info_path)
@@ -2713,7 +2742,13 @@ class MainWindow(QMainWindow):
         self.viewer.display_result(result, preserve_camera=preserve_view)
         self._loading_progress("Counting residues and molecules…", 88)
         self._update_window_title()
-        self.structure_name.setText(result.name)
+        self.structure_name.setText(
+            source_display_label(
+                result.source,
+                frame_index=result.frame_index,
+                frame_count=result.frame_count,
+            ) if result.source is not None else result.name
+        )
         residues = self._residue_groups(result)
         chains = self._chain_groups(result)
         self.structure_summary.setText(
@@ -2798,19 +2833,28 @@ class MainWindow(QMainWindow):
     def _populate_network_controls(self, result: AnalysisResult) -> None:
         solved = bool(result.layers or result.summary or result.complete_cells)
         if solved:
+            input_context = source_display_label(
+                result.source,
+                frame_index=result.frame_index,
+                frame_count=result.frame_count,
+            )
             producer_context = context_presentation_from_results(self._typed_results)
             owner_context = context_presentation_from_owner(result.export_group)
             if producer_context is not None and owner_context is not None:
                 producer_context = replace(
                     producer_context,
                     retained_generators=owner_context.retained_generators,
+                    source_context=input_context,
                 )
+            if producer_context is None and owner_context is not None:
+                owner_context = replace(owner_context, source_context=input_context)
             producer_context = producer_context or owner_context
             if producer_context is not None:
                 self.network_context.set_context(producer_context)
             else:
                 summary = result.summary if isinstance(result.summary, NetworkSummary) else None
                 self.network_context.set_context(NetworkContextPresentation(
+                    source_context=input_context,
                     geometry_scheme=summary.network_type if summary else None,
                     frame=str(result.frame_index),
                     status="UNRESOLVED",

@@ -3,6 +3,34 @@ import pytest
 
 from vorpy.workbench.domain import Atom
 from vorpy.workbench.services.structure_loader import COVALENT_RADII, _infer_bonds
+from vorpy.src.inputs.source_context import describe_source, source_display_label
+
+
+def test_source_context_labels_paired_structures_and_frame_series(tmp_path):
+    original = tmp_path / "2KAI_og.pdb"
+    solvated = tmp_path / "2KAI.pdb"
+    dry = tmp_path / "2KAI_no_sol.pdb"
+    original.write_text("\n")
+    solvated.write_text("\n")
+    dry.write_text("\n")
+    frame_dir = tmp_path / "2KAI_frames"
+    frame_dir.mkdir()
+    frame = frame_dir / "2KAI_f3.pdb"
+    frame.write_text("\n")
+
+    original_context = describe_source(original)
+    dry_context = describe_source(dry)
+    frame_context = describe_source(frame, frame_count=10)
+
+    assert original_context.dataset_id == "2KAI"
+    assert original_context.role == "original"
+    assert original_context.evidence == "paired filename"
+    assert "Original pre-MD" in source_display_label(original)
+    assert dry_context.dataset_id == "2KAI"
+    assert dry_context.role == "dry"
+    assert dry_context.evidence == "paired filename"
+    assert "Solvated post-MD" in source_display_label(solvated, frame_count=1)
+    assert source_display_label(frame, frame_count=10).endswith("frame 3/10")
 
 
 @pytest.mark.parametrize('boundary', ['ENDMDL\nMODEL        2\n', 'END\n', 'MODEL        2\n'])

@@ -246,7 +246,7 @@ def build_surfs(net, store_points=True, calculate_curvature=True):
         edge_indices = [int(_) for _ in surf['edges']]
         epnts = [net.edges['points'][_] for _ in edge_indices]
         edge_endpoints = None
-        if net.settings.get('net_type') == 'aw':
+        if net.settings.get('net_type') in {'aw', 'pow', 'prm'}:
             edge_endpoints = [
                 tuple(
                     stable_vertex_identity(net.verts.loc[int(vertex)])
@@ -254,6 +254,10 @@ def build_surfs(net, store_points=True, calculate_curvature=True):
                 )
                 for edge_index in edge_indices
             ]
+        if net.settings.get('net_type') in {'pow', 'prm'}:
+            # Straight planar boundaries use shared solver vertices, not reprojected samples.
+            epnts = [[net.verts.loc[int(v), 'loc'] for v in net.edges.loc[e, 'verts']]
+                     for e in edge_indices]
 
         if rads[0] > rads[1]:
             rads, locs, nums = [rads[1], rads[0]], [locs[1], locs[0]], [nums[1], nums[0]]

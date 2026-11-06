@@ -1006,6 +1006,16 @@ def build_buried_water_groups(iface):
         return []
 
     buried_sets = list(topology.get("buried_cycle_sets", []))
+
+    if not buried_sets:
+        return []
+
+    if iface.dir is None:
+        raise RuntimeError(
+            "Interface output directory must be initialized "
+            "before analyzing buried-water groups."
+        )
+
     waters_root = os.path.join(iface.dir, "waters")
 
     water_groups = []

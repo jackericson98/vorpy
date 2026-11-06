@@ -12,7 +12,7 @@ vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..',
 sys.path.append(vorpy_root)
 
 from vorpy.src.calculations.surf import calc_surf_func
-from vorpy.src.calculations.curvature import mean_curvature
+from vorpy.src.calculations.curvature import mean_curvature, gaussian_curvature
 from vorpy.src.analyze.tools.plot_templates.line import line_plot
 
 
@@ -27,6 +27,7 @@ def curvature_distance_ratio_sweep(
     skip_equal_radii: bool = True,
     fill_value: float = np.nan,
     verbose: bool = True,
+    curv_choice: str = "mean",  # or "gaussian"
 ) -> dict:
     """
     Sweep mean curvature at the midpoint between the two sphere surfaces as a function of:
@@ -82,7 +83,10 @@ def curvature_distance_ratio_sweep(
             func = calc_surf_func([0, 0, 0], r1, [large_center_x, 0, 0], r2)
 
             try:
-                curvatures[j, i] = mean_curvature(func, eval_point)
+                if curv_choice == "mean":
+                    curvatures[j, i] = mean_curvature(func, eval_point)
+                elif curv_choice == "gaussian":
+                    curvatures[j, i] = gaussian_curvature(func, eval_point)
             except Exception:
                 # Keep fill_value if the surface function / curvature eval blows up
                 curvatures[j, i] = fill_value
@@ -138,7 +142,7 @@ def plot_curvature_distance_ratio_lines(
         colors=line_colors,
         Show=Show,
         x_label="Radii Ratio",
-        y_label="Mean Curvature",
+        y_label="Gaussian Curvature",
         labels=[float(d) for d in surface_distances],
         legend_title="Surface Distance",
         legend_label_size=legend_label_size,
@@ -151,23 +155,24 @@ def plot_curvature_distance_ratio_lines(
         colorbar=sm,
         figsize=figsize,
         x_ticks=[1, 2, 3],
-        y_ticks=[0.0, 0.5, 1.0, 1.5, 2.0],
+        y_ticks=[0.0, 0.2, 0.4, 0.6, 0.8],
         xlim=[0.8, 3.2],
-        ylim=[-0.1, 2.1]
+        ylim=[-0.1, 0.9]
     )
 
 
 if __name__ == "__main__":
     sweep = curvature_distance_ratio_sweep(
         r1=1.0,
-        surface_distance_min=-1.5,
-        surface_distance_max=1.5,
-        n_distance_lines=15,
+        surface_distance_min=-1.0,
+        surface_distance_max=1.0,
+        n_distance_lines=14,
         ratio_min=1.0,
         ratio_max=3.0,
         n_ratio_points=40,
         skip_equal_radii=True,
         verbose=True,
+        curv_choice="mean",  # or "mean"
     )
 
     plot_curvature_distance_ratio_lines(

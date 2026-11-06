@@ -1,9 +1,11 @@
 """Figure 3B — Atomic AW vs Power comparisons.
 
-Creates a 2 x 3 Figure 3B panel matrix:
+Creates 12 separate Figure 3B plots (PNG and SVG):
 
     Protein       : Volume | Surface Area | Contacts
-    Nucleic acids : Volume | Surface Area | Contacts
+    DNA           : Volume | Surface Area | Contacts
+    RNA           : Volume | Surface Area | Contacts
+    Small molecule: Volume | Surface Area | Contacts
 
 Only systems discovered by F3_common.discover_systems() are considered, so the
 data root is restricted to folders named <letter>_<molecule name> and the
@@ -15,10 +17,8 @@ developed for F2C_All_Data_Sets_Clustered.py.
 
 Outputs
 -------
-F3B_atomic_groups.png
-F3B_atomic_groups.svg
-F3B_protein_group_summary.csv
-F3B_nucleic_group_summary.csv
+F3B_<class>_<metric>.png and .svg (24 image files)
+F3B_<class>_group_summary.csv (four CSV files)
 """
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ from vorpy.src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differenc
 DATA_ROOT = None
 FIGURE_DIR = None
 
-EXCLUDE_KEYS = ["A", "B", "C"]
+EXCLUDE_KEYS = ["A"]
 
 # ---------------------------------------------------------------------------
 # Instance cache + Figure 3D candidate exports
@@ -83,6 +83,11 @@ OUTLIER_TOP_N = 25
 MIN_WITHIN_TYPE_COUNT = 5
 
 MIN_GROUP_COUNT = 25
+MIN_RANK_SYSTEMS = 2
+
+SMALL_MOLECULE_MIN_GROUP_COUNT = 2
+SMALL_MOLECULE_MIN_RANK_SYSTEMS = 1
+TOP_RANK_N = 5
 
 # Figure 3B should show a small, representative set of chemically meaningful
 # groups rather than simply the mathematically tightest clusters.
@@ -100,6 +105,32 @@ WEIGHT_TIGHTNESS = 0.35
 WEIGHT_SEPARATION = 0.30
 WEIGHT_ATOM_DIVERSITY = 0.20
 WEIGHT_COUNT = 0.15
+
+LABEL_SELECTED_GROUPS = True
+ELLIPSE_N_STD = 1.25
+
+# Raw atomic scatter
+POINT_SIZE = 14
+POINT_ALPHA = 0.30
+
+# Representative group centers
+GROUP_POINT_SIZE = 75
+
+# Ellipse appearance
+ELLIPSE_FILL_ALPHA = 0.06
+ELLIPSE_EDGE_ALPHA = 0.65
+ELLIPSE_LINEWIDTH = 0.65
+ELLIPSE_HALO_LINEWIDTH = 0.0
+
+# Typography
+TICK_LABEL_SIZE = 20
+AXIS_LABEL_SIZE = 20
+PLOT_TITLE_SIZE = 18
+GROUP_LABEL_SIZE = 13
+
+# Figure dimensions
+FIGSIZE = (7.2, 6.4)
+DPI = 300
 
 # Optional manual overrides after inspecting the printed grouping tables.
 # Leave a list empty to use automatic selection for that panel.
@@ -156,10 +187,10 @@ HARD_CODED_GROUPS = {
 REQUIRED_ELEMENTS = {
     "Protein": ["H", "C", "N", "O", "S"],
     "Nucleic acid": ["H", "C", "N", "O", "P"],
+    "DNA": ["H", "C", "N", "O", "P"],
+    "RNA": ["H", "C", "N", "O", "P"],
+    "Small molecule": ["H", "C", "N", "O", "S", "P"],
 }
-
-LABEL_SELECTED_GROUPS = True
-ELLIPSE_N_STD = 1.25
 
 # Minimum shared upper limits. These prevent selected representative groups
 # from being clipped by percentile-based axis trimming.
@@ -169,16 +200,9 @@ MIN_SHARED_UPPER_LIMIT = {
     "Contacts": None,
 }
 
-POINT_SIZE = 8
-POINT_ALPHA = 0.10
-GROUP_POINT_SIZE = 55
-
-FIGSIZE = (18, 11)
-DPI = 300
-
 SAVE_PNG = True
 SAVE_SVG = True
-SHOW = True
+SHOW = False  # Set True to display all 12 figures interactively
 
 PROTEIN_RESIDUES = {
     "ALA", "ARG", "ASN", "ASP", "CYS",
@@ -189,6 +213,12 @@ PROTEIN_RESIDUES = {
 
 DNA_RESIDUES = {"DA", "DC", "DG", "DT", "DI"}
 RNA_RESIDUES = {"A", "C", "G", "U", "I", "RA", "RC", "RG", "RU"}
+
+# Non-molecular components excluded from the small-molecule class.
+EXCLUDED_SMALL_RESIDUES = {"HOH", "WAT", "SOL", "TIP3", "TIP3P", "SPC", "SPCE",
+    "NA", "CL", "K", "MG", "CA", "ZN", "FE", "MN", "CU", "CO", "NI",
+    "SO4", "PO4", "NO3", "NH4"}
+MOLECULAR_CLASSES = ["Protein", "DNA", "RNA", "Small molecule"]
 
 ELEMENT_COLORS = {
     "H": "#1f77b4",
@@ -219,28 +249,24 @@ def select_directory(title: str) -> str:
 # ---------------------------------------------------------------------------
 
 def classify_system(atoms: pd.DataFrame) -> Optional[str]:
-    """Classify a molecular system as protein, dna, or rna from residues."""
+    """Classify systems by their dominant polymer residue type, or as small molecules."""
     if "Residue" not in atoms.columns:
         return None
-
     residues = atoms["Residue"].astype(str).str.strip().str.upper()
-
     counts = {
         "protein": int(residues.isin(PROTEIN_RESIDUES).sum()),
         "dna": int(residues.isin(DNA_RESIDUES).sum()),
         "rna": int(residues.isin(RNA_RESIDUES).sum()),
     }
-
     best = max(counts, key=counts.get)
-    return best if counts[best] > 0 else None
+    if counts[best] > 0:
+        return best
+    return "small_molecule" if (~residues.isin(EXCLUDED_SMALL_RESIDUES)).any() else None
 
 
 def broad_class(system_class: str) -> str:
-    if system_class == "protein":
-        return "Protein"
-    if system_class in {"dna", "rna"}:
-        return "Nucleic acid"
-    raise ValueError(system_class)
+    return {"protein": "Protein", "dna": "DNA", "rna": "RNA",
+            "small_molecule": "Small molecule"}[system_class]
 
 
 # ---------------------------------------------------------------------------
@@ -272,14 +298,16 @@ def canonicalize_atomic_dataframe(
     df["SystemClass"] = system_class
     df["BroadClass"] = broad_class(system_class)
 
-    df["CanonicalName"] = [
-        canonicalize_atom_name(
-            atom_name=str(atom),
-            molecule_class=system_class,
-            residue_name=str(residue),
-        )
-        for atom, residue in zip(df["Atom"], df["Residue"])
-    ]
+    if system_class == "small_molecule":
+        # Preserve chemical atom labels rather than forcing a protein/nucleotide
+        # canonicalization rule onto arbitrary ligand names.
+        df["CanonicalName"] = df["Atom"].astype(str).str.strip().str.upper()
+    else:
+        df["CanonicalName"] = [
+            canonicalize_atom_name(atom_name=str(atom), molecule_class=system_class,
+                                   residue_name=str(residue))
+            for atom, residue in zip(df["Atom"], df["Residue"])
+        ]
 
     df["ElementClass"] = df["CanonicalName"].apply(element_from_group)
     return df
@@ -322,15 +350,21 @@ def collect_atomic_data(
             system_name=system.name,
         )
 
-        # Remove solvent, ions, ligands, etc. from the class-specific analysis.
+        # Keep only the dominant polymer class, or non-solvent small molecules.
+        atom_df["Residue"] = atom_df["Residue"].astype(str).str.strip().str.upper()
         if system_class == "protein":
             keep = atom_df["Residue"].isin(PROTEIN_RESIDUES)
         elif system_class == "dna":
             keep = atom_df["Residue"].isin(DNA_RESIDUES)
-        else:
+        elif system_class == "rna":
             keep = atom_df["Residue"].isin(RNA_RESIDUES)
+        else:
+            keep = ~atom_df["Residue"].isin(EXCLUDED_SMALL_RESIDUES)
 
         atom_df = atom_df.loc[keep].copy()
+        if atom_df.empty:
+            print("  skipped: no retained atoms after residue filtering")
+            continue
 
         # Preserve instance-level signed and absolute deviations for Figure 3D
         # candidate selection. This does not alter Figure 3B plotting.
@@ -397,6 +431,8 @@ def compute_group_stats(
             else np.inf
         )
 
+        rms_difference = float(np.sqrt(np.mean((power - aw) ** 2)))
+        n_systems = int(group_df.loc[values.index, "System"].nunique()) if "System" in group_df else 0
         delta = mean_power - mean_aw
         pct = np.nan if mean_aw == 0 else 100.0 * delta / mean_aw
 
@@ -407,6 +443,8 @@ def compute_group_stats(
                 "AtomType": str(group_name).split("_")[0],
                 "Element": element_from_group(group_name),
                 "Count": len(values),
+                "Systems": n_systems,
+                "RMS_AW_Power_Difference": rms_difference,
                 "Mean_AW": mean_aw,
                 "Mean_Power": mean_power,
                 "SD_AW": sd_aw,
@@ -527,6 +565,10 @@ def _base_group_score(candidates: pd.DataFrame) -> pd.Series:
     )
 
 
+MAX_GROUPS_PER_ELEMENT = 3
+MIN_SYSTEMS_FOR_REPRESENTATIVES = 2
+
+
 def select_representative_groups(
     stats_df: pd.DataFrame,
     broad_class_name: str,
@@ -534,159 +576,135 @@ def select_representative_groups(
     n_groups: int = REPRESENTATIVE_GROUPS,
     compactness_quantile: float = COMPACTNESS_QUANTILE,
 ) -> pd.DataFrame:
+    """Select compact, well-sampled, chemically varied groups on both sides of y=x.
+
+    Constraints (when feasible): at most three representatives per element,
+    at least one Power > AW and one Power < AW. Prefer groups seen in two or
+    more systems, but allow single-system exploratory choices for RNA.
     """
-    Select Figure 3B groups with explicit elemental representation.
-
-    Stage 1
-    -------
-    Pick the best available H/C/N/O/S group for proteins or H/C/N/O/P group
-    for nucleic acids.
-
-    Stage 2
-    -------
-    Fill any remaining slots with groups that are compact, abundant, and
-    spatially separated from those already selected.
-
-    HARD_CODED_GROUPS still overrides the automatic choice.
-    """
-    manual = _manual_group_selection(
-        stats_df,
-        broad_class_name=broad_class_name,
-        metric=metric,
-    )
-    if not manual.empty:
-        return manual
-
     if stats_df.empty:
         return stats_df.copy()
 
-    candidates = stats_df[
-        np.isfinite(stats_df["Normalized_Spread"]) &
-        np.isfinite(stats_df["Mean_AW"]) &
-        np.isfinite(stats_df["Mean_Power"])
+    candidates = stats_df.loc[
+        np.isfinite(stats_df["Normalized_Spread"])
+        & np.isfinite(stats_df["Mean_AW"])
+        & np.isfinite(stats_df["Mean_Power"])
     ].copy()
-
     if candidates.empty:
         return candidates
 
-    # Keep this fairly permissive so O/H groups are not automatically removed
-    # simply because they are broader than tightly packed carbon classes.
-    spread_cutoff = float(
-        candidates["Normalized_Spread"].quantile(compactness_quantile)
-    )
+    # Some datasets (RNA, for example) contain only one independent system.
+    required_systems = (SMALL_MOLECULE_MIN_RANK_SYSTEMS
+                        if broad_class_name == "Small molecule" else MIN_SYSTEMS_FOR_REPRESENTATIVES)
+    if "Systems" in candidates.columns and (candidates["Systems"] >= required_systems).any():
+        candidates = candidates[candidates["Systems"] >= required_systems].copy()
+    else:
+        print(f"NOTE: {broad_class_name} / {metric}: exploratory single-system representative selection")
 
-    compact_candidates = candidates[
-        candidates["Normalized_Spread"] <= spread_cutoff
-    ].copy()
-
-    # Element representation takes precedence over the compactness cutoff.
-    # If an element has no group inside the cutoff, use the best group for that
-    # element from the complete eligible set instead.
     candidates["BaseScore"] = _base_group_score(candidates)
-    compact_candidates["BaseScore"] = _base_group_score(compact_candidates)
+    candidates["Side"] = np.where(
+        candidates["Mean_Power"] > candidates["Mean_AW"], 1,
+        np.where(candidates["Mean_Power"] < candidates["Mean_AW"], -1, 0),
+    )
+    candidates = candidates.sort_values(
+        ["BaseScore", "Normalized_Spread", "Count", "GroupName"],
+        ascending=[False, True, False, True],
+    ).reset_index(drop=True)
+    available_elements = set(candidates["Element"].astype(str))
+    desired_elements = [e for e in REQUIRED_ELEMENTS.get(broad_class_name, []) if e in available_elements]
+    if not desired_elements:
+        desired_elements = list(dict.fromkeys(candidates["Element"].astype(str)))
+    # Preserve coverage only when there are enough slots; do not exceed the cap.
+    desired_elements = desired_elements[:n_groups]
 
-    selected_rows = []
+    selected = []
     selected_names = set()
+    element_counts = {}
+    coord_source = candidates.reset_index(drop=True)
+    coord_map = dict(zip(coord_source["GroupName"], _normalized_group_coordinates(coord_source)))
 
-    required = REQUIRED_ELEMENTS.get(broad_class_name, [])
+    def add(row):
+        name = str(row["GroupName"])
+        element = str(row["Element"])
+        selected.append(row.copy())
+        selected_names.add(name)
+        element_counts[element] = element_counts.get(element, 0) + 1
 
-    # ------------------------------------------------------------------
-    # Stage 1: one best group for every required element.
-    # ------------------------------------------------------------------
-    for element in required:
-        pool = compact_candidates[
-            compact_candidates["Element"] == element
-        ].copy()
+    def eligible(pool):
+        return pool.loc[
+            (~pool["GroupName"].isin(selected_names))
+            & (pool["Element"].astype(str).map(lambda e: element_counts.get(e, 0) < MAX_GROUPS_PER_ELEMENT))
+        ]
 
+    def best(pool):
+        pool = eligible(pool)
         if pool.empty:
-            pool = candidates[
-                candidates["Element"] == element
-            ].copy()
+            return None
+        scores = []
+        for _, row in pool.iterrows():
+            coord = coord_map.get(row["GroupName"])
+            if coord is None or not selected:
+                separation = 1.0
+            else:
+                separation = min(float(np.linalg.norm(coord - coord_map[r["GroupName"]]))
+                                 for r in selected if r["GroupName"] in coord_map) / np.sqrt(2.0)
+            scores.append(0.85 * float(row["BaseScore"]) + 0.15 * separation)
+        return pool.iloc[int(np.argmax(scores))]
 
-        if pool.empty:
-            print(
-                f"WARNING: no {element} grouping found for "
-                f"{broad_class_name} / {metric}"
-            )
+    # First cover the required chemical elements, leaving room to fix sign balance.
+    for element in desired_elements:
+        if len(selected) >= n_groups:
+            break
+        row = best(candidates[candidates["Element"].astype(str) == element])
+        if row is not None:
+            add(row)
+
+    # Guarantee representatives on both sides whenever the eligible data allow it.
+    for side in (1, -1):
+        if any(int(r["Side"]) == side for r in selected):
             continue
+        row = best(candidates[candidates["Side"] == side])
+        if row is not None and len(selected) < n_groups:
+            add(row)
+        elif row is not None and selected:
+            # Replace the weakest group without losing required element coverage,
+            # the opposite side, or the per-element limit.
+            choices = []
+            for i, old in enumerate(selected):
+                old_el = str(old["Element"])
+                new_el = str(row["Element"])
+                if old_el != new_el and element_counts.get(new_el, 0) >= MAX_GROUPS_PER_ELEMENT:
+                    continue
+                if old_el in desired_elements and element_counts[old_el] == 1 and old_el != new_el:
+                    continue
+                remaining = [r for j, r in enumerate(selected) if j != i]
+                if any(int(r["Side"]) == -side for r in selected) and not any(int(r["Side"]) == -side for r in remaining) and int(row["Side"]) != -side:
+                    continue
+                choices.append(i)
+            if choices:
+                i = min(choices, key=lambda j: float(selected[j]["BaseScore"]))
+                old = selected.pop(i)
+                element_counts[str(old["Element"])] -= 1
+                selected_names.remove(str(old["GroupName"]))
+                add(row)
 
-        chosen = pool.sort_values(
-            ["BaseScore", "Normalized_Spread", "Count"],
-            ascending=[False, True, False],
-        ).iloc[0].copy()
+    while len(selected) < n_groups:
+        row = best(candidates)
+        if row is None:
+            break
+        add(row)
 
-        selected_rows.append(chosen)
-        selected_names.add(str(chosen["GroupName"]))
+    sides = {int(r["Side"]) for r in selected}
+    for side, label in ((1, "above"), (-1, "below")):
+        if side not in sides:
+            print(f"WARNING: {broad_class_name} / {metric}: no representative {label} y=x under selection constraints")
+    if len(selected) < n_groups:
+        print(f"WARNING: {broad_class_name} / {metric}: selected only {len(selected)}/{n_groups} groups")
 
-    # ------------------------------------------------------------------
-    # Stage 2: fill extra slots using spatial separation + base quality.
-    # ------------------------------------------------------------------
-    remaining_slots = max(0, int(n_groups) - len(selected_rows))
-
-    if remaining_slots > 0:
-        remaining = compact_candidates[
-            ~compact_candidates["GroupName"].isin(selected_names)
-        ].copy()
-
-        if not remaining.empty:
-            # Normalize all available centers on the combined candidate range.
-            coord_source = candidates.reset_index(drop=True)
-            all_coords = _normalized_group_coordinates(coord_source)
-            coord_map = {
-                coord_source.loc[i, "GroupName"]: all_coords[i]
-                for i in coord_source.index
-            }
-
-            for _ in range(remaining_slots):
-                if remaining.empty:
-                    break
-
-                best_idx = None
-                best_score = -np.inf
-
-                selected_coords = [
-                    coord_map[row["GroupName"]]
-                    for row in selected_rows
-                    if row["GroupName"] in coord_map
-                ]
-
-                for idx, row in remaining.iterrows():
-                    coord = coord_map.get(row["GroupName"])
-
-                    if coord is None or not selected_coords:
-                        separation = 1.0
-                    else:
-                        separation = min(
-                            float(np.linalg.norm(coord - other))
-                            for other in selected_coords
-                        ) / np.sqrt(2.0)
-                        separation = min(max(separation, 0.0), 1.0)
-
-                    score = (
-                        0.70 * float(row["BaseScore"])
-                        + 0.30 * separation
-                    )
-
-                    if score > best_score:
-                        best_score = score
-                        best_idx = idx
-
-                if best_idx is None:
-                    break
-
-                chosen = remaining.loc[best_idx].copy()
-                selected_rows.append(chosen)
-                selected_names.add(str(chosen["GroupName"]))
-                remaining = remaining.drop(index=best_idx)
-
-    if not selected_rows:
-        return pd.DataFrame(columns=stats_df.columns)
-
-    selected = pd.DataFrame(selected_rows).reset_index(drop=True)
-    selected["RepresentativeRank"] = np.arange(1, len(selected) + 1)
-    selected["SelectionMode"] = "automatic_element_balanced"
-
-    return selected
+    result = pd.DataFrame(selected).reset_index(drop=True)
+    result["RepresentativeRank"] = np.arange(1, len(result) + 1)
+    result["SelectionMode"] = "automatic_element_and_sign_balanced"
+    return result.drop(columns=["BaseScore", "Side"], errors="ignore")
 
 
 def print_grouping_table(
@@ -807,8 +825,8 @@ def add_covariance_ellipse(
         angle=angle,
         facecolor=color,
         edgecolor=color,
-        alpha=0.08,
-        linewidth=1.2,
+        alpha=ELLIPSE_FILL_ALPHA,
+        linewidth=0,
         zorder=2,
     )
     ax.add_patch(fill)
@@ -820,13 +838,18 @@ def add_covariance_ellipse(
         angle=angle,
         facecolor="none",
         edgecolor=color,
-        alpha=0.65,
-        linewidth=1.3,
+        alpha=ELLIPSE_EDGE_ALPHA,
+        linewidth=ELLIPSE_LINEWIDTH,
         zorder=2.1,
     )
-    edge.set_path_effects(
-        [pe.Stroke(linewidth=3.0, foreground="white"), pe.Normal()]
-    )
+    if ELLIPSE_HALO_LINEWIDTH > 0:
+        edge.set_path_effects([
+            pe.Stroke(
+                linewidth=ELLIPSE_HALO_LINEWIDTH,
+                foreground="white"
+            ),
+            pe.Normal()
+        ])
     ax.add_patch(edge)
 
 
@@ -866,7 +889,7 @@ def label_representative_groups(
             xy=(row["Mean_AW"], row["Mean_Power"]),
             xytext=(5, 5),
             textcoords="offset points",
-            fontsize=8.5,
+            fontsize=GROUP_LABEL_SIZE,
             color=color,
             fontweight="bold",
             zorder=7,
@@ -937,7 +960,9 @@ def plot_atomic_metric(
             zorder=1,
         )
 
-    stats = compute_group_stats(plot_df, metric=metric)
+    min_count = (SMALL_MOLECULE_MIN_GROUP_COUNT
+                 if broad_class_name == "Small molecule" else MIN_GROUP_COUNT)
+    stats = compute_group_stats(plot_df, metric=metric, min_count=min_count)
 
     representative_stats = select_representative_groups(
         stats,
@@ -1010,11 +1035,11 @@ def plot_atomic_metric(
     else:
         unit = ""
 
-    ax.set_xlabel(f"AW {metric}{unit}", fontsize=11)
-    ax.set_ylabel(f"Power {metric}{unit}", fontsize=11)
-    ax.set_title(metric, fontsize=13, fontweight="bold")
+    ax.set_xlabel(f"AW {metric}{unit}", fontsize=AXIS_LABEL_SIZE)
+    ax.set_ylabel(f"Power {metric}{unit}", fontsize=AXIS_LABEL_SIZE)
+    ax.set_title(metric, fontsize=PLOT_TITLE_SIZE, fontweight="bold")
 
-    ax.tick_params(axis="both", labelsize=9, width=1.2, length=5)
+    ax.tick_params(axis="both", labelsize=TICK_LABEL_SIZE, width=1.2, length=5)
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
@@ -1022,13 +1047,17 @@ def plot_atomic_metric(
 
     stats = stats.copy()
 
-    representative_names = set(
-        representative_stats["GroupName"]
-    ) if not representative_stats.empty else set()
-
-    stats["Is_Representative"] = stats["GroupName"].isin(
-        representative_names
-    )
+    if stats.empty:
+        stats["Is_Representative"] = pd.Series(dtype=bool)
+    else:
+        representative_names = (
+            set(representative_stats["GroupName"])
+            if not representative_stats.empty
+            else set()
+        )
+        stats["Is_Representative"] = stats["GroupName"].isin(
+            representative_names
+        )
 
     if not representative_stats.empty:
         rank_map = dict(
@@ -1291,7 +1320,7 @@ def summarize_atomic_outlier_groups(outlier_df: pd.DataFrame) -> pd.DataFrame:
 def build_atomic_top_candidates(outlier_df: pd.DataFrame) -> pd.DataFrame:
     pieces = []
 
-    for broad_name in ["Protein", "Nucleic acid"]:
+    for broad_name in MOLECULAR_CLASSES:
         class_df = outlier_df[outlier_df["BroadClass"] == broad_name].copy()
         if class_df.empty:
             continue
@@ -1322,6 +1351,62 @@ def build_atomic_top_candidates(outlier_df: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame()
 
 
+def select_signed_atomic_examples(atom_df: pd.DataFrame) -> pd.DataFrame:
+    """Choose two AW>Power and two AW<Power volume cells per class.
+
+    Rank by absolute volume difference (percentage), using surface-area
+    disagreement as a tiebreaker. Prefer distinct systems and residues.
+    Never manufacture a missing direction: return fewer than two if necessary.
+    """
+    df = atom_df.copy()
+    for col in ("AW Volume", "Power Volume", "AW Surface Area", "Power Surface Area"):
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=["AW Volume", "Power Volume"])
+    df = df.loc[(df["AW Volume"] > 0) & (df["Power Volume"] > 0)].copy()
+    df["AW Minus Power Volume"] = df["AW Volume"] - df["Power Volume"]
+    df["Volume Signed % (AW relative to Power)"] = (
+        100 * df["AW Minus Power Volume"] / df["Power Volume"]
+    )
+    df["AW Minus Power Surface Area"] = df["AW Surface Area"] - df["Power Surface Area"]
+    df["Surface Area Signed % (AW relative to Power)"] = (
+        100 * df["AW Minus Power Surface Area"] / df["Power Surface Area"].where(df["Power Surface Area"] > 0)
+    )
+    df["Volume Magnitude %"] = df["Volume Signed % (AW relative to Power)"].abs()
+    df["Surface Area Magnitude %"] = df["Surface Area Signed % (AW relative to Power)"].abs()
+    selected = []
+    for broad in MOLECULAR_CLASSES:
+        class_df = df.loc[df["BroadClass"] == broad]
+        for label, sign in (("AW larger", 1), ("AW smaller", -1)):
+            pool = class_df.loc[class_df["AW Minus Power Volume"] * sign > 0].copy()
+            pool = pool.sort_values(
+                ["Volume Magnitude %", "Surface Area Magnitude %"],
+                ascending=[False, False], kind="stable"
+            )
+            picks = []
+            for _, row in pool.iterrows():
+                if len(picks) == 2:
+                    break
+                # Favor different systems when available, then different residues.
+                if picks and row.get("System") == picks[0].get("System") and pool["System"].nunique() > 1:
+                    continue
+                picks.append(row)
+            if len(picks) < 2:
+                for _, row in pool.iterrows():
+                    if len(picks) == 2:
+                        break
+                    if any(row.name == prev.name for prev in picks):
+                        continue
+                    picks.append(row)
+            if len(picks) < 2:
+                print(f"WARNING: {broad}: only {len(picks)} candidate(s) with {label} volume")
+            for rank, row in enumerate(picks, 1):
+                record = row.copy()
+                record["Selection Direction"] = label
+                record["Selection Rank"] = rank
+                selected.append(record)
+    return pd.DataFrame(selected)
+
+
 def atomic_cache_path(figure_dir: str) -> Path:
     return Path(figure_dir) / INSTANCE_CACHE_NAME
 
@@ -1348,7 +1433,11 @@ def load_or_collect_atomic_data(
     if path.exists() and not REBUILD_INSTANCE_CACHE:
         print(f"Loading cached F3B atomic instances: {path}")
         cached = pd.read_csv(path)
+        if not {"SystemClass", "BroadClass", "CanonicalName"}.issubset(cached.columns):
+            raise ValueError("Outdated instance cache: set REBUILD_INSTANCE_CACHE=True")
+        cached["BroadClass"] = cached["SystemClass"].map(broad_class)
         print(f"  loaded {len(cached):,} atom instances")
+        print("  Note: caches built before small-molecule support may omit those systems; rebuild to include them.")
         return cached
 
     if not data_root:
@@ -1382,6 +1471,7 @@ def export_atomic_outliers(atom_df: pd.DataFrame, figure_dir: str):
     outliers = build_atomic_outlier_table(atom_df)
     group_summary = summarize_atomic_outlier_groups(outliers)
     candidates = build_atomic_top_candidates(outliers)
+    signed_examples = select_signed_atomic_examples(outliers)
 
     instance_path = figure_dir / "F3B_atomic_instance_outliers.csv"
     group_path = figure_dir / "F3B_atomic_group_outliers.csv"
@@ -1390,10 +1480,17 @@ def export_atomic_outliers(atom_df: pd.DataFrame, figure_dir: str):
     outliers.to_csv(instance_path, index=False)
     group_summary.to_csv(group_path, index=False)
     candidates.to_csv(candidate_path, index=False)
+    signed_path = figure_dir / "F3B_signed_atomic_examples.csv"
+    signed_examples.to_csv(signed_path, index=False)
 
     print(f"Saved: {instance_path}")
     print(f"Saved: {group_path}")
     print(f"Saved: {candidate_path}")
+    print(f"Saved: {signed_path}")
+    if not signed_examples.empty:
+        cols = [c for c in ("BroadClass", "Selection Direction", "Selection Rank", "System", "Index", "Atom", "Residue", "Residue Sequence", "Chain", "AW Volume", "Power Volume", "Volume Signed % (AW relative to Power)", "AW Surface Area", "Power Surface Area") if c in signed_examples.columns]
+        print("\nFOUR SIGNED VOLUME CANDIDATES PER MOLECULAR CLASS:")
+        print(signed_examples[cols].to_string(index=False))
 
     preview_cols = [
         c for c in [
@@ -1414,110 +1511,78 @@ def export_atomic_outliers(atom_df: pd.DataFrame, figure_dir: str):
         print(candidates[preview_cols].head(60).to_string(index=False))
 
 
+def print_top_five_rankings(stats: pd.DataFrame, class_name: str, metric: str):
+    """Three independent group rankings, using complete (not sampled) data."""
+    print("\n" + "=" * 90)
+    print(f"TOP-FIVE RANKINGS — {class_name.upper()} | {metric.upper()}")
+    print("=" * 90)
+    if stats.empty:
+        print("No eligible canonical groups.")
+        return
+
+    min_count = SMALL_MOLECULE_MIN_GROUP_COUNT if class_name == "Small molecule" else MIN_GROUP_COUNT
+    min_systems = SMALL_MOLECULE_MIN_RANK_SYSTEMS if class_name == "Small molecule" else MIN_RANK_SYSTEMS
+    eligible = stats.loc[(stats["Count"] >= min_count) &
+                         (stats["Systems"] >= min_systems)].copy()
+    specs = [
+        ("MOST NUMEROUS (all groups)", stats, "Count", False),
+        (f"TIGHTEST (>= {min_count} atoms, >= {min_systems} systems)",
+         eligible, "Normalized_Spread", True),
+        (f"FURTHEST FROM y=x (>= {min_count} atoms, >= {min_systems} systems)",
+         eligible, "RMS_AW_Power_Difference", False),
+    ]
+    cols = ["GroupName", "Count", "Systems", "Normalized_Spread",
+            "RMS_AW_Power_Difference", "Mean_AW", "Mean_Power"]
+    for title, frame, sort_col, ascending in specs:
+        print(f"\n{title}:")
+        if frame.empty:
+            print("  No groups satisfy the selection criteria.")
+            continue
+        ranked = frame.replace([np.inf, -np.inf], np.nan).dropna(subset=[sort_col])
+        ranked = ranked.sort_values([sort_col, "Count"], ascending=[ascending, False]).head(TOP_RANK_N)
+        print(ranked[cols].to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+
+
 def make_figure(atom_df: pd.DataFrame, figure_dir: str):
+    """Save one independent PNG/SVG scatter plot per molecular class and metric."""
     figure_dir = Path(figure_dir)
     figure_dir.mkdir(parents=True, exist_ok=True)
-
-    fig, axes = plt.subplots(
-        nrows=2,
-        ncols=3,
-        figsize=FIGSIZE,
-        constrained_layout=False,
-    )
-
-    row_classes = ["Protein", "Nucleic acid"]
     metrics = ["Volume", "Surface Area", "Contacts"]
 
-    shared_limits = {
-        metric: compute_shared_metric_limits(atom_df, metric)
-        for metric in metrics
-    }
-
-    print()
-    print("F3B SHARED AXIS LIMITS")
-    for metric, limits in shared_limits.items():
-        print(f"  {metric}: {limits[0]:.3f} -> {limits[1]:.3f}")
-
-    all_stats: Dict[str, List[pd.DataFrame]] = {
-        "Protein": [],
-        "Nucleic acid": [],
-    }
-
-    for row_i, broad_name in enumerate(row_classes):
-        for col_i, metric in enumerate(metrics):
-            stats = plot_atomic_metric(
-                axes[row_i, col_i],
-                df=atom_df,
-                metric=metric,
-                broad_class_name=broad_name,
-                shared_limits=shared_limits[metric],
-            )
-
+    for class_name in MOLECULAR_CLASSES:
+        class_df = atom_df.loc[atom_df["BroadClass"] == class_name]
+        summaries = []
+        for metric in metrics:
+            fig, ax = plt.subplots(figsize=FIGSIZE)
+            # Keep matching x/y ranges within each panel, without letting
+            # small-molecule outliers compress all polymer plots.
+            limits = compute_shared_metric_limits(class_df, metric)
+            stats = plot_atomic_metric(ax, atom_df, metric, class_name,
+                                       shared_limits=limits)
+            ax.set_title(f"{class_name} — {metric}", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
+            fig.tight_layout()
+            stem = f"F3B_{class_name.lower().replace(' ', '_')}_{metric.lower().replace(' ', '_')}"
+            if SAVE_PNG:
+                path = figure_dir / f"{stem}.png"
+                fig.savefig(path, dpi=DPI)
+                print(f"Saved: {path}")
+            if SAVE_SVG:
+                path = figure_dir / f"{stem}.svg"
+                fig.savefig(path)
+                print(f"Saved: {path}")
+            if SHOW:
+                plt.show()
+            plt.close(fig)
+            print_top_five_rankings(stats, class_name, metric)
             if not stats.empty:
                 stats = stats.copy()
-                stats.insert(0, "BroadClass", broad_name)
-                all_stats[broad_name].append(stats)
+                stats.insert(0, "BroadClass", class_name)
+                summaries.append(stats)
 
-        axes[row_i, 0].text(
-            -0.28,
-            0.5,
-            broad_name,
-            transform=axes[row_i, 0].transAxes,
-            rotation=90,
-            va="center",
-            ha="center",
-            fontsize=15,
-            fontweight="bold",
-        )
-
-    fig.suptitle(
-        "Figure 3B — Atomic differences between AW and Power partitions",
-        fontsize=17,
-        fontweight="bold",
-        y=0.985,
-    )
-
-    add_element_legend(fig)
-
-    fig.subplots_adjust(
-        left=0.08,
-        right=0.985,
-        top=0.92,
-        bottom=0.09,
-        wspace=0.27,
-        hspace=0.28,
-    )
-
-    if SAVE_PNG:
-        path = figure_dir / "F3B_atomic_groups.png"
-        fig.savefig(path, dpi=DPI, bbox_inches="tight")
-        print(f"Saved: {path}")
-
-    if SAVE_SVG:
-        path = figure_dir / "F3B_atomic_groups.svg"
-        fig.savefig(path, bbox_inches="tight")
-        print(f"Saved: {path}")
-
-    for broad_name, pieces in all_stats.items():
-        if not pieces:
-            continue
-
-        summary = pd.concat(pieces, ignore_index=True)
-
-        filename = (
-            "F3B_protein_group_summary.csv"
-            if broad_name == "Protein"
-            else "F3B_nucleic_group_summary.csv"
-        )
-
-        path = figure_dir / filename
-        summary.to_csv(path, index=False)
-        print(f"Saved: {path}")
-
-    if SHOW:
-        plt.show()
-
-    plt.close(fig)
+        if summaries:
+            path = figure_dir / f"F3B_{class_name.lower().replace(' ', '_')}_group_summary.csv"
+            pd.concat(summaries, ignore_index=True).to_csv(path, index=False)
+            print(f"Saved: {path}")
 
 
 # ---------------------------------------------------------------------------
@@ -1571,7 +1636,7 @@ def main(
     )
 
     if atom_df.empty:
-        print("No protein or nucleic-acid atomic data were collected.")
+        print("No molecular atomic data were collected.")
         return
 
     export_atomic_outliers(

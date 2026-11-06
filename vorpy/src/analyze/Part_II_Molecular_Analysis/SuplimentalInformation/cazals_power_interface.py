@@ -57,10 +57,20 @@ import numpy as np
 
 try:
     import gudhi
-except ImportError as exc:
-    raise ImportError(
-        "GUDHI is required. Install it in the active environment with:\n"
-        "    pip install gudhi"
+except ModuleNotFoundError as exc:
+    if getattr(exc, "name", None) == "gudhi":
+        raise RuntimeError(
+            "GUDHI package is not installed; install a compatible GUDHI build "
+            "in the active environment. Raw physical geometry does not require GUDHI."
+        ) from exc
+    raise RuntimeError(
+        "GUDHI native extension could not be loaded (possibly blocked by "
+        f"Windows Application Control): {exc}"
+    ) from exc
+except (ImportError, OSError) as exc:
+    raise RuntimeError(
+        "GUDHI native extension could not be loaded (possibly blocked by "
+        f"Windows Application Control): {exc}"
     ) from exc
 
 from vorpy.src.analyze.Part_II_Molecular_Analysis.SuplimentalInformation.cazals_pdb import (
@@ -173,6 +183,12 @@ def build_regular_complex(points: np.ndarray, radii: np.ndarray):
             weights=weights.tolist(),
             precision="safe",
         )
+        st = ac.create_simplex_tree()
+    except (ImportError, OSError) as exc:
+        raise RuntimeError(
+            "GUDHI native extension could not be loaded (possibly blocked by "
+            f"Windows Application Control): {exc}"
+        ) from exc
     except TypeError as exc:
         raise RuntimeError(
             "This installed GUDHI version does not accept `weights=` in "
@@ -183,7 +199,6 @@ def build_regular_complex(points: np.ndarray, radii: np.ndarray):
             "after checking that version's documentation."
         ) from exc
 
-    st = ac.create_simplex_tree()
     vertices, edges, triangles, tetrahedra = set(), set(), set(), set()
 
     for simplex, _filtration in st.get_simplices():

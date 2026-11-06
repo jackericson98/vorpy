@@ -5,6 +5,9 @@ import pytest
 
 from vorpy.src.analyze.power_interface_curvature import (
     PowerVertex,
+    PowerFacetRecord,
+    PowerInterfaceCurvatureResult,
+    PowerInterfaceEdgeRecord,
     _closure_issues,
     _condition_beta_for_facet,
     analyze_power_interface_curvature,
@@ -15,6 +18,7 @@ from vorpy.src.analyze.power_interface_curvature import (
     oriented_power_facet_normal,
     power_edge_geometry,
 )
+from vorpy.src.geometry.interfaces.curvature import power_curvature_summary
 
 
 def test_equal_radius_power_vertex_has_expected_equal_power_residuals():
@@ -115,6 +119,42 @@ def test_unbounded_facet_and_dual_edge_remain_explicitly_classified():
     assert edge_status == "unbounded_boundary_power_edge"
     assert coordinates == ((1., 2., 3.),)
     assert length is None and "ray" in edge_reason
+
+
+def test_partial_power_edge_is_not_serialized_as_a_zero_curvature_total():
+    facets = [
+        PowerFacetRecord((0, 1), "A:0->B:1", 0., True, "accepted", 1., 1., 1.,
+                         True, True, ((0, 1, 2),), "selected"),
+        PowerFacetRecord((0, 2), "A:0->B:2", 0., True, "accepted", 1., 1., 1.,
+                         True, True, ((0, 1, 2),), "selected"),
+    ]
+    edge = PowerInterfaceEdgeRecord(
+        regular_triangle=(0, 1, 2), group_composition="AAB",
+        singleton_generator=0, singleton_group="A", bicolor_facets=((0, 1), (0, 2)),
+        incident_tetrahedra=(), power_vertex_coordinates=(),
+        alpha_zero_facets_selected=(True, True),
+        condition_beta_facets_accepted=(True, True), triangle_alpha_zero_selected=True,
+        geometry_status="unresolved_power_vertex", length=None, full_dual_length=None,
+        clipping_status="not_clipped", beta_radians=1., beta_degrees=math.degrees(1.),
+        sign="positive", length_beta=None, length_abs_beta=None,
+        status="unresolved_power_vertex", reason="missing power vertex",
+    )
+    result = PowerInterfaceCurvatureResult(
+        points=np.zeros((3, 3)), expanded_radii=np.ones(3), weights=np.ones(3),
+        group_a=frozenset({0}), group_b=frozenset({1, 2}), alpha=0.,
+        alpha_tolerance=1e-12, condition_beta_m=5.,
+        full_simplices={0: set(), 1: set(), 2: set(), 3: set()},
+        alpha_simplices={0: set(), 1: set(), 2: set(), 3: set()}, filtration={},
+        power_vertices={}, unresolved_power_vertices={}, facets=facets, edges=[edge],
+    )
+
+    assert not result.edge_contribution_complete
+    assert result.total_curvature_certified is False
+    summary = power_curvature_summary(result, area_A2=1.)
+    assert summary.status == "UNRESOLVED"
+    assert summary.raw_signed_edge_A_rad is None
+    assert summary.combined_H_A is None
+    assert "C_signed = sum(l beta): UNRESOLVED" in result.summary()
 
 
 def test_full_and_alpha_complex_closure_validator_reports_missing_faces():

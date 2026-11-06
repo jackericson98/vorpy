@@ -27,6 +27,9 @@ from vorpy.workbench.ui.panels import (
     catalog_presentation_from_results,
     context_presentation_from_owner,
     context_presentation_from_results,
+    _typed_curvature_label,
+    _typed_measurement_label,
+    result_status_label,
     NetworkContextPanel,
     NetworkContextPresentation,
     validated_group_system_ids,
@@ -51,6 +54,7 @@ def test_network_context_renders_validated_global_identity():
     panel = NetworkContextPanel()
     panel.set_context(NetworkContextPresentation(
         source_network_id="network-7",
+        source_context="2KAI · Solvated post-MD (paired filename) · frame 1/1",
         solve_universe_id="solve-9",
         archive_identity="archive-7",
         geometry_lineage="DIRECT_SOLVE · geometry-7",
@@ -67,6 +71,7 @@ def test_network_context_renders_validated_global_identity():
 
     assert panel.identity_badge.text() == "Validated identity"
     assert panel.fields["source_network_id"].text() == "network-7"
+    assert "Solvated post-MD" in panel.fields["source_context"].text()
     assert panel.fields["solve_universe_id"].text() == "solve-9"
     assert panel.fields["archive_identity"].text() == "archive-7"
     assert panel.fields["geometry_lineage"].text() == "DIRECT_SOLVE · geometry-7"
@@ -146,6 +151,8 @@ def test_analysis_catalog_keeps_two_selections_on_one_network_distinct():
     assert panel.table.item(0, 2).text() != panel.table.item(1, 2).text()
     assert panel.table.item(0, 3).text() == "Global network"
     assert "boundary-dependent" in panel.table.horizontalHeaderItem(6).text()
+    assert panel.table.item(0, 8).text() == "RAW GEOMETRY"
+    assert panel.table.item(0, 9).text() == "NOT CALCULATED"
     panel.table.cellClicked.emit(1, 0)
     assert panel.active_entry.selection_id == "view:interface-contact"
 
@@ -160,8 +167,35 @@ def test_analysis_catalog_empty_state_does_not_claim_analysis():
 
     assert panel.network_label.text() == "Provisional network: network-7"
     assert panel.table.rowCount() == 0
-    assert "No analyses associated" in panel.empty.text()
+    assert "No valid archived Results" in panel.empty.text()
     assert "producer-attested" in panel.empty.text()
+
+
+def test_geometry_only_status_cannot_become_certified_from_exported_layers():
+    from vorpy.workbench.domain import AnalysisResult, GeometryLayer
+
+    result = AnalysisResult(
+        source=None,
+        name="partial-export",
+        layers=[GeometryLayer(name="edges", kind="edges")],
+    )
+
+    assert result_status_label(result) == "RAW GEOMETRY · RESULTS UNRESOLVED"
+
+
+def test_catalog_labels_alpha_measurements_and_incomplete_curvature():
+    result = SimpleNamespace(
+        identity=SimpleNamespace(
+            representation="alpha_selection",
+            alpha_value=0.5,
+            alpha_units="Å",
+        ),
+        mean_curvature=SimpleNamespace(status=Status.PARTIAL),
+        gaussian_curvature=None,
+    )
+
+    assert _typed_measurement_label(result) == "ALPHA-SELECTED α=0.5Å"
+    assert _typed_curvature_label(result) == "INCOMPLETE · PARTIAL"
 
 
 def test_context_adapter_consumes_validated_f10_solvent_evidence():
@@ -463,6 +497,7 @@ def test_catalog_presents_group_and_interface_results_from_one_network():
 
 
 def test_catalog_labels_unresolved_interface_status_without_certifying_it():
+    app()
     panel = AnalysisCatalogPanel()
     panel.set_catalog(AnalysisCatalogPresentation(
         source_network_id=None,

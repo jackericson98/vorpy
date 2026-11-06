@@ -26,6 +26,7 @@ class NetworkContextPresentation:
     """
 
     source_network_id: str | None = None
+    source_context: str | None = None
     solve_universe_id: str | None = None
     archive_identity: str | None = None
     geometry_lineage: str | None = None
@@ -55,6 +56,8 @@ class AnalysisCatalogEntryPresentation:
     volume: str | None = None
     selection_kind: str = "unknown"
     selection_target: str | None = None
+    measurement: str = "RAW GEOMETRY"
+    curvature: str = "NOT CALCULATED"
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,7 @@ class NetworkContextPanel(QGroupBox):
         form.setContentsMargins(0, 0, 0, 0)
         for key, label in (
             ("source_network_id", "Source network ID"),
+            ("source_context", "Input source"),
             ("solve_universe_id", "Solve universe ID"),
             ("archive_identity", "Archive network ID"),
             ("geometry_lineage", "Geometry lineage"),
@@ -161,6 +165,7 @@ class NetworkContextPanel(QGroupBox):
         )
         values = {
             "source_network_id": context.source_network_id,
+            "source_context": context.source_context,
             "solve_universe_id": context.solve_universe_id,
             "archive_identity": context.archive_identity,
             "geometry_lineage": context.geometry_lineage,
@@ -440,6 +445,54 @@ def _typed_completeness(result):
     return "UNKNOWN"
 
 
+def _typed_measurement_label(result):
+    identity = result.identity
+    representation = str(getattr(identity, "representation", "geometry")).replace("_", " ").upper()
+    if representation == "ALPHA SELECTION":
+        alpha = getattr(identity, "alpha_value", None)
+        units = getattr(identity, "alpha_units", None) or ""
+        value = f" α={alpha:g}{units}" if alpha is not None else ""
+        return f"ALPHA-SELECTED{value}"
+    return f"RAW GEOMETRY · {representation}"
+
+
+def _typed_curvature_label(result):
+    statuses = []
+    for name in ("mean_curvature", "gaussian_curvature"):
+        value = getattr(result, name, None)
+        if value is not None:
+            status = getattr(getattr(value, "status", None), "value", getattr(value, "status", None))
+            if status:
+                statuses.append(str(status))
+    if not statuses:
+        return "NOT CALCULATED"
+    unique = tuple(dict.fromkeys(statuses))
+    if len(unique) == 1 and unique[0] == "CERTIFIED":
+        return "CERTIFIED"
+    if any(status in {"PARTIAL", "UNRESOLVED", "NOT_CALCULATED", "STALE"} for status in unique):
+        return "INCOMPLETE · " + "/".join(unique)
+    return "/".join(unique)
+
+
+def result_status_label(result, typed_results=()) -> str:
+    """Never infer certification from exported geometry alone."""
+    typed = tuple(typed_results or ())
+    statuses = tuple(
+        getattr(getattr(item, "status", None), "value", getattr(item, "status", None))
+        for item in typed
+    )
+    statuses = tuple(str(status) for status in statuses if status)
+    if statuses:
+        return statuses[0] if len(set(statuses)) == 1 else "MIXED"
+    if result is not None and (
+        getattr(result, "layers", ())
+        or getattr(result, "summary", None) is not None
+        or getattr(result, "complete_cells", 0)
+    ):
+        return "RAW GEOMETRY · RESULTS UNRESOLVED"
+    return "NOT CALCULATED"
+
+
 def _typed_quantity_text(result, name):
     quantity = getattr(result, "metrics", {}).get(name)
     value = getattr(quantity, "value", None)
@@ -499,6 +552,8 @@ def catalog_presentation_from_results(results) -> AnalysisCatalogPresentation | 
             volume=_typed_quantity_text(result, "volume"),
             selection_kind=identity.result_kind,
             selection_target=target,
+            measurement=_typed_measurement_label(result),
+            curvature=_typed_curvature_label(result),
         ))
     return AnalysisCatalogPresentation(
         source_network_id=source_network_id,
@@ -638,7 +693,7 @@ class AnalysisCatalogPanel(QGroupBox):
     _HEADERS = (
         "Selection", "Selection ID", "Analysis ID", "Context",
         "Completeness", "Status", "Exposed area (boundary-dependent)",
-        "View volume (boundary-dependent)",
+        "View volume (boundary-dependent)", "Measurement", "Curvature",
     )
 
     def __init__(self, parent=None):
@@ -687,7 +742,7 @@ class AnalysisCatalogPanel(QGroupBox):
         if catalog is None:
             self.network_label.setText("No network loaded")
             self.empty.setText(
-                "No analyses associated with this network.\n"
+                "No valid archived Results associated with this network.\n"
                 "Defined groups and interfaces are not analyzed results."
             )
         else:
@@ -700,7 +755,7 @@ class AnalysisCatalogPanel(QGroupBox):
                 f"{prefix}: {catalog.source_network_id or '—'}"
             )
             self.empty.setText(catalog.note or (
-                "No analyses associated with this network.\n"
+                "No valid archived Results associated with this network.\n"
                 "Select a producer-attested group or interface result to populate this catalog."
             ))
         entries = catalog.entries if catalog is not None else ()
@@ -719,6 +774,8 @@ class AnalysisCatalogPanel(QGroupBox):
                 entry.status,
                 entry.area,
                 entry.volume,
+                entry.measurement,
+                entry.curvature,
             )
             for column, value in enumerate(values):
                 self.table.setItem(

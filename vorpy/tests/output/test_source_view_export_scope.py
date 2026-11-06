@@ -221,6 +221,9 @@ def test_partial_materialized_interface_exports_supported_subset(tmp_path, schem
     assert "Missing surface IDs: 4" in info
     assert "Missing physical area (Å²): 1.500000" in info
     assert "Interface area (Å²): 2.500000" in info
+    assert "Native selected facet area (Å²): 2.500000" in info
+    assert "Area reconciliation residual (Å²): 0.000000" in info
+    assert "Area reconciliation: MATCH" in info
 
 
 def test_partial_materialized_interface_rejects_incomplete_retained_feature(tmp_path):
@@ -346,6 +349,51 @@ def test_dedicated_interface_exports_only_direct_physical_facets(tmp_path, schem
         rows = list(csv.DictReader(stream))
     assert [row["Surface ID"] for row in rows] == ["0"]
     assert "2,2,3," not in (tmp_path / "dedicated_interface" / f"{scheme}_logs.csv").read_text(encoding="utf-8")
+
+
+def test_missing_selected_physical_dependency_fails_closed(tmp_path):
+    source, _, interface = _case(tmp_path, "aw")
+    interface.source_view = None
+    interface.source_network = None
+    source.surfs.at[0, "edges"] = [0, 1, 2, 99]
+
+    with pytest.raises(ValueError, match="missing source edge:99"):
+        interface_exports(interface, surfs=True, edges=True, verts=True)
+
+
+def test_unresolved_interface_directory_has_a_clear_writer_error(tmp_path):
+    _, _, interface = _case(tmp_path, "pow")
+    interface.net = None
+    interface.dir = None
+    interface.sys.files["dir"] = None
+
+    from vorpy.src.interface.export import export_info
+    with pytest.raises(ValueError, match="resolved output directory"):
+        export_info(interface)
+
+
+def test_reloaded_interface_inherits_root_destination(tmp_path):
+    _, _, interface = _case(tmp_path, "aw")
+    interface.dir = None
+    interface.sys.files["dir"] = str(tmp_path / "reloaded")
+
+    interface_exports(interface, surfs=True)
+
+    assert Path(interface.dir).parent == tmp_path / "reloaded"
+    assert (Path(interface.dir) / "interface_surfs.off").is_file()
+    assert not (tmp_path / "interface_surfs.off").exists()
+
+
+def test_reloaded_interface_accepts_explicit_destination(tmp_path):
+    _, _, interface = _case(tmp_path, "pow")
+    interface.dir = None
+    destination = tmp_path / "explicit-interface"
+
+    from vorpy.src.interface.export import export_info
+    export_info(interface, directory=str(destination))
+
+    assert (destination / "interface_info.txt").is_file()
+    assert interface.dir is None
 
 
 def test_oversized_mesh_is_skipped_before_combined_allocation(tmp_path):

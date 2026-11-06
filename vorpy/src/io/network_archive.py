@@ -56,6 +56,31 @@ def _timing_manifest_path(path):
     return path.with_name(path.name + '.timing.json')
 
 
+def _validate_staged_archive(path):
+    """Check the staged ZIP before it can become the public checkpoint."""
+    try:
+        with zipfile.ZipFile(path, 'r') as archive:
+            names = archive.namelist()
+            if len(names) != len(set(names)):
+                raise ArchiveError('Staged archive contains duplicate members')
+            if archive.testzip() is not None:
+                raise ArchiveError('Staged archive failed ZIP integrity validation')
+            required = {'metadata.json', 'state.json'}
+            if not required.issubset(names):
+                raise ArchiveError('Staged archive is missing metadata or state')
+            metadata = json.loads(archive.read('metadata.json'))
+            json.loads(archive.read('state.json'))
+            if metadata.get('format') != FORMAT:
+                raise ArchiveError('Staged archive has an invalid format')
+            if metadata.get('format_version') != FORMAT_VERSION:
+                raise ArchiveError('Staged archive has an invalid format version')
+    except ArchiveError:
+        raise
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError,
+            zipfile.BadZipFile) as error:
+        raise ArchiveError(f'Staged archive validation failed: {error}') from error
+
+
 def _source_sha256(path):
     """Hash an available source file without making source loading a prerequisite."""
     if not path:
@@ -70,8 +95,71 @@ def _source_sha256(path):
         return None
 
 
+_SCHEME_ALIASES = {
+    'aw': 'aw',
+    'pow': 'pow',
+    'power': 'pow',
+    'prm': 'prm',
+    'primitive': 'prm',
+    'del': 'prm',
+}
+
+
+def _canonical_scheme(value):
+    if hasattr(value, 'value'):
+        value = value.value
+    if value is None:
+        return None
+    key = str(value).strip().lower()
+    return _SCHEME_ALIASES.get(key, key)
+
+
+def _canonical_solvent_mode(value):
+    if hasattr(value, 'value'):
+        value = value.value
+    if value is None:
+        return None
+    return str(value).strip().upper().replace('-', '_')
+
+
+def _recovery_source_system(source, solvent_mode, frame_index):
+    """Load one source frame for identity checks without constructing geometry."""
+    from vorpy.src.system.system import System
+
+    frame_index = 1 if frame_index is None else int(frame_index)
+    if frame_index < 1:
+        raise ArchiveError(f'Recovery frame index must be positive, found {frame_index!r}')
+    if frame_index == 1:
+        return System(
+            str(source), make_dir=False, print_actions=False,
+            solvent_mode=solvent_mode,
+        )
+
+    from vorpy.src.inputs.frames import count_pdb_frames, iter_pdb_frames
+
+    frame_count = count_pdb_frames(str(source))
+    if frame_index > frame_count:
+        raise ArchiveError(
+            f'Recovery frame {frame_index} is not present in source ({frame_count} frames)'
+        )
+    for ordinal, frame_path in iter_pdb_frames(str(source)):
+        if ordinal == frame_index:
+            selected = System(
+                frame_path, make_dir=False, print_actions=False,
+                solvent_mode=solvent_mode,
+            )
+            # The temporary one-frame file cannot carry the parent trajectory
+            # count; restore the source-frame identity after parsing it.
+            selected.frame_count = frame_count
+            selected.frame_index = frame_index
+            selected.loaded_frame_count = 1
+            return selected
+    raise ArchiveError(f'Recovery frame {frame_index} could not be read')
+
+
 def validate_network_source(network, source_path, *, expected_scheme=None,
-                            expected_solvent_mode=None):
+                            expected_solvent_mode=None, expected_frame_index=None,
+                            expected_boundary_mode=None):
     """Validate a loaded network against its recorded molecular source.
 
     This is deliberately a source-table check only: it parses the source
@@ -94,101 +182,212 @@ def validate_network_source(network, source_path, *, expected_scheme=None,
         )
 
     settings = dict(getattr(network, 'settings', {}) or {})
-    scheme = str(settings.get('net_type', '')).strip().lower()
-    if expected_scheme is not None and scheme != str(expected_scheme).strip().lower():
+    scheme = _canonical_scheme(settings.get('net_type'))
+    if scheme is None:
+        raise ArchiveError('Checkpoint lacks an explicit geometry scheme')
+    if expected_scheme is not None and scheme != _canonical_scheme(expected_scheme):
         raise ArchiveError(
             f'Recovery requires {expected_scheme!r} geometry, found {scheme!r}'
         )
     solvent_mode = settings.get('solvent_mode', getattr(network, 'solvent_mode', None))
-    solvent_mode = getattr(solvent_mode, 'value', solvent_mode)
-    solvent_mode = str(solvent_mode).strip().upper() if solvent_mode is not None else None
-    if expected_solvent_mode is not None and solvent_mode != str(expected_solvent_mode).strip().upper():
+    solvent_mode = _canonical_solvent_mode(solvent_mode)
+    if solvent_mode is None:
+        raise ArchiveError('Checkpoint lacks an explicit solvent mode')
+    if expected_solvent_mode is not None and solvent_mode != _canonical_solvent_mode(expected_solvent_mode):
         raise ArchiveError(
             f'Recovery requires solvent mode {expected_solvent_mode!r}, '
             f'found {solvent_mode!r}'
         )
 
+    archived_frame_index = getattr(getattr(network, 'sys', None), 'frame_index', None)
+    try:
+        frame_index = 1 if archived_frame_index is None else int(archived_frame_index)
+        expected_frame = (
+            None if expected_frame_index is None else int(expected_frame_index)
+        )
+    except (TypeError, ValueError, OverflowError) as error:
+        raise ArchiveError('Checkpoint frame identity is unreadable') from error
+    if expected_frame is not None and frame_index != expected_frame:
+        raise ArchiveError(
+            f'Recovery requires frame {expected_frame_index!r}, found {frame_index!r}'
+        )
+    boundary_mode = getattr(network, 'boundary_mode', None) or settings.get('boundary_mode')
+    if expected_boundary_mode is not None and boundary_mode != expected_boundary_mode:
+        raise ArchiveError(
+            f'Recovery requires boundary mode {expected_boundary_mode!r}, found {boundary_mode!r}'
+        )
+
     # Local generator order and stable IDs are part of the trust boundary;
-    # do not infer or repair them during recovery.
+    # do not infer or repair them during recovery. Boundary generators are
+    # valid archive members, but never become source-atom identities.
     balls = getattr(network, 'balls', None)
     generator_indices = getattr(network, 'generator_system_indices', None)
     stable_ids = getattr(network, 'generator_stable_ids', None)
     if balls is None or generator_indices is None or stable_ids is None:
         raise ArchiveError('Checkpoint lacks explicit generator identity metadata')
-    generator_indices = tuple(
-        None if value is None else int(value) for value in generator_indices
-    )
+    try:
+        generator_indices = tuple(
+            None if value is None else int(value) for value in generator_indices
+        )
+    except (TypeError, ValueError, OverflowError) as error:
+        raise ArchiveError('Checkpoint generator system indices are unreadable') from error
     stable_ids = tuple(str(value) for value in stable_ids)
     if len(generator_indices) != len(balls) or len(stable_ids) != len(balls):
         raise ArchiveError('Checkpoint generator metadata disagrees with its balls table')
-    if any(value is None for value in generator_indices):
-        raise ArchiveError('Recovery source contains non-source boundary generators')
-    if len(set(generator_indices)) != len(generator_indices):
+
+    boundary_values = getattr(network, 'boundary_indices', None)
+    boundary_indices = set(int(value) for value in (boundary_values or ()))
+    for local_index, system_index in enumerate(generator_indices):
+        if (system_index is None) != (local_index in boundary_indices):
+            raise ArchiveError(
+                'Checkpoint boundary membership disagrees with generator system indices'
+            )
+    inferred_boundaries = {
+        index for index, value in enumerate(generator_indices) if value is None
+    }
+    if boundary_indices != inferred_boundaries:
+        raise ArchiveError('Checkpoint boundary generator identity is incomplete')
+    boundary_generators = tuple(getattr(network, 'boundary_generators', ()) or ())
+    if boundary_indices and len(boundary_generators) != len(boundary_indices):
+        raise ArchiveError('Checkpoint boundary generator records are incomplete')
+    for ordinal, local_index in enumerate(sorted(boundary_indices)):
+        generator = boundary_generators[ordinal]
+        position = np.asarray(getattr(generator, 'position', ()), dtype=float)
+        radius = getattr(generator, 'radius', None)
+        if position.shape != (3,) or not np.all(np.isfinite(position)):
+            raise ArchiveError('Checkpoint boundary generator position is unreadable')
+        if radius is None or not np.isfinite(float(radius)) or float(radius) <= 0:
+            raise ArchiveError('Checkpoint boundary generator radius is unreadable')
+        if not np.allclose(np.asarray(balls.iloc[local_index]['loc'], dtype=float), position):
+            raise ArchiveError(
+                f'Checkpoint boundary generator position mismatch at {local_index}'
+            )
+        if not np.isclose(float(balls.iloc[local_index]['rad']), float(radius)):
+            raise ArchiveError(
+                f'Checkpoint boundary generator radius mismatch at {local_index}'
+            )
+
+    physical_local_indices = tuple(
+        index for index, value in enumerate(generator_indices) if value is not None
+    )
+    physical_system_indices = tuple(generator_indices[index] for index in physical_local_indices)
+    if len(set(physical_system_indices)) != len(physical_system_indices):
         raise ArchiveError('Checkpoint generator system indices are not unique')
 
     # Import locally to keep archive loading independent of molecular input
     # readers and to make it explicit that this path does not build geometry.
-    from vorpy.src.system.system import System
-
-    source_system = System(
-        str(source), make_dir=False, print_actions=False,
-        solvent_mode=expected_solvent_mode,
-    )
+    source_system = _recovery_source_system(source, solvent_mode, frame_index)
     source_balls = source_system.balls
-    if source_balls is None or len(source_balls) != len(generator_indices):
+    if source_balls is None:
+        raise ArchiveError('Recovery source has no atom table')
+    archived_frame_count = getattr(getattr(network, 'sys', None), 'frame_count', None)
+    source_frame_count = getattr(source_system, 'frame_count', None)
+    if archived_frame_count is not None and source_frame_count is not None:
+        if int(archived_frame_count) != int(source_frame_count):
+            raise ArchiveError(
+                'Checkpoint frame count does not match the recovery source: '
+                f'{archived_frame_count} != {source_frame_count}'
+            )
+    if any(index < 0 or index >= len(source_balls) for index in physical_system_indices):
         raise ArchiveError(
-            'Checkpoint generator count does not match the recovery source: '
-            f'{len(generator_indices)} != {0 if source_balls is None else len(source_balls)}'
+            'Checkpoint generator system index is outside the recovery source'
         )
-    if tuple(generator_indices) != tuple(range(len(source_balls))):
-        raise ArchiveError('Checkpoint generators are not the ordered source PDB universe')
 
-    expected_stable_ids = tuple(f'system:{index}' for index in generator_indices)
-    if stable_ids != expected_stable_ids:
-        raise ArchiveError('Checkpoint generator stable IDs do not match source order')
+    from vorpy.src.boundary import SOLVENT_RESIDUES, _stable_row_id
 
-    # A checkpoint may retain the source-generator policy separately from the
-    # ball table.  If it is present, it is an assertion about the exact source
-    # universe, not advisory presentation metadata.
+    def is_solvent(row):
+        return str(row.get('res_name', '')).strip().upper() in SOLVENT_RESIDUES
+
+    retained_indices = tuple(
+        int(value) for value in (getattr(network, 'retained_system_indices', ()) or ())
+    )
+    retained_set = set(retained_indices)
+    solvent_indices = {
+        index for index in range(len(source_balls)) if is_solvent(source_balls.iloc[index])
+    }
+    if solvent_mode == 'MOLECULE_ONLY':
+        expected_physical_indices = tuple(
+            index for index in range(len(source_balls))
+            if index not in solvent_indices or index in retained_set
+        )
+    else:
+        expected_physical_indices = tuple(range(len(source_balls)))
+
     provenance = dict(getattr(network, 'archive_provenance', {}) or {})
     generator_policy = provenance.get('source_generator_policy')
     if generator_policy is None:
         generator_policy = settings.get('generator_policy')
     if isinstance(generator_policy, Mapping):
+        active_indices = generator_policy.get('active_system_indices')
+        if active_indices is not None:
+            try:
+                expected_physical_indices = tuple(int(value) for value in active_indices)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ArchiveError('Checkpoint active generator policy is unreadable') from error
         policy_count = generator_policy.get('source_generator_count')
         if policy_count is not None:
             try:
                 policy_count = int(policy_count)
             except (TypeError, ValueError, OverflowError) as error:
                 raise ArchiveError('Checkpoint source-generator policy count is unreadable') from error
-            if policy_count != len(generator_indices):
-                raise ArchiveError(
-                    'Checkpoint source-generator policy count does not match its balls table'
-                )
-        active_indices = generator_policy.get('active_system_indices')
-        if active_indices is not None:
+            if policy_count != len(expected_physical_indices):
+                raise ArchiveError('Checkpoint source-generator policy count is inconsistent')
+        excluded_indices = generator_policy.get('excluded_system_indices')
+        if excluded_indices is not None:
+            expected_excluded = tuple(
+                sorted(set(range(len(source_balls))) - set(expected_physical_indices))
+            )
             try:
-                active_indices = tuple(int(value) for value in active_indices)
+                observed_excluded = tuple(sorted(int(value) for value in excluded_indices))
             except (TypeError, ValueError, OverflowError) as error:
-                raise ArchiveError('Checkpoint active generator policy is unreadable') from error
-            if active_indices != generator_indices:
-                raise ArchiveError(
-                    'Checkpoint active generator policy does not match source order'
-                )
+                raise ArchiveError('Checkpoint excluded generator policy is unreadable') from error
+            if observed_excluded != expected_excluded:
+                raise ArchiveError('Checkpoint excluded generator policy is inconsistent')
+    if physical_system_indices != expected_physical_indices:
+        raise ArchiveError(
+            'Checkpoint physical generator universe does not match its solvent policy'
+        )
+
+    expected_stable_ids = tuple(
+        _stable_row_id(source_balls.iloc[index], index)
+        for index in physical_system_indices
+    )
+    for local_index, expected_id in zip(physical_local_indices, expected_stable_ids):
+        if stable_ids[local_index] != expected_id:
+            raise ArchiveError(
+                f'Checkpoint generator stable ID does not match source index '
+                f'{generator_indices[local_index]}'
+            )
+
+    solvent_local_indices = tuple(
+        int(value) for value in (getattr(network, 'solvent_local_indices', ()) or ())
+    )
+    solvent_generator_ids = tuple(
+        str(value) for value in (getattr(network, 'solvent_generator_ids', ()) or ())
+    )
+    if len(solvent_local_indices) != len(solvent_generator_ids):
+        raise ArchiveError('Checkpoint solvent generator identity is incomplete')
+    for local_index, stable_id in zip(solvent_local_indices, solvent_generator_ids):
+        if local_index not in physical_local_indices or stable_ids[local_index] != stable_id:
+            raise ArchiveError('Checkpoint solvent generator identity is inconsistent')
+        if not is_solvent(source_balls.iloc[generator_indices[local_index]]):
+            raise ArchiveError('Checkpoint solvent generator is not a solvent source row')
 
     identity_balls = getattr(getattr(network, 'sys', None), 'balls', None)
     if identity_balls is None or len(identity_balls) != len(source_balls):
         raise ArchiveError('Checkpoint lacks the archived source atom table')
     comparable = ('name', 'res_name', 'res_seq', 'chain_id', 'element')
-    for local_index, system_index in enumerate(generator_indices):
+    for system_index in range(len(source_balls)):
         archived = identity_balls.iloc[system_index]
-        geometry = balls.iloc[local_index]
         original = source_balls.iloc[system_index]
         for column in comparable:
             if str(archived.get(column, '')) != str(original.get(column, '')):
                 raise ArchiveError(
                     f'Generator identity mismatch at source index {system_index}: {column}'
                 )
+    for local_index, system_index in zip(physical_local_indices, physical_system_indices):
+        geometry = balls.iloc[local_index]
+        original = source_balls.iloc[system_index]
         try:
             if not np.array_equal(
                 np.asarray(geometry['loc'], dtype=float),
@@ -207,19 +406,52 @@ def validate_network_source(network, source_path, *, expected_scheme=None,
         int(complete.astype(bool).sum())
         if complete is not None else None
     )
+    scientific_result_status = str(
+        provenance.get('scientific_result_status',
+                       provenance.get('analysis_status') or 'NOT_CALCULATED')
+    ).upper()
+    scientific_result_certified = bool(
+        scientific_result_status == 'CERTIFIED'
+        and provenance.get('geometry_status') == 'GEOMETRY_COMPLETE'
+        and complete is not None
+        and complete_count == len(balls)
+    )
     return {
         'source_path': str(source),
         'source_sha256': actual_hash,
-        'generator_count': len(generator_indices),
+        'generator_count': len(physical_system_indices),
+        'source_atom_count': len(source_balls),
+        'physical_system_indices': physical_system_indices,
+        'excluded_system_indices': tuple(
+            index for index in range(len(source_balls))
+            if index not in set(physical_system_indices)
+        ),
+        'excluded_generator_ids': tuple(
+            _stable_row_id(source_balls.iloc[index], index)
+            for index in range(len(source_balls))
+            if index not in set(physical_system_indices)
+        ),
+        'boundary_indices': tuple(sorted(boundary_indices)),
+        'boundary_generator_ids': tuple(
+            stable_ids[index] for index in sorted(boundary_indices)
+        ),
+        'frame_index': frame_index,
+        'frame_count': source_frame_count,
         'scheme': scheme,
         'solvent_mode': solvent_mode,
-        'boundary_mode': getattr(network, 'boundary_mode', None)
-        or settings.get('boundary_mode'),
+        'boundary_mode': boundary_mode,
         'complete_cell_count': complete_count,
         'complete_cell_evidence': complete is not None,
         'generator_policy': generator_policy,
         'geometry_status': provenance.get('geometry_status'),
         'analysis_status': provenance.get('analysis_status'),
+        'solvent_cells_complete': getattr(network, 'solvent_cells_complete', None),
+        # Recovery has passed archive/source/dependency identity checks at
+        # this point.  This gate is deliberately independent of cell or
+        # curvature completeness reported by the producer.
+        'geometry_checkpoint_valid': True,
+        'scientific_result_status': scientific_result_status,
+        'scientific_result_certified': scientific_result_certified,
         'settings': settings,
     }
 
@@ -629,23 +861,48 @@ def _root(value):
 def _collect(root):
     types = {cls: kind for kind, cls in _classes().items()}
     objects, ids = [], {}
+    visited_containers = set()
 
     def visit(value):
         if type(value) in types:
             value_id = id(value)
             if value_id in ids:
                 return
+
             ids[value_id] = len(objects)
             objects.append(value)
+
             kind = types[type(value)]
             for name in _OBJECT_FIELDS[kind]:
                 visit(getattr(value, name, None))
+
+        elif isinstance(value, pd.DataFrame):
+            value_id = id(value)
+            if value_id in visited_containers:
+                return
+            visited_containers.add(value_id)
+
+            # Scientific tables may contain Residue, Chain, or
+            # other archive-managed object references.
+            for column in value.columns:
+                if value[column].dtype == object:
+                    for item in value[column]:
+                        visit(item)
+
+        elif isinstance(value, np.ndarray):
+            if value.dtype == object:
+                for item in value.flat:
+                    visit(item)
+
         elif isinstance(value, dict):
-            for item in value.values():
+            for key, item in value.items():
+                visit(key)
                 visit(item)
+
         elif isinstance(value, (list, tuple, set, frozenset)):
             for item in value:
                 visit(item)
+
     visit(root)
     return objects, ids, types
 
@@ -966,6 +1223,7 @@ def _save_document(document, path, root, document_kind, *, progress=None,
         profile['zip_finalization'] = perf_counter() - zip_body_finished
         profile['zip_archive_write'] = perf_counter() - started
         _progress(progress, 'zip_finalization', 1, 1)
+        _validate_staged_archive(temp_name)
         started = perf_counter()
         if fail_if_exists:
             try:

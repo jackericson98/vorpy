@@ -1,4 +1,5 @@
 import os
+import csv
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -100,6 +101,32 @@ def write_logs(group, net_name=None, round_to=None):
         int(index): balls
         for index, balls in net.surfs['balls'].items()
     }
+
+    # Incomplete cells have no valid complete-cell metrics, but their face
+    # endpoints still need a source identity even when Atoms omits them.
+    selected = set(int(value) for value in group.ball_ndxs)
+    omitted_selected = []
+    with open(group.settings['net_type'] + "_atom_identity.csv", 'w', newline='') as mapping_file:
+        mapping = csv.writer(mapping_file)
+        mapping.writerow(["Topology Index", "System Index", "Selected", "Name", "Residue",
+                          "Residue Sequence", "Chain", "X", "Y", "Z", "Complete Cell?",
+                          "Atoms Row Written", "Omission Reason"])
+        for position, atom in net.balls.iterrows():
+            source = sys_balls.get(position)
+            if source is None:
+                continue
+            system_index = sys_nums[net.balls.index.get_loc(position)]
+            reason = ("zero surface area" if atom['sa'] == 0 else
+                      "incomplete cell" if not atom['complete'] else "")
+            is_selected = system_index in selected
+            mapping.writerow([position, system_index, is_selected, source['name'], source['res_name'],
+                              source['res_seq'], source['chain_name'], *atom['loc'],
+                              bool(atom['complete']), not bool(reason), reason])
+            if is_selected and reason:
+                omitted_selected.append((int(position), system_index, reason))
+    if omitted_selected:
+        print(f"Atoms log omitted selected cells (topology, system, reason): {omitted_selected}. "
+              f"See {group.settings['net_type']}_atom_identity.csv; incomplete-cell metrics are not exported.")
 
     # ------------------------------------------------------------------
     # Write log

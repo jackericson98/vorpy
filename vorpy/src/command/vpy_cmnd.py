@@ -19,6 +19,7 @@ from vorpy.src.boundary import (
     ION_RESIDUES,
     SolventMode,
     WATER_RESIDUES,
+    has_explicit_water,
     normalize_solvent_mode,
     resolve_boundary,
 )
@@ -660,6 +661,8 @@ class Command:
         self._full_system_separate = False
         self._full_system_group = None
         self._planned_interface_operands = ()
+        self._direct_interface_producer = False
+        self._owned_output_directories = set()
         self.interface_result_state = None
         self.interface_results = ()
         self.interface_result_handoffs = ()
@@ -1142,6 +1145,16 @@ class Command:
             )
             if index < len(groups):
                 by_selector[key] = groups[index]
+                # A top-level ``-g c A and c B`` block is one interface side,
+                # while InterfaceRequest operands are flat selector tuples.
+                flat_key = (
+                    tuple(
+                        str(token).lower()
+                        for command in commands
+                        for token in command
+                    ),
+                )
+                by_selector[flat_key] = groups[index]
 
         pairs = []
         seen = set()
@@ -1183,7 +1196,6 @@ class Command:
         full_system_requested = bool(
             self._full_system_separate
             or (plan is not None and plan.full_system_request)
-            or (plan is not None and plan.interface_requests)
         )
         if not full_system_requested or self._full_system_group is not None:
             return
@@ -1221,14 +1233,87 @@ class Command:
                 scope='full_system_source',
             )
 
+    def _build_direct_interface_target(self, interface_pairs):
+        """Build one selected interface through the verified producer seam."""
+        if len(interface_pairs) != 1 or interface_pairs[0][1] is None:
+            raise SystemExit(
+                'Interface-only mode requires exactly two ordered group '
+                'selections; use -c system for surrounding or pairwise views.'
+            )
+
+        group_a, group_b = interface_pairs[0]
+        network_type = (self.settings_dict or {}).get('net_type', 'aw')
+        if not isinstance(network_type, str):
+            raise SystemExit(
+                'Interface-only mode does not support comparison network '
+                'settings; choose one of AW, POW, or PRM.'
+            )
+
+        from vorpy.src.results.model import stable_id
+        from vorpy.workbench.services.vorpy_backend import (
+            InterfaceSolveSelection,
+            VorPyBackend,
+            VorPySolveSettings,
+        )
+
+        group_a_id = str(getattr(group_a, 'group_id', None) or group_a.name)
+        group_b_id = str(getattr(group_b, 'group_id', None) or group_b.name)
+        interface_id = '__'.join(sorted((group_a_id, group_b_id)))
+        source_network_id = stable_id(
+            'producer:cli-interface',
+            {
+                'source': str(Path(self.base_file).resolve()) if self.base_file else self.sys.name,
+                'frame': int(getattr(self.sys, 'frame_index', 1) or 1),
+                'scheme': network_type,
+                'solvent_mode': self.solvent_mode.value,
+                'group_a': tuple(sorted(int(index) for index in group_a.ball_ndxs)),
+                'group_b': tuple(sorted(int(index) for index in group_b.ball_ndxs)),
+            },
+        )
+        settings = self.settings_dict or {}
+        backend = VorPyBackend(VorPySolveSettings(
+            network_type=network_type,
+            max_vertices=int(settings.get('max_vert') or 5),
+            box_size=float(settings.get('box_size') or 1.25),
+            surface_resolution=float(settings.get('surf_res') or 0.2),
+            source_network_id=source_network_id,
+            retained_system_indices=tuple(
+                getattr(self.sys, 'retained_system_indices', ()) or ()
+            ),
+            solvent_mode=self.solvent_mode.value,
+        ))
+        selection = InterfaceSolveSelection(
+            interface_id=interface_id,
+            group_a_id=group_a_id,
+            group_a_system_indices=tuple(sorted(int(index) for index in group_a.ball_ndxs)),
+            group_b_id=group_b_id,
+            group_b_system_indices=tuple(sorted(int(index) for index in group_b.ball_ndxs)),
+        )
+
+        # The producer owns the concrete group objects.  Remove only the
+        # selector containers created by this command so its duplicate-ID
+        # guard remains meaningful; no Network has been built for them.
+        selected_ids = {id(group_a), id(group_b)}
+        self.sys.groups = [
+            group for group in (self.sys.groups or [])
+            if id(group) not in selected_ids
+        ]
+        interface = backend.make_interface_network(self.sys, selection)
+        interface.build(
+            analyze_waters=getattr(self.sys, '_interface_water_requested', False),
+            calculate_curvature=getattr(self.sys, '_interface_curvature_requested', True),
+        )
+        interface.geometry_source = 'DIRECT_INTERFACE_PRODUCER'
+        self._direct_interface_producer = True
+        return interface
+
     def _full_system_reuse_enabled(self):
         """Whether selected targets must be read-only views of the source solve."""
         plan = self.calculation_plan
         source = getattr(self._full_system_group, 'net', None)
         return bool(
             (self._full_system_separate
-             or (plan is not None and plan.full_system_request)
-             or (plan is not None and plan.interface_requests))
+             or (plan is not None and plan.full_system_request))
             and source is not None
             and getattr(source, 'verts', None) is not None
             and getattr(source, 'edges', None) is not None
@@ -1242,35 +1327,40 @@ class Command:
             return None
         from vorpy.src.io import save_network
 
-        internal_interface_checkpoint = bool(
-            self.interface_mode
-            and self.execution_profile not in {'geometry', 'interface'}
-        )
         checkpoint_dir = Path(output_dir)
-        if internal_interface_checkpoint:
-            checkpoint_dir = checkpoint_dir / '.vorpy' / 'checkpoints'
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         provenance = dict(getattr(network, 'archive_provenance', {}) or {})
+        balls = getattr(network, 'balls', None)
+        geometry_complete = True
+        if balls is not None and 'complete' in balls.columns:
+            geometry_complete = all(
+                value is not None and bool(value)
+                for value in balls['complete']
+            )
         provenance.update({
             'checkpoint_kind': 'solved_geometry',
             'checkpoint_scope': scope,
-            'geometry_status': 'GEOMETRY_COMPLETE',
-            'analysis_status': 'NOT_CALCULATED',
+            'geometry_status': (
+                'GEOMETRY_COMPLETE' if geometry_complete else 'GEOMETRY_INCOMPLETE'
+            ),
+            'analysis_status': provenance.get('analysis_status', 'NOT_CALCULATED'),
             'analysis_complete': False,
         })
         network.archive_provenance = provenance
-        destination = checkpoint_dir / (
-            f'{getattr(network, "group_name", None) or getattr(self.sys, "name", "network")}'
-            '.geometry.vpy'
-        )
+        destination = checkpoint_dir / f'{getattr(self.sys, "name", "network")}.vpy'
         archive = save_network(
-            network, destination, fail_if_exists=getattr(self, 'fail_if_exists', False)
+            network,
+            destination,
+            fail_if_exists=getattr(self, 'fail_if_exists', False),
+            archive_purpose='recovery_checkpoint',
         )
         self.sys._geometry_checkpoint_path = str(archive)
-        self.sys._geometry_checkpoint_status = 'GEOMETRY_COMPLETE'
-        self.sys._analysis_status = 'NOT_CALCULATED'
-        if not internal_interface_checkpoint or self.verbose:
+        self.sys._geometry_checkpoint_network = network
+        self.sys._geometry_checkpoint_provenance = dict(provenance)
+        self.sys._geometry_checkpoint_status = provenance['geometry_status']
+        self.sys._analysis_status = provenance['analysis_status']
+        if self.verbose:
             print(f'Solved geometry checkpoint saved: {archive}')
         return archive
 
@@ -1493,6 +1583,21 @@ class Command:
         for interface in getattr(self.sys, 'ifaces', ()) or ():
             name = slug(getattr(interface, 'name', 'interface'))
             directory = root / name
+            current = getattr(interface, 'dir', None)
+            if current is not None:
+                current = Path(current).resolve()
+                if current.parent == root and current == directory.resolve():
+                    if (
+                        current in self._owned_output_directories
+                        or getattr(interface, '_cli_output_owner', None) == id(self)
+                    ):
+                        occupied.append(current)
+                        continue
+                    if current.exists() and self.fail_if_exists:
+                        raise SystemExit(
+                            f'Refusing to reuse existing interface output directory: '
+                            f'{current}'
+                        )
             if directory.exists():
                 if self.fail_if_exists:
                     raise SystemExit(
@@ -1503,6 +1608,11 @@ class Command:
             directory.mkdir(parents=True, exist_ok=False)
             interface.dir = str(directory)
             occupied.append(directory)
+
+    def _mark_interface_output_owner(self):
+        """Mark interface objects created by this command for path reuse."""
+        for interface in getattr(self.sys, 'ifaces', ()) or ():
+            interface._cli_output_owner = id(self)
 
     @staticmethod
     def _interface_arrow():
@@ -1692,14 +1802,20 @@ class Command:
         plan = self.calculation_plan
         if not (
             plan is not None
-            and (self._full_system_separate or plan.full_system_request or plan.interface_requests)
+            and (self._full_system_separate or plan.full_system_request)
             and self.sys is not None
         ):
             return ()
         return self._resolve_generator_policy()
 
     def _resolve_default_solvent_mode(self):
-        """Use all wet-input generators for implicit interface source solves."""
+        """Resolve the generator universe for implicit CLI calculations.
+
+        A bare molecular command follows the input, not a fixed dry default:
+        wet inputs retain their physical solvent context, while dry inputs
+        remain molecule-only. Explicit groups and solvent flags keep their
+        existing ownership of the policy.
+        """
         if self.sys is None:
             return False
         plan = self.calculation_plan
@@ -1709,6 +1825,17 @@ class Command:
         )
         if interface_source and not self._solvent_mode_explicit:
             self.solvent_mode = SolventMode.FULL_SOLVENT
+            self.sys.solvent_mode = self.solvent_mode
+        elif (
+            not self._solvent_mode_explicit
+            and plan is not None
+            and not plan.declared_group_requests
+        ):
+            self.solvent_mode = (
+                SolventMode.SOLVENT_CONTEXT
+                if has_explicit_water(self.sys.balls)
+                else SolventMode.MOLECULE_ONLY
+            )
             self.sys.solvent_mode = self.solvent_mode
         self._resolve_generator_policy()
         return True
@@ -1770,7 +1897,11 @@ class Command:
                 )
                 network = interface.net
                 context = network.get_solve_context_key()
-                if context.scheme not in {'aw', 'pow'}:
+                if context.scheme not in {'aw', 'pow', 'prm'}:
+                    self.interface_result_errors += (
+                        f'Typed interface Results do not support geometry scheme '
+                        f'{context.scheme!r}',
+                    )
                     continue
 
                 source_view = getattr(interface, 'source_view', None)
@@ -1793,25 +1924,38 @@ class Command:
                     )
                     network.source_network_id = source_network_id
 
-                source_group = self._full_system_group
-                source_network = getattr(source_group, 'net', None)
-                if source_network is None:
-                    raise ValueError(
-                        'Validated full-system source network is required for '
-                        'ordered CLI InterfaceResult handoff'
-                    )
-                if getattr(source_network, 'source_network_id', None) is None:
-                    source_network.source_network_id = source_network_id
                 backend = VorPyBackend()
                 if source_view is not None:
+                    source_group = self._full_system_group
+                    source_network = getattr(source_group, 'net', None)
+                    if source_network is None:
+                        raise ValueError(
+                            'Validated full-system source network is required for '
+                            'ordered CLI InterfaceResult handoff'
+                        )
+                    if getattr(source_network, 'source_network_id', None) is None:
+                        source_network.source_network_id = source_network_id
                     view = source_view
+                    selection_id = view.selection_id
+                    completeness_proven = bool(view.completeness.proven)
                 else:
-                    view = backend.make_validated_interface_view(
-                        interface,
-                        selection,
-                        source_network,
-                        source_network_id=source_network_id,
+                    view = None
+                    selection_id = stable_id(
+                        'view',
+                        {
+                            'interface_id': selection.interface_id,
+                            'group_A_system_indices': selection.group_a_system_indices,
+                            'group_B_system_indices': selection.group_b_system_indices,
+                        },
                     )
+                    selected = set(getattr(network, 'group', ()) or ())
+                    complete = getattr(network, 'balls', None)
+                    completeness_proven = False
+                    if complete is not None and 'complete' in complete.columns and selected:
+                        completeness_proven = all(
+                            bool(complete.iloc[index]['complete'])
+                            for index in selected
+                        )
                 result_network_id = getattr(network, 'archive_id', None) or stable_id(
                     'archive:cli-interface',
                     {
@@ -1839,7 +1983,7 @@ class Command:
                     system_id=system_id,
                     result_network_id=result_network_id,
                     radius_configuration_id='vorpy-backend-radii-v1',
-                    selection_id=view.selection_id,
+                    selection_id=selection_id,
                     group_a_selection_id=stable_id(
                         'view',
                         {
@@ -1858,10 +2002,7 @@ class Command:
                     source_identity_status='AUTHORITATIVE',
                     source_revision=f'cli-interface:{context.solve_universe_id}',
                     environment=environment,
-                    # A source-derived view is intentionally distinct from an
-                    # independently solved interface; its lineage stays
-                    # MATERIALIZED_VIEW and its curvature remains uncertified.
-                    completeness_proven=bool(view.completeness.proven),
+                    completeness_proven=completeness_proven,
                 )
             except (
                 AttributeError,
@@ -1892,6 +2033,9 @@ class Command:
         # Select the default only after export-directory commands have been applied.
         if self.sys.files['dir'] is None:
             self.sys.set_output_directory(fail_if_exists=self.fail_if_exists)
+        self._owned_output_directories.add(
+            Path(self.sys.files['dir']).resolve()
+        )
 
         self.sys._fail_if_exists = self.fail_if_exists
 
@@ -1929,11 +2073,10 @@ class Command:
             and not any(name not in interface_export_modifiers
                         for name in interface_export_names)
         )
-        self.sys._compact_interface_workflow = bool(
-            self.interface_mode and (
-                not self.exports or 'visualize' in interface_export_names
-            )
-        )
+        # Reserve interface child directories after the producer has created
+        # its interface objects.  This prevents Interface.make_net() from
+        # claiming the same path before the CLI ownership check.
+        self.sys._compact_interface_workflow = bool(self.interface_mode)
         self.sys._execution_profile = self.execution_profile
         if self.execution_profile in {'geometry', 'interface'}:
             self.sys._interface_curvature_requested = False
@@ -2096,7 +2239,15 @@ class Command:
                 print(f"  requested groups: {num_requested_groups}")
                 print(f"  created groups: {num_created_groups}")
 
-            if self._full_system_reuse_enabled():
+            direct_interface = bool(
+                plan is not None
+                and plan.interface_only
+                and not plan.full_system_request
+            )
+            if direct_interface:
+                interface_timing_started = self._timing_phase_start()
+                self._build_direct_interface_target(interface_pairs)
+            elif self._full_system_reuse_enabled():
                 interface_timing_started = self._timing_phase_start()
                 self._attach_full_system_interface_views(interface_pairs)
             else:
@@ -2157,6 +2308,13 @@ class Command:
 
         for _, network in self._diagnostic_networks():
             self._record_generator_policy(network)
+        if (not self.interface_mode
+                and not getattr(self.sys, '_geometry_checkpoint_path', None)):
+            networks = list(self._diagnostic_networks())
+            if networks:
+                self._persist_geometry_checkpoint(
+                    networks[0][1], scope='solve_source'
+                )
         self._record_network_timings()
 
         # Run optional read-only diagnostics after construction and before
@@ -2186,6 +2344,7 @@ class Command:
             return
 
         if self.interface_mode:
+            self._mark_interface_output_owner()
             self._prepare_interface_output_directories()
 
         # Export requested outputs
@@ -2232,21 +2391,31 @@ class Command:
         """Recover an ordered interface from an already solved source network."""
         from types import SimpleNamespace
 
-        from vorpy.src.io import validate_network_source
+        from vorpy.src.io import recover_network_source
 
         metadata = dict(getattr(network, 'archive_metadata', {}) or {})
-        source_path = metadata.get('original_structure_path')
-        validation = validate_network_source(
-            network,
-            source_path,
-            expected_scheme='pow',
-            expected_solvent_mode='MOLECULE_ONLY',
+        settings = dict(getattr(network, 'settings', {}) or {})
+        try:
+            scheme = str(network.get_solve_context_key().scheme)
+        except (AttributeError, TypeError, ValueError):
+            scheme = str(settings.get('net_type', '')).strip().lower()
+        solvent_mode = settings.get(
+            'solvent_mode',
+            getattr(network, 'solvent_mode', None),
         )
+        solvent_mode = getattr(solvent_mode, 'value', solvent_mode)
+        recovered = recover_network_source(
+            network,
+            metadata.get('original_structure_path'),
+            expected_scheme=scheme,
+            expected_solvent_mode=solvent_mode,
+        )
+        validation = dict(recovered.validation)
         self.sys.archive_recovery_validation = validation
         self.sys.archive_recovery_checkpoint = str(Path(archive_path).resolve())
         # Interface Result identity is the original source, while the loaded
         # checkpoint remains the geometry producer and is never overwritten.
-        self.base_file = Path(validation['source_path'])
+        self.base_file = Path(recovered.source_identity.source_path)
         self.sys.files['base_file'] = str(self.base_file)
         self._full_system_group = SimpleNamespace(net=network)
         self._full_system_separate = True
@@ -2287,9 +2456,20 @@ class Command:
         self.sys._interface_water_requested = False
         self.sys._interface_curvature_requested = False
         self.sys._network_calculate_curvature = False
+        self._mark_interface_output_owner()
         self._prepare_interface_output_directories()
         self.sys._last_export_archive_path = None
         self.sys._last_export_archive_output_path = None
+        # A recovered source-view export is not a new solved-network archive;
+        # preserve the input checkpoint and save only an explicitly requested
+        # destination through _save_archive().
+        if self.save_network_path is None and not any(
+            command and str(command[0]).strip().lower() in {
+                'no_archive', 'no-archive', 'no_network', 'no-network',
+            }
+            for command in self.exports
+        ):
+            self.exports.append(['no_archive'])
         interfaces = list(getattr(self.sys, 'ifaces', ()) or ())
         export_interfaces = self._partial_interface_export_views(interfaces)
         self.sys.ifaces = export_interfaces
@@ -2704,6 +2884,9 @@ class Command:
 
                         self.sys.dir = system_dir
                         self.sys.files['dir'] = system_dir
+                        self._owned_output_directories.add(
+                            Path(system_dir).resolve()
+                        )
 
                         if self.verbose:
                             print(f"Directory set to: {system_dir}")
@@ -2781,11 +2964,7 @@ class Command:
             or plan.independent_group_requests
         )
         self._full_system_separate = bool(
-            plan.interface_requests
-            or (
-                plan.full_system_request
-                and plan.declared_group_requests
-            )
+            plan.full_system_request and plan.declared_group_requests
         )
 
         # Preserve the old execution containers while making block parsing
@@ -2870,6 +3049,9 @@ class Command:
                                 raise SystemExit(str(error)) from None
                             self.sys.dir = system_dir
                             self.sys.files['dir'] = system_dir
+                            self._owned_output_directories.add(
+                                Path(system_dir).resolve()
+                            )
                             if self.verbose:
                                 print(f"Directory set to: {system_dir}")
                     else:
@@ -2884,9 +3066,6 @@ class Command:
             commands = [list(command) for command in request.commands]
             self.groups[group_counter] = commands
             declared_keys.add(request.key)
-
-        if plan.full_system_request and not self.groups and not plan.interface_requests:
-            self.groups[0] = [['f']]
 
     def load_files(self):
         """

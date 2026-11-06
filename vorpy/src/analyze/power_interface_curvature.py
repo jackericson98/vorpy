@@ -132,6 +132,60 @@ class PowerInterfaceCurvatureResult:
         return [record for record in self.edges if record.status == "included"]
 
     @property
+    def _facet_by_pair(self):
+        return {tuple(record.generator_ids): record for record in self.facets}
+
+    @property
+    def required_edge_records(self):
+        """Return edges that are internal to the final selected facet set.
+
+        Edges on the selected patch boundary do not carry an internal seam
+        contribution.  An edge whose two incident physical facets are both
+        final-selected does carry one, even when its dual geometry is
+        unresolved.
+        """
+        facets = self._facet_by_pair
+        required = []
+        for edge in self.edges:
+            incident = [facets.get(tuple(pair)) for pair in edge.bicolor_facets]
+            if len(incident) == 2 and all(record is not None and record.final_selected
+                                          for record in incident):
+                required.append(edge)
+        return required
+
+    @property
+    def facet_selection_complete(self):
+        """Whether every alpha-zero facet was resolved by the condition-B test."""
+        return all(
+            not record.alpha_zero_selected or record.condition_beta_accepted is not None
+            for record in self.facets
+        )
+
+    @property
+    def edge_contribution_complete(self):
+        """Whether every required internal seam has a finite contribution."""
+        return all(
+            record.status == "included"
+            and record.length is not None
+            and math.isfinite(record.length)
+            and record.length_beta is not None
+            and math.isfinite(record.length_beta)
+            for record in self.required_edge_records
+        )
+
+    @property
+    def curvature_status(self):
+        if not self.final_facets:
+            return "NOT_CALCULATED"
+        if not self.facet_selection_complete or not self.edge_contribution_complete:
+            return "UNRESOLVED"
+        return "CERTIFIED"
+
+    @property
+    def total_curvature_certified(self):
+        return self.curvature_status == "CERTIFIED"
+
+    @property
     def edge_totals(self):
         records = self.included_edges
         length = float(sum(record.length or 0.0 for record in records))
@@ -152,6 +206,11 @@ class PowerInterfaceCurvatureResult:
             "positive_edges": sum(record.beta_radians > 0 for record in records),
             "negative_edges": sum(record.beta_radians < 0 for record in records),
             "zero_edges": sum(record.beta_radians == 0 for record in records),
+            "included_edge_count": len(records),
+            "required_edge_count": len(self.required_edge_records),
+            "edge_contribution_complete": self.edge_contribution_complete,
+            "facet_selection_complete": self.facet_selection_complete,
+            "status": self.curvature_status,
         }
 
     @property
@@ -173,6 +232,8 @@ class PowerInterfaceCurvatureResult:
     def summary(self):
         totals = self.edge_totals
         full, alpha = self.full_counts, self.alpha_counts
+        available = self.edge_contribution_complete
+        value = lambda key: f"{totals[key]:.9g}" if available else "UNRESOLVED"
         return (
             "Power-Diagram Bicolor Interface Curvature\n"
             f"Input atoms: {len(self.points):,}; group A/B: {len(self.group_a):,} / {len(self.group_b):,}\n"
@@ -193,16 +254,19 @@ class PowerInterfaceCurvatureResult:
             f"Final selected facets: {len(self.final_facets):,}\n"
             f"Power-interface edge candidates: {len(self.edges):,}; status counts: {self.edge_status_counts}\n"
             f"Dual geometry status counts: {self.edge_geometry_status_counts}\n"
+            f"Curvature status: {self.curvature_status}; facet selection complete: {self.facet_selection_complete}; "
+            f"edge contribution complete: {self.edge_contribution_complete}\n"
             f"Included finite full interface edges: {len(self.included_edges):,}\n"
-            f"Total edge length: {totals['length']:.9g} A\n"
+            f"Observed included-edge length: {totals['length']:.9g} A\n"
             f"Full unrestricted length of included dual edges: {self.full_dual_length_total:.9g} A\n"
-            f"C_plus = sum(l beta, beta>0): {totals['positive']:.9g} A rad\n"
-            f"C_minus = sum(l beta, beta<0): {totals['negative']:.9g} A rad\n"
-            f"C_signed = sum(l beta): {totals['signed']:.9g} A rad\n"
-            f"C_unsigned = sum(l |beta|): {totals['unsigned']:.9g} A rad\n"
-            f"Conventional H=(k1+k2)/2 edge measure, C_signed/2: {0.5 * totals['signed']:.9g} A rad\n"
-            f"s_signed: {totals['signed_mean_rad']:.9g} rad / {totals['signed_mean_deg']:.9g} deg\n"
-            f"s_unsigned: {totals['unsigned_mean_rad']:.9g} rad / {totals['unsigned_mean_deg']:.9g} deg\n"
+            f"C_plus = sum(l beta, beta>0): {value('positive')} A rad\n"
+            f"C_minus = sum(l beta, beta<0): {value('negative')} A rad\n"
+            f"C_signed = sum(l beta): {value('signed')} A rad\n"
+            f"C_unsigned = sum(l |beta|): {value('unsigned')} A rad\n"
+            f"Conventional H=(k1+k2)/2 edge measure, C_signed/2: "
+            f"{('%.9g' % (0.5 * totals['signed'])) if available else 'UNRESOLVED'} A\n"
+            f"s_signed: {value('signed_mean_rad')} rad / {value('signed_mean_deg')} deg\n"
+            f"s_unsigned: {value('unsigned_mean_rad')} rad / {value('unsigned_mean_deg')} deg\n"
             f"Positive/negative/zero edges: {totals['positive_edges']} / "
             f"{totals['negative_edges']} / {totals['zero_edges']}\n"
             f"Smooth facet curvature: {self.smooth_surface_curvature:g} (power facets are planar)\n"

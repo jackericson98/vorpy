@@ -206,7 +206,10 @@ def test_full_system_pipeline_solves_source_once_and_never_builds_views(
     command.interface_mode = True
     command._build_group_networks = True
     command.calculation_plan = build_calculation_plan(
-        ["synthetic.input", "-g", "c", "0", "-g", "c", "1", "-i"],
+        [
+            "synthetic.input", "-g", "c", "0", "-g", "c", "1", "-i",
+            "-c", "system",
+        ],
         input_source="synthetic.input",
     )
     builds = []

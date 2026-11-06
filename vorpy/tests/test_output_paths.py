@@ -113,6 +113,22 @@ def test_interface_collision_and_failed_export_do_not_escape_root(tmp_path):
     assert not (tmp_path / "interface_info.txt").exists()
 
 
+def test_same_run_interface_reservation_is_not_rejected(tmp_path):
+    root = tmp_path / "output" / "fixture"
+    child = root / "A_B_interface"
+    child.mkdir(parents=True)
+    interface = SimpleNamespace(name="A_B_interface", dir=str(child))
+    system = SimpleNamespace(files={"dir": str(root)}, ifaces=[interface])
+    command = Command(sys=system)
+    command.fail_if_exists = True
+    command._owned_output_directories.add(root.resolve())
+    command._mark_interface_output_owner()
+
+    command._prepare_interface_output_directories()
+
+    assert Path(interface.dir) == child
+
+
 def test_implicit_interface_export_does_not_use_visualization_or_cwd(monkeypatch):
     from vorpy.src.output import output
 

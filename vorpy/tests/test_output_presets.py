@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import pandas as pd
 
 
 def _fake_system(tmp_path):
@@ -104,6 +105,20 @@ def test_richer_presets_keep_physical_surface_and_atom_script_pairing():
         assert any(kwargs.get("surfs") for _, kwargs in output.INTERFACE_PRESETS[preset])
 
 
+def test_effective_export_plan_reports_additive_and_subtractive_selection():
+    output = __import__("vorpy.src.output.output", fromlist=["output"])
+    system = SimpleNamespace(
+        groups=[], ifaces=[], files={"dir": "unused"},
+    )
+
+    plan = output.effective_export_plan(system, "large", exclude=("logs", "archive"))
+
+    assert "logs" not in plan["interfaces"]
+    assert plan["archive"] is False
+    assert plan["excluded"] == ("logs", "archive")
+    assert system.effective_export_plan is plan
+
+
 def test_rich_dual_derivatives_drop_preset_pymol_launchers(tmp_path):
     import json
 
@@ -135,6 +150,7 @@ def test_interface_default_preset_uses_first_class_layout_without_archive(tmp_pa
     interface.sys.balls["rad"] = 1.7
     interface.sys.exports = lambda **kwargs: None
     interface.sys.update_progress = lambda **kwargs: None
+    interface.sys._export_skip_archive = True
 
     export_interface_default(interface.sys)
 
@@ -174,7 +190,57 @@ def test_interface_cli_default_and_explicit_exports_stay_separate(monkeypatch):
     assert explicit_calls == [{"surfs": True}]
 
 
-def test_explicit_interface_preset_parses_with_directory_and_exports_files(tmp_path):
+def test_export_add_and_no_customize_the_default_preset(monkeypatch):
+    from vorpy.src.command import command_export
+    from vorpy.src.output import output
+
+    calls = []
+    monkeypatch.setattr(
+        output, 'export_preset',
+        lambda system, preset, *, exclude=(): calls.append(
+            ('preset', preset, tuple(exclude))
+        ),
+    )
+    monkeypatch.setattr(
+        command_export, 'export_npt',
+        lambda system, option: calls.append(('component', option)),
+    )
+    system = SimpleNamespace(
+        _compact_interface_workflow=True,
+        verbose=False,
+        files={'dir': str(Path.cwd())},
+    )
+
+    command_export.argv_export(
+        system,
+        [['small'], ['no', 'logs'], ['add', 'dual']],
+    )
+
+    assert calls == [
+        ('preset', 'small', ('logs',)),
+        ('component', 'dual'),
+    ]
+
+
+def test_bare_no_disables_the_implicit_preset(monkeypatch):
+    from vorpy.src.command import command_export
+    from vorpy.src.output import output
+
+    calls = []
+    monkeypatch.setattr(
+        output, 'export_preset',
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    system = SimpleNamespace(
+        _compact_interface_workflow=True,
+        verbose=False,
+        files={'dir': str(Path.cwd())},
+    )
+    command_export.argv_export(system, [['no']])
+    assert calls == []
+
+
+def test_explicit_interface_preset_parses_with_directory_and_exports_files(tmp_path, monkeypatch):
     from vorpy.src.command.vpy_cmnd import Command
     from vorpy.tests.test_nexus_interface_output_contract import _contract_case
 
@@ -183,6 +249,8 @@ def test_explicit_interface_preset_parses_with_directory_and_exports_files(tmp_p
     system.balls["rad"] = 1.7
     system.exports = lambda **kwargs: None
     system.update_progress = lambda **kwargs: None
+    system._export_skip_archive = True
+    monkeypatch.setattr("vorpy.src.io.save_network", lambda *args, **kwargs: None)
     system.verbose = False
     system.file_type = "off"
 
@@ -208,7 +276,7 @@ def test_explicit_interface_preset_parses_with_directory_and_exports_files(tmp_p
     assert not list(destination.glob("*.geometry.vpy"))
 
 
-def test_interface_directory_and_internal_checkpoint_are_segregated(tmp_path, monkeypatch):
+def test_interface_directory_and_canonical_checkpoint_are_segregated(tmp_path, monkeypatch):
     from vorpy.src.command.vpy_cmnd import Command
 
     interface = SimpleNamespace(name="DNA_c_2_interface")
@@ -234,5 +302,28 @@ def test_interface_directory_and_internal_checkpoint_are_segregated(tmp_path, mo
     checkpoint = command._persist_geometry_checkpoint(network, scope="full_system_source")
 
     assert checkpoint == captured["path"]
-    assert checkpoint.parent == tmp_path / ".vorpy" / "checkpoints"
+    assert checkpoint == tmp_path / "1bna_DB1976.vpy"
     assert not (tmp_path / "1bna_DB1976_full_system.geometry.vpy").exists()
+
+
+def test_checkpoint_records_partial_geometry_without_changing_archive_name(tmp_path, monkeypatch):
+    from vorpy.src.command.vpy_cmnd import Command
+
+    system = SimpleNamespace(name="partial", files={"dir": str(tmp_path)})
+    command = Command(sys=system)
+    captured = {}
+    monkeypatch.setattr(
+        "vorpy.src.io.save_network",
+        lambda network, path, **kwargs: captured.setdefault("path", Path(path)) or path,
+    )
+    network = SimpleNamespace(
+        group_name="partial_full_system",
+        archive_provenance={},
+        balls=pd.DataFrame({"complete": [True, False]}),
+    )
+
+    checkpoint = command._persist_geometry_checkpoint(network, scope="solve_source")
+
+    assert checkpoint == tmp_path / "partial.vpy"
+    assert network.archive_provenance["geometry_status"] == "GEOMETRY_INCOMPLETE"
+    assert system._geometry_checkpoint_status == "GEOMETRY_INCOMPLETE"

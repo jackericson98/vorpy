@@ -73,6 +73,72 @@ both retain zero participating solvent generators. This is the canonical
 protein-only control; it does not make the solvent-context runs scope
 equivalent to the dry runs.
 
+## Dry POW pilot protocol (preflight only)
+
+This protocol defines one future ordered POW pilot; it is not authorization to
+construct a regular/power complex or run a molecular solve. The canonical input
+is `vorpy/data/2KAI_MD_centered_no_sol_corrected.pdb`, SHA-256
+`53cc21ad3d24ef6e89c8d8fb7a7bf67de9ef52eafd33bc92a30826de80596cb4`. The file
+must contain exactly 4,340 protein ATOM records, with all coordinates, serials,
+residue identities, elements, and authoritative chain labels preserved. The
+required full-record membership is A=1,239, B=2,243, and I=858; the ordered
+interface is group A=(chains A+B) -> group B=(chain I), with 3,482 versus 858
+protein records.
+
+The pilot's method configuration is fixed before execution:
+
+- `prepare_cazals_pdb` reads only the corrected PDB, with
+  `include_hydrogens=False`, `include_hetatm=False`, and strict heavy-atom
+  radius fallback checking enabled;
+- the 4,340-record identity audit therefore yields 2,238 POW generators:
+  1,800 heavy atoms in A+B and 438 in I. The discarded 2,102 hydrogens remain
+  part of the input identity audit but are not power generators for this
+  historical Cazals/Chothia configuration;
+- base radii must follow the existing residue/atom Cazals table with no heavy
+  fallback: 1.87 A (830), 1.76 A (585), 1.40 A (428), 1.65 A (336), 1.50 A
+  (38), and 1.85 A (21). Probe-expanded radii are `R=r+1.40 A`, and weights
+  are `w=R^2`; these formulas and counts are preflight assertions, not new
+  scientific values;
+- the future geometry call must record `alpha=0`, alpha tolerance `1e-12`,
+  condition-beta `M=5`, and power-vertex residual tolerance `1e-8`, together
+  with the exact input fingerprint and ordered group IDs.
+
+### Pilot metric contract
+
+The first output must carry integer counts and explicit units. No expected
+numeric geometry value is asserted before the solve. The definitions below are
+the acceptance target, not permission to substitute a partial value:
+
+| quantity | definition and units | certified only when |
+|---|---|---|
+| regular/alpha counts | V/E/F/T simplex counts and Euler characteristic | the recorded complex and filtration are complete for the stated run |
+| interface contacts | final selected bicolor power facets and interface atom counts for A and I | every reported facet has an audited group orientation and selection status |
+| surface area | sum of finite bounded selected power-facet polygon areas (A^2) | every selected facet polygon is finite, positive, and its required dual vertices are resolved |
+| edge count and length | included finite full dual power edges; count and total `L` (A) | every selected bicolor triangle has two incident tetrahedra, both endpoints are resolved, and no required boundary/nonmanifold edge is omitted |
+| vertex count | resolved power vertices referenced by accepted interface facets/edges | required vertex coordinates are finite and each power residual is at most `1e-8` |
+| POW curvature | `C_plus`, `C_minus`, `C_signed`, `C_unsigned`, and `C_H_signed=C_signed/2` (A rad); length-weighted `s_H` (rad and degrees) | the complete accepted edge population is known and every term has finite length and beta |
+
+Surface, edge, and vertex evidence must be reported separately. A finite
+subset is exploratory when any required feature is unbounded, unresolved,
+nonmanifold, or omitted; it receives `INCOMPLETE`/`UNRESOLVED` evidence and
+must not be relabeled `COMPLETE` by a finite count. Missing values remain
+missing rather than zero. A `CONVERGED` numerical status requires the stated
+power residual/conditioning audit for every required vertex; finiteness alone
+is insufficient. The method-intrinsic smooth-facet curvature is exactly zero
+because power facets are planar, but this does not certify total interface
+curvature.
+
+For the ordered A+B -> I pilot, signed beta and all signed curvature totals
+must retain the Cazals orientation convention. Reversing the groups is a
+separate sign-reversal control, not a way to repair incomplete topology.
+
+Certified pilot quantities may include the input audit, generator/radius
+provenance, finite bounded surface area, interface counts, edge/vertex counts,
+and the listed POW edge-curvature totals only after their completeness gates
+pass. Exploratory quantities may be retained for diagnosis with their exact
+status and provenance. This POW protocol authorizes no AW, Gaussian-curvature,
+Gauss--Bonnet, solvent-context, or `GLOBAL_COMPLETE` claim.
+
 ## Chain-restored solvated input
 
 The new `vorpy/data/2KAI_MD_centered_chainrestored_solvated.pdb` retains all

@@ -94,6 +94,21 @@ def test_export_uses_authoritative_config(app, monkeypatch, tmp_path, custom):
     panel.close()
 
 
+def test_failed_export_is_not_presented_as_a_valid_result(app, monkeypatch, tmp_path):
+    result = AnalysisResult(tmp_path / 'sample.pdb', 'sample', export_group=object())
+    panel = export_panel.ExportPanel(lambda: result)
+    panel.update_state(result, False)
+    panel.directory.setText(str(tmp_path / 'chosen'))
+    monkeypatch.setattr(export_panel, 'export_result', lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError('write failed')))
+    monkeypatch.setattr(export_panel.QMessageBox, 'warning', lambda *args, **kwargs: None)
+
+    panel.export()
+
+    assert panel.export_status == 'FAILED'
+    assert 'partial output is not a valid archived Result' in panel.hint.text()
+    panel.close()
+
+
 def test_unsolved_configuration_and_compact_layout(app):
     panel = export_panel.ExportPanel(lambda: None)
     panel.resize(540, 280)

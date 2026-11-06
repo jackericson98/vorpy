@@ -20,6 +20,16 @@ python vorpy example.pdb -e small and shell
 
 Presets are convenience bundles rather than mutually exclusive modes. Individual outputs can be added to a preset.
 
+The explicit customization form is also available:
+```bash
+python vorpy example.pdb -e small -e add dual -e no logs
+```
+Each preset is executed in command order; `add` components run after the
+presets, and `no` removes matching components from every preset in that
+invocation.  If no preset is named, customization starts from the normal
+system or interface default.  `-e none` (or bare `-e no`) disables that base
+preset.  Explicit component commands remain independent of `no` filtering.
+
 The standard system summary is written as `system_info.txt`; each solved group
 or interface network writes `network_info.txt`. Older `info.txt` exports remain
 readable by the Workbench. The normal `large`/`all` presets retain physical AW

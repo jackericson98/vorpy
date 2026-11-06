@@ -264,7 +264,8 @@ Workflow options:
     Request the legacy build command.
 
   -i, --interface
-    Request interface calculations from selected groups.
+    Request one selected interface from ordered -g Group A and -g Group B
+    selections.  Add -c system to also solve and retain the full source.
 
   -c, --calculate <target>
     Request system, group, interface, or chain calculations.
@@ -273,7 +274,9 @@ Workflow options:
 
   -e, --export <type> [and <type> ...]
     Export a preset or component, such as small, medium, large, all, shell,
-    logs, surfs, edges, verts, or no_archive.
+    logs, surfs, edges, verts, or no_archive.  Use -e add <type> to append a
+    component and -e no <type> to omit it from the selected preset.  With no
+    explicit preset, customization uses the workflow default.
 
 Analysis and execution:
   --profile geometry|interface|analysis|full

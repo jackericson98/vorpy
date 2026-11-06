@@ -119,6 +119,37 @@ def test_power_exact_intrinsic_and_completed_values():
     assert result.topology.genus_by_component == (0, 0)
 
 
+def test_prm_interface_result_keeps_method_specific_values_unavailable():
+    result = unavailable_interface(identity("prm"), status=Status.UNRESOLVED)
+
+    assert result.identity.partition == "prm"
+    assert result.status is Status.UNRESOLVED
+    assert result.metrics["area"].value is None
+    assert result.mean_curvature.integrated_mean_curvature.value is None
+    assert result.gaussian_curvature.integrated_gaussian_curvature.value is None
+    assert result.to_dict()["identity"]["partition"] == "prm"
+
+
+def test_prm_physical_adapter_does_not_promote_empty_analysis():
+    analysis = InterfaceGeometryAnalysis(
+        metadata={
+            "scheme": "prm",
+            "alpha_convention": "additive",
+            "alpha_value": 1.4,
+            "alpha_units": "A",
+            "solvent_context": False,
+            "curvature_requested": False,
+        },
+        voronoi_side_1={},
+    )
+    result = adapt_interface_analysis(analysis, identity("prm"))
+
+    assert result.identity.partition == "prm"
+    assert result.status is not Status.CERTIFIED
+    assert result.metrics["area"].value is None
+    assert result.mean_curvature.integrated_mean_curvature.value is None
+
+
 def test_failed_interface_extraction_preserves_unresolved_lineage():
     """A failed view remains typed and cannot be mistaken for a solved interface."""
     lineage = {

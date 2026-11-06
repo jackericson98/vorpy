@@ -133,6 +133,39 @@ def _write_empty_off(directory, file_name):
         stream.write("OFF\n0 0 0\n")
 
 
+def _ensure_interface_directory(iface, directory=None):
+    """Resolve the output directory before any writer touches the filesystem."""
+    if directory is not None and not str(directory).strip():
+        directory = None
+    if directory is None:
+        directory = getattr(iface, "dir", None)
+        if directory is not None and not str(directory).strip():
+            directory = None
+        if directory is None:
+            set_dir = getattr(iface, "set_dir", None)
+            set_dir_error = None
+            if callable(set_dir):
+                try:
+                    set_dir()
+                except (TypeError, ValueError, OSError) as error:
+                    # A reloaded object may still have no root; report the
+                    # writer precondition below instead of leaking os/pathlib.
+                    set_dir_error = error
+                directory = getattr(iface, "dir", None)
+            if set_dir_error is not None:
+                raise ValueError(
+                    "Interface export requires an explicit destination or a "
+                    "resolved output directory."
+                ) from set_dir_error
+    if directory is None:
+        raise ValueError(
+            "Interface export requires an explicit destination or a resolved "
+            "output directory."
+        )
+    os.makedirs(directory, exist_ok=True)
+    return directory
+
+
 def _interface_export_profile_enabled():
     value = os.environ.get(
         "VORPY_INTERFACE_EXPORT_PROFILE",
@@ -326,6 +359,23 @@ def _triangle_areas(points, tris):
         )
     except (TypeError, ValueError, IndexError):
         return None
+
+
+def _selected_display_area(network, positions):
+    """Return triangulated display area for the already-selected facets."""
+    if network is None or not positions:
+        return None
+    total = 0.0
+    for position in positions:
+        try:
+            row = network.surfs.iloc[int(position)]
+            areas = _triangle_areas(row.get("points"), row.get("tris"))
+        except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+            return None
+        if areas is None:
+            return None
+        total += float(np.sum(areas))
+    return total
 
 
 def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-10):
@@ -655,19 +705,24 @@ def _interface_physical_scope(iface):
     def topology_position(table, identifier):
         try:
             position = table.index.get_loc(identifier)
-        except (AttributeError, KeyError, TypeError, ValueError):
+        except (AttributeError, KeyError, TypeError, ValueError, IndexError):
             position = int(identifier)
         if isinstance(position, slice):
             position = position.start
-        return int(position)
+        position = int(position)
+        if position < 0 or position >= len(table):
+            raise IndexError(f"topology position {position} is outside the source table")
+        return position
 
     network = scope.network
     direct_surfaces, _, _, _ = get_interface_surface_sets(iface, network=network)
+    missing = []
     direct_positions = set()
     for source_id in getattr(direct_surfaces, "index", ()):
         try:
             position = topology_position(network.surfs, source_id)
-        except (AttributeError, KeyError, TypeError, ValueError):
+        except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+            missing.append(f"surface:{source_id}")
             continue
         if position is not None and 0 <= int(position) < len(network.surfs):
             direct_positions.add(int(position))
@@ -691,34 +746,45 @@ def _interface_physical_scope(iface):
         for vertex_id in (network.surfs.iloc[position].get("verts", ()) or ())
     }
 
-    def positions(table, identifiers):
+    def positions(table, identifiers, kind):
         result = []
-        for identifier in sorted(identifiers):
+        for identifier in sorted(identifiers, key=str):
             try:
                 position = topology_position(table, identifier)
-            except (AttributeError, KeyError, TypeError, ValueError):
+            except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+                missing.append(f"{kind}:{identifier}")
                 continue
             if position is not None and 0 <= int(position) < len(table):
                 result.append(int(position))
         return tuple(result)
 
-    edge_positions = positions(network.edges, edge_ids)
-    vertex_positions = positions(network.verts, vertex_ids)
+    edge_positions = positions(network.edges, edge_ids, "edge")
+    vertex_positions = positions(network.verts, vertex_ids, "vertex")
     support = set()
     for position in surface_positions:
-        support.update(
-            topology_position(network.balls, value)
-            for value in (network.surfs.iloc[position].get("balls", ()) or ())
-        )
+        for value in (network.surfs.iloc[position].get("balls", ()) or ()):
+            try:
+                support.add(topology_position(network.balls, value))
+            except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+                missing.append(f"generator:{value}")
     for position in edge_positions:
-        support.update(
-            topology_position(network.balls, value)
-            for value in (network.edges.iloc[position].get("balls", ()) or ())
-        )
+        for value in (network.edges.iloc[position].get("balls", ()) or ()):
+            try:
+                support.add(topology_position(network.balls, value))
+            except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+                missing.append(f"generator:{value}")
     for position in vertex_positions:
-        support.update(
-            topology_position(network.balls, value)
-            for value in (network.verts.iloc[position].get("balls", ()) or ())
+        for value in (network.verts.iloc[position].get("balls", ()) or ()):
+            try:
+                support.add(topology_position(network.balls, value))
+            except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+                missing.append(f"generator:{value}")
+    if missing:
+        missing = tuple(dict.fromkeys(missing))
+        raise ValueError(
+            "Selected interface physical closure is incomplete; missing source "
+            + ", ".join(missing[:12])
+            + (" ..." if len(missing) > 12 else "")
         )
     support = tuple(sorted(value for value in support if 0 <= value < len(network.balls)))
     return replace(
@@ -919,6 +985,11 @@ def _write_interface_atom_exports(iface, physical_scope):
         return {"group_a": group_a, "group_b": group_b, "surrounding": surrounding}
     write_pdb(group_a, "group_a_atoms", system, directory=iface.dir)
     write_pdb(group_b, "group_b_atoms", system, directory=iface.dir)
+    # Keep the historical combined contact selection only for source-less
+    # legacy interfaces; scoped source views use the explicit side files.
+    if getattr(iface, "source_view", None) is None and getattr(iface, "source_network", None) is None:
+        write_pdb(sorted(set(group_a) | set(group_b)), "interface_atoms", system,
+                  directory=iface.dir)
     write_pdb(surrounding, "surr_atoms", system, directory=iface.dir)
     write_pdb(_residue_expanded_atoms(system, surrounding), "surr_residues", system, directory=iface.dir)
     return {"group_a": group_a, "group_b": group_b, "surrounding": surrounding}
@@ -1582,7 +1653,7 @@ def export_info(iface, directory=None, physical_scope=None):
     if directory is None:
         directory = iface.dir
 
-    os.makedirs(directory, exist_ok=True)
+    directory = _ensure_interface_directory(iface, directory)
 
     net = iface.net
 
@@ -1727,6 +1798,32 @@ def export_info(iface, directory=None, physical_scope=None):
         )
         info.write(f"  Shared physical surface count: {direct_surface_count if direct_surface_count is not None else 'Not available'}\n")
         info.write(f"  Interface area (Å²): {_format_metric(direct_area)}\n")
+        native_area = None
+        if physical_scope is not None and source_network is not None:
+            source_surfaces = getattr(source_network, "surfs", None)
+            if source_surfaces is not None and physical_scope.surfaces:
+                native_area = _safe_sum(_numeric_series(
+                    source_surfaces.iloc[list(physical_scope.surfaces)], "sa"
+                ))
+        info.write(f"  Native selected facet area (Å²): {_format_metric(native_area)}\n")
+        info.write(f"  Exported record area (Å²): {_format_metric(direct_area)}\n")
+        display_area = _selected_display_area(
+            source_network,
+            physical_scope.surfaces if physical_scope is not None else (),
+        )
+        info.write(f"  Display triangulated mesh area (Å²): {_format_metric(display_area)}\n")
+        if native_area is None or direct_area is None:
+            area_residual = None
+            area_status = "Not available"
+        else:
+            area_residual = float(direct_area - native_area)
+            area_status = (
+                "MATCH"
+                if np.isclose(area_residual, 0.0, rtol=1e-9, atol=1e-9)
+                else "CHECK"
+            )
+        info.write(f"  Area reconciliation residual (Å²): {_format_metric(area_residual)}\n")
+        info.write(f"  Area reconciliation: {area_status}\n")
         info.write(f"  Selected edges: {num_edges if num_edges is not None else 'Not available'}\n")
         info.write(f"  Selected vertices: {num_verts if num_verts is not None else 'Not available'}\n")
         if physical_scope is not None:
@@ -1950,14 +2047,7 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
         scoped_iface = copy(iface)
         scoped_iface.net = scope.scoped_network()
 
-    if iface.dir is None:
-        set_dir = getattr(iface, "set_dir", None)
-        if set_dir is not None:
-            set_dir()
-        else:
-            iface.dir = os.path.join(iface.sys.files["dir"], iface.name)
-
-    os.makedirs(iface.dir, exist_ok=True)
+    _ensure_interface_directory(iface)
     if (dual or (all_ and iface.net.settings.get('net_type', 'aw') == 'aw')) and not scope.is_materialized_view:
         def export_dual():
             from vorpy.src.geometry.visualization.interface import export_interface_dual_visualization
