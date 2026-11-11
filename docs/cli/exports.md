@@ -175,3 +175,10 @@ a concurrency limit, not CPU affinity; memory use grows with active jobs. Reduce
 are written under `vorpy_layer4_runlogs` beside the manifest. Nonzero exits are
 recorded and the remaining jobs continue; the runner exits nonzero if any fail.
 Runs do not automatically skip existing outputs or retry failed jobs.
+
+An interactive console shows a dashboard with one row per active worker:
+checkpoint/frame, elapsed seconds, and its latest VorPy output. It refreshes
+twice per second while full verbose output stays in each job's log. Use a
+terminal at least 22 rows high for 20 workers. Redirected output falls back to
+tagged worker messages without terminal escape sequences. The invocation is
+unchanged; this display is enabled automatically in supported terminals.
