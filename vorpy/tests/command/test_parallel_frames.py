@@ -7,9 +7,36 @@ from threading import Barrier, Lock
 
 import pytest
 
+from vorpy.src.boundary import SolventMode
 from vorpy.src.command.vpy_cmnd import Command, frame_cli_options, prompt_frame_workers
 from vorpy.src.command.parallel_frames import run_frame
 from vorpy.src.command import parallel_frames
+
+
+def test_parallel_frame_worker_preserves_solvent_mode_option(tmp_path, monkeypatch):
+    source = tmp_path / 'frame.pdb'
+    source.write_text(
+        'ATOM      1  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C\n'
+        'END\n'
+    )
+    output = tmp_path / 'output'
+    output.mkdir()
+    observed = {}
+
+    def process(self):
+        observed.update(system=self.sys.solvent_mode, command=self.solvent_mode)
+
+    monkeypatch.setattr(Command, '_process_system', process)
+
+    assert run_frame(
+        str(source), str(output), 1, 1,
+        {'solvent_mode': SolventMode.SOLVENT_CONTEXT},
+        None,
+    ) is None
+    assert observed == {
+        'system': SolventMode.SOLVENT_CONTEXT,
+        'command': SolventMode.SOLVENT_CONTEXT,
+    }
 
 
 @pytest.mark.parametrize('cpus, frames, answers, expected', [
@@ -178,5 +205,5 @@ def test_spawned_cli_builds_and_exports_every_frame(tmp_path, workers, entry):
         first_atom = next(line for line in exported if line.startswith(('ATOM  ', 'HETATM')))
         assert float(first_atom[30:38]) == pytest.approx(float(atoms[0][30:38]) + i)
         log = (directory / 'run.log').read_text()
-        assert f'frame {i} only' in log
+        assert f'Frame: {i}/3 loaded' in log
         assert 'network built' in log

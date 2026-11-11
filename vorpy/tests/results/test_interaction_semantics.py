@@ -1,6 +1,6 @@
 import pytest
 
-from results.model import (
+from vorpy.src.results.model import (
     INTERACTION_COMPARISON_QUANTITIES,
     InteractionLinks,
     OrientationConvention,

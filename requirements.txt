@@ -1,8 +1,9 @@
-numpy>=2.0,<2.1
-numba==0.60.*
-matplotlib>=3.9,<3.10
-scipy>=1.6.0
-pandas>=1.2.0
-shapely~=2.0.6
-pyparsing<3.3
-shapely
+# Core runtime dependencies for Python 3.10+.
+numpy>=2.0
+scipy>=1.10
+matplotlib>=3.9
+pandas>=1.2
+numba==0.62.1; sys_platform == "darwin" and platform_machine == "x86_64"
+numba; sys_platform != "darwin" or platform_machine != "x86_64"
+shapely>=2.0
+Pillow

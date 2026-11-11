@@ -20,15 +20,54 @@ python vorpy example.pdb -e small and shell
 
 Presets are convenience bundles rather than mutually exclusive modes. Individual outputs can be added to a preset.
 
+The standard system summary is written as `system_info.txt`; each solved group
+or interface network writes `network_info.txt`. Older `info.txt` exports remain
+readable by the Workbench. The normal `large`/`all` presets retain physical AW
+surfaces, edges, vertices, contacts, and curvature outputs but do not create
+the experimental `nonpolar_interface_geometry/` tables. Request those tables
+explicitly with `-e nonpolar`.
+
 Every preset also saves `<system-name>.vpy` in the output directory. This is a
 solved-network ZIP archive containing JSON metadata/state and NumPy arrays; it
 can be loaded without rebuilding vertices, edges, or surface triangulations.
 Multiple presets in one command save the archive only once.
 
-Use `-e large -e no_archive` to retain the preset outputs without the automatic
-archive. `-e none` disables automatic exports, and `-e none -e logs` or
-`-e only logs` exports only the requested component without an archive.
-An explicit `--save-network path.vpy` still saves the requested archive.
+When an interface export includes `logs`, VorPy writes both the legacy
+sectioned interface CSV and `interface_<A>_<B>/logs.csv`. The latter is the
+canonical eight-column Results log (`interface_id`, representation, side,
+quantity, value, units, status, provenance); it serializes cached state only
+and does not rebuild geometry. The `small` preset also writes this canonical
+log for its compact interface bundle.
+
+Use `-e none` to disable optional files; a completed geometry solve still
+writes its mandatory canonical checkpoint. The compatibility modifiers
+`-e no_archive` and `-e no checkpoint` do not suppress that durability
+checkpoint. An explicit `--save-network path.vpy` still saves the requested
+archive. `-e only logs` remains an explicit analysis export and therefore
+requires an analysis-capable execution profile.
+
+## Execution-profile dependencies
+
+`--profile geometry` is deliberately geometry-only: it does not populate cell
+volume, curvature, or the full analysis dictionary. Geometry-only components
+such as edges, surfaces, and vertices can be requested explicitly with
+`-e only ...` or `-e add ...`. The bundled `small`, `medium`, `large`, and
+`all` presets include analysis-dependent summaries/logs for system and group
+scopes, so VorPy rejects those combinations with an actionable message after
+the mandatory checkpoint has been verified. Use `--profile full` for those
+bundles, or use `-e none` for checkpoint-only geometry. Interface scope keeps
+its compact physical-interface summary available under the geometry profile;
+unsupported curvature/topology fields remain explicitly unavailable.
+
+For a cache-only archive run, add `--profile-cache-export`. The opt-in
+`cache_export_profile.json` beside the normal export directory records load,
+export, and explicit-save wall/CPU time, peak RSS when supported, archive
+member counts, cached interface state, and existing export phases. It accepts
+`.vpy` input only and does not rebuild geometry.
+
+Archive timing remains available in regular logs and archive provenance. The
+standalone `<system>.vpy.timing.json` sidecar is emitted only for explicit
+verbose, diagnostic, or profiling runs.
 
 Atom cell meshes combine their already solved surface points and triangles,
 offsetting triangle indices for each surface. Exporting a cell does not run
@@ -47,19 +86,20 @@ for the PyMOL launcher, selected/rejected/unresolved layers, and contact mapping
 python vorpy EDTA -c l 4 -e large
 ```
 
-The run folder retains the usual system PDB, information, and `EDTA.vpy`
-checkpoint. The original `EDTA/` group folder keeps its ordinary exports. Its
+The run folder retains the usual system PDB, information, and `EDTA_checkpoint.vpy`
+checkpoint. The ordinary `groups/EDTA/` folder keeps its group exports. The
 sibling `solvent/` applies the same preset to the selected water layers:
 
 ```text
 <run>/
-  EDTA.vpy
+  EDTA_checkpoint.vpy
   EDTA.pdb
-  EDTA/                       ordinary group exports
+  system/                     system information
+  groups/EDTA/                ordinary group exports
   solvent/
     aw_logs.csv               one native log for all requested water layers
     aw_verts.txt              combined solvent vertex checkpoint
-    info.txt                  combined solvent group information
+    group_info.txt            combined solvent group information
     layers.csv                atom/water/completeness and boundary counts by layer
     README.txt
     layer_01.pdb              also layer_02.pdb through layer_04.pdb
@@ -67,7 +107,6 @@ sibling `solvent/` applies the same preset to the selected water layers:
     layer_01_edges.off         also layer_02_edges.off through layer_04_edges.off
     layer_01_verts.off         also layer_02_verts.off through layer_04_verts.off
     atoms/                    per-atom geometry from the large preset
-    nonpolar_interface_geometry/
 ```
 
 Surface set 1 is the solute–layer-1 interface. Set 2 is the layer-1–layer-2
@@ -84,7 +123,7 @@ later layers. A larger solvent box or different solver limits may be needed.
 
 Presets retain their normal intensity: small writes information, layer surfaces,
 and the combined log; medium/large add the layer PDBs, edges, and vertices; large
-also adds atom geometry and analysis tables. Surrounding-atom PDBs are omitted
+also adds atom geometry. Surrounding-atom PDBs are omitted
 from `solvent/` because it already contains the explicitly selected cohorts.
 
 Only consecutive complete water layers, starting at layer 1, enter the native

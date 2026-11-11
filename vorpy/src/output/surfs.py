@@ -2,7 +2,7 @@ import os
 import time
 import numpy as np
 from vorpy.src.output.color_tris import color_tris
-from vorpy.src.output.mesh import combine_mesh_parts, write_mesh, write_prepared_mesh
+from vorpy.src.output.mesh import combine_mesh_parts, mesh_export_allowed, write_mesh, write_prepared_mesh
 
 
 def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colors=False, ref_surfs=None,
@@ -260,6 +260,8 @@ def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
     """
     if surfs is None or len(surfs) == 0:
         return None
+    if not mesh_export_allowed(net, "surfs", surfs):
+        return None
 
     from vorpy.src.output.curvature_colors import (
         canonical_curvature_scheme,
@@ -339,36 +341,39 @@ def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
         scheme_name = str(requested_scheme).lower()
         value_column = scheme_columns.get(scheme_name, "mean_curv")
 
-        if universal_max:
-            values = np.asarray(net.surfs[value_column], dtype=float)
+        if value_column not in net.surfs.columns:
+            tri_colors = [[color] * len(surf["tris"]) for surf in surf_rows]
         else:
-            values = np.asarray([surf[value_column] for surf in surf_rows], dtype=float)
+            if universal_max:
+                values = np.asarray(net.surfs[value_column], dtype=float)
+            else:
+                values = np.asarray([surf[value_column] for surf in surf_rows], dtype=float)
 
-        values = values[np.isfinite(values)]
-        min_val, max_val = (
-            (0.0, 1.0)
-            if len(values) == 0
-            else (float(np.min(values)), float(np.max(values)))
-        )
-        if max_val == min_val:
-            max_val = min_val + 1.0
+            values = values[np.isfinite(values)]
+            min_val, max_val = (
+                (0.0, 1.0)
+                if len(values) == 0
+                else (float(np.min(values)), float(np.max(values)))
+            )
+            if max_val == min_val:
+                max_val = min_val + 1.0
 
-        for surf in surf_rows:
-            inverse = False
-            if concave_colors:
-                ref_ball = next(ball for ball in surf["balls"] if ball in ref_set)
-                non_ref_ball = next(ball for ball in surf["balls"] if ball not in ref_set)
-                inverse = net.balls.iloc[ref_ball]["rad"] <= net.balls.iloc[non_ref_ball]["rad"]
+            for surf in surf_rows:
+                inverse = False
+                if concave_colors:
+                    ref_ball = next(ball for ball in surf["balls"] if ball in ref_set)
+                    non_ref_ball = next(ball for ball in surf["balls"] if ball not in ref_set)
+                    inverse = net.balls.iloc[ref_ball]["rad"] <= net.balls.iloc[non_ref_ball]["rad"]
 
-            tri_colors.append(color_tris(
-                surf=surf,
-                color_map=cmap,
-                color_scheme=requested_scheme,
-                color_factor=net.settings["scheme_factor"],
-                max_val=max_val,
-                min_val=min_val,
-                inverse=inverse,
-            ))
+                tri_colors.append(color_tris(
+                    surf=surf,
+                    color_map=cmap,
+                    color_scheme=requested_scheme,
+                    color_factor=net.settings["scheme_factor"],
+                    max_val=max_val,
+                    min_val=min_val,
+                    inverse=inverse,
+                ))
     else:
         tri_colors = [[color] * len(surf["tris"]) for surf in surf_rows]
 

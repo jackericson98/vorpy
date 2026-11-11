@@ -2,29 +2,18 @@ include LICENSE
 include README.md
 include pyproject.toml
 include requirements.txt
-include build.bat
-include build.sh
 include CMakeLists.txt
 
 
 recursive-include vorpy *.cpp
-recursive-include vorpy *.cxx
-recursive-include vorpy *.cc
-recursive-include vorpy *.h
 recursive-include vorpy *.hpp
-recursive-include vorpy *.py
-recursive-include vorpy *.txt
-recursive-include vorpy *.md
-recursive-include vorpy *.toml
-recursive-include vorpy *.json
-recursive-include vorpy *.yaml
-recursive-include vorpy *.yml
-recursive-include vorpy *.pdb
-recursive-include vorpy *.cif
-recursive-include vorpy *.mol
-recursive-include vorpy *.gro
-recursive-include vorpy *.png
-recursive-include vorpy *.ico
+recursive-include vorpy/src/GUI/Images *.png *.ico
+recursive-include vorpy/workbench/assets *.png
+# Keep the redistributable example explicit.  Research structures and
+# trajectory collections must not enter an sdist through stale egg-info.
+recursive-exclude vorpy/data *.pdb
+recursive-exclude vorpy/data 2KAI_Frames *
+include vorpy/data/HO_cube.pdb
 
 recursive-exclude _skbuild *
 recursive-exclude build *
@@ -38,8 +27,15 @@ recursive-exclude * .gitignore
 recursive-exclude * .idea
 recursive-exclude * .vscode
 
-# Exclude analysis scripts that may have syntax issues
-recursive-exclude vorpy/src/analyze *
+# Research structures, trajectory frames, and generated verification datasets
+# are intentionally not part of the redistributable source/package payload.
+recursive-exclude vorpy/tests *
 
-# Exclude verification foam datasets
-recursive-exclude vorpy/data/VerificationFoams *
+# Exclude agent state and generated diagnostics from source distributions.
+prune .agent-reports
+prune .agents
+prune .pytest_cache
+prune .hypothesis
+prune .pytest-tmp-prism-release
+recursive-exclude * *.log
+recursive-exclude * *_verts.txt

@@ -223,6 +223,10 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
     stage_start = time.perf_counter()
     if sfunc is None:
         sfunc = calc_surf_func(np.array(locs[0]), rads[0], np.array(locs[1]), rads[1])
+        if timing is not None:
+            timing['analytic_bisector_calls'] = (
+                timing.get('analytic_bisector_calls', 0) + 1
+            )
     _record_timing(timing, 'surf_func', time.perf_counter() - stage_start)
 
     # Flatness check
@@ -301,6 +305,11 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
                 int_mean_curv, int_mean_curv_sq, int_gauss_curv,
                 curvature_area,
             ) = calc_surf_tri_curvs_both(sfunc, spoints, surf_tris)
+            if timing is not None:
+                timing['curvature_triangle_evaluations'] = (
+                    timing.get('curvature_triangle_evaluations', 0)
+                    + len(surf_tris)
+                )
             _record_timing(timing, 'combined_curvature', time.perf_counter() - stage_start)
         else:
             # Geometry-only/interface profiles still need the physical mesh,

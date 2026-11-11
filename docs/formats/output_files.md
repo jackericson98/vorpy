@@ -2,6 +2,10 @@
 
 VorPy can export atom logs, surface logs, edges, vertices, shells, surrounding atoms, PDB structures, system information, group information, interface information, and curvature-derived quantities.
 
+Current human-readable summary names are `system_info.txt` at the export root
+and `network_info.txt` inside each solved group/interface network directory.
+The Workbench also accepts historical `info.txt` files.
+
 Exports can be requested through presets or individual components.
 
 **TODO:** Add an authoritative file-by-file reference with filenames, schemas, units, and ownership level (system/group/interface).

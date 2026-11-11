@@ -45,8 +45,17 @@ def _build_index_maps(grp):
                     system_id = None
 
         if system_id is None:
-            # Backward-compatible full-system convention.
+            # Backward-compatible full-system convention.  A negative
+            # system_num is different: Network uses -1 to encode a virtual
+            # boundary whose generator_system_indices entry is None.
             system_id = topology_id
+
+        # System IDs are non-negative rows in grp.sys.balls.  In particular,
+        # do not leak Network's virtual-boundary -1 encoding into
+        # grp.layer_atoms, whose namespace is always the physical System.
+        if system_id < 0:
+            topology_to_row[topology_id] = row_pos
+            continue
 
         topology_to_row[topology_id] = row_pos
         topology_to_system[topology_id] = system_id
@@ -250,12 +259,12 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
                 outside_topology = ball1 if ball0_inside else ball0
                 outside_system = topology_to_system.get(outside_topology)
 
-                if outside_system is None:
-                    continue
-
                 if outside_topology not in next_topology_set:
                     next_topology_set.add(outside_topology)
                     next_topology_atoms.append(outside_topology)
+
+                if outside_system is None:
+                    continue
 
                 if outside_system not in next_system_set:
                     next_system_set.add(outside_system)

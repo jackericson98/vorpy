@@ -1,6 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 import weakref
+import io
 
 import pytest
 
@@ -9,6 +10,7 @@ from vorpy.src.inputs.frames import iter_pdb_frames
 from vorpy.src.inputs.pdb import read_pdb
 from vorpy.src.output.pdb import write_pdb
 from vorpy.src.network.network import Network
+from vorpy.src.system import System
 
 
 def atom(x):
@@ -72,6 +74,80 @@ def test_network_progress_identifies_frame():
     assert events[0]['network'] == 'trajectory - Frame 1/11'
 
 
+def test_system_progress_uses_network_label_not_object_repr():
+    system = System(simple=True, make_dir=False)
+    network = SimpleNamespace(group_name='full_system')
+
+    system.update_progress('Building interface', 25.0, network=network)
+
+    assert system.run_network == 'full_system'
+    assert '<vorpy.' not in str(system.run_network)
+
+
+def test_tty_progress_redraws_edge_and_vertex_updates_in_place(monkeypatch):
+    stream = io.StringIO()
+    stream.isatty = lambda: True
+    monkeypatch.setattr('sys.stdout', stream)
+    system = System(simple=True, make_dir=False)
+
+    system.update_progress('Edges: 1 / 2', 50.0, network='source')
+    system.update_progress('Vertices: 1 / 2', 50.0, network='source')
+
+    output = stream.getvalue()
+    assert '\n' not in output
+    assert output.count('\r') == 2
+    assert output.endswith('source - Vertices: 1 / 2 - 50%')
+
+
+def test_redirected_progress_does_not_emit_carriage_return_fragments(monkeypatch):
+    stream = io.StringIO()
+    stream.isatty = lambda: False
+    monkeypatch.setattr('sys.stdout', stream)
+    system = System(simple=True, make_dir=False)
+
+    for count in range(100):
+        system.update_progress(f'Edges: {count} / 100', count, network='source')
+
+    assert stream.getvalue() == ''
+
+
+def test_progress_payloads_use_stable_labels_and_errors_start_cleanly(monkeypatch):
+    stream = io.StringIO()
+    stream.isatty = lambda: True
+    monkeypatch.setattr('sys.stdout', stream)
+    system = System(simple=True, make_dir=False)
+
+    system.update_progress(object(), 25.0, network=SimpleNamespace(group_name='source'))
+    system.finish_progress_line()
+    print('progress failure', file=stream)
+
+    output = stream.getvalue()
+    assert '0x' not in output
+    assert output.split('\r')[-1] == 'progress failure\n'
+
+
+def test_standalone_redirected_progress_is_line_safe(monkeypatch):
+    stream = io.StringIO()
+    stream.isatty = lambda: False
+    monkeypatch.setattr('sys.stdout', stream)
+    net = SimpleNamespace(
+        sys=None,
+        progress_process_prefix=None,
+        progress_network_name='source',
+        group_name='source',
+        settings={'verbose': True},
+        metrics={'start': 0.0},
+        _progress_line_len=0,
+    )
+
+    for count in range(101):
+        Network.update_progress(net, 'Edges', count)
+
+    output = stream.getvalue()
+    assert '\r' not in output
+    assert output.count('\n') == 2
+
+
 @pytest.mark.parametrize('explicit', [True, False])
 def test_batch_uses_independent_systems_and_standard_exports(tmp_path, monkeypatch, capsys, explicit):
     source = tmp_path / 'trajectory.pdb'
@@ -96,8 +172,10 @@ def test_batch_uses_independent_systems_and_standard_exports(tmp_path, monkeypat
     Command().run()
     output = capsys.readouterr().out
     assert '2 frames found' in output
-    assert '1 frame loaded (frame 1 only)' in output
-    assert '1 frame loaded (frame 2 only)' in output
+    assert 'Processing frame 1:' in output
+    assert 'Processing frame 2:' in output
+    assert '1 frame loaded (frame 1 only)' not in output
+    assert '1 frame loaded (frame 2 only)' not in output
     assert [item[:2] for item in seen] == [(1., 'pow'), (2., 'pow')]
     for index, (_, _, directory) in enumerate(seen, 1):
         assert Path(directory) == tmp_path / 'results' / 'trajectory' / 'frames' / f'frame_{index:04d}'

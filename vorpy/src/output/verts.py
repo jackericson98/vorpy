@@ -13,7 +13,7 @@ from vorpy.src.output.curvature_colors import (
     export_component_row,
 )
 from vorpy.src.output.draw import DEFAULT_VERTEX_RADIUS, draw_joint
-from vorpy.src.output.mesh import combine_mesh_parts, write_mesh, write_prepared_mesh
+from vorpy.src.output.mesh import combine_mesh_parts, mesh_export_allowed, write_mesh, write_prepared_mesh
 
 
 def _resolve_color(color):
@@ -35,6 +35,8 @@ def prepare_verts(net, verts, color=None, vert_rad=DEFAULT_VERTEX_RADIUS,
     ``int_mean_curv`` intentionally leaves the normal fixed vertex color.
     """
     if verts is None or len(verts) == 0:
+        return None
+    if not mesh_export_allowed(net, "verts", verts):
         return None
 
     fixed_color = np.asarray(_resolve_color(color), dtype=float)

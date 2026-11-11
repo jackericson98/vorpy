@@ -7,6 +7,7 @@ from vorpy.src.inputs.frames import first_pdb_frame, is_pdb_virtual_site
 from vorpy.src.objects import make_atom
 from vorpy.src.objects import Residue
 from vorpy.src.objects import Chain, Sol
+from vorpy.src.objects.atom import get_element
 from vorpy.src.chemistry import residue_names
 from vorpy.src.chemistry import residue_atoms
 from vorpy.src.chemistry import my_masses
@@ -158,7 +159,8 @@ def _read_pdb_lines(sys, file, lines, report):
             if not element:
                 atom_name = name.strip().lstrip('0123456789')
                 if atom_name:
-                    element = atom_name[0]
+                    element = get_element(atom_name=atom_name)
+            element = element.strip().upper()
 
             # Assign the radius
             rad = None

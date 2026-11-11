@@ -199,8 +199,21 @@ def main():
     if args.archive_tables and not args.structure:
         parser.error('--archive-tables requires --structure')
     self_check()
-    network = load_archive_tables(args.archive_tables, args.structure) if args.archive_tables else load_network(args.network)
-    audit(network, args.seed_residue.strip().upper(), args.layers, args.output.resolve())
+    loader = None
+    try:
+        if args.archive_tables:
+            network = load_archive_tables(args.archive_tables, args.structure)
+        else:
+            from vorpy.src.command.vpy_cmnd import Command
+            if Command._is_canonical_checkpoint(args.network):
+                loader = Command()
+                network = loader._load_canonical_checkpoint(args.network)
+            else:
+                network = load_network(args.network)
+        audit(network, args.seed_residue.strip().upper(), args.layers, args.output.resolve())
+    finally:
+        if loader is not None:
+            loader._cleanup_checkpoint_source()
 
 
 if __name__ == '__main__':

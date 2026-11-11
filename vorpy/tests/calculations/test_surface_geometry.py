@@ -4,6 +4,7 @@ import pytest
 from vorpy.src.calculations import gaussian_curvature
 from vorpy.src.calculations import mean_curvature
 from vorpy.src.calculations import calc_surf_func
+from vorpy.src.calculations.curvature import calc_surf_tri_curvs_both
 
 from vorpy.src.calculations import PlaneSurfaceGeometry
 from vorpy.src.calculations import QuadraticSurfaceGeometry
@@ -53,6 +54,23 @@ def test_undefined_quadratic_normal_is_explicit_error():
     geometry = QuadraticSurfaceGeometry(np.zeros(14))
     with pytest.raises(ValueError, match="undefined"):
         geometry.normal([0, 0, 0])
+
+
+def test_undefined_quadratic_curvature_is_never_reported_as_flat():
+    """A singular implicit field has no curvature measurement to report."""
+    coefficients = np.zeros(14)
+    point = np.zeros(3)
+
+    with pytest.raises(ValueError, match="degenerate implicit gradient"):
+        mean_curvature(coefficients, point)
+    with pytest.raises(ValueError, match="degenerate implicit gradient"):
+        gaussian_curvature(coefficients, point)
+    with pytest.raises(ValueError, match="triangle 0"):
+        calc_surf_tri_curvs_both(
+            coefficients,
+            [point, np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])],
+            [(0, 1, 2)],
+        )
 
 
 def test_aw_clearance_difference_identifies_pairwise_boundary():
@@ -232,4 +250,4 @@ def test_sphere_integrated_mean_curvature_is_four_pi_r():
         rel=1e-13,
         abs=1e-13,
     )
-    
+

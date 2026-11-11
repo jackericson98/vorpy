@@ -224,6 +224,10 @@ def _user_summary(structure,prepared,result,interface_a,interface_b,facets,compo
     alpha_selected=[f for f in result.all_bicolor_facets
                     if f.regular_edge_filtration <= result.alpha + result.alpha_tolerance]
     beta_rejected=sum(f.condition_beta_status == "rejected_m_over_r" for f in alpha_selected)
+    curvature_status = getattr(result, "curvature_status", "NOT_CALCULATED")
+    curvature_complete = getattr(result, "total_curvature_certified", False)
+    edge_contribution_complete = getattr(result, "edge_contribution_complete", False)
+    curvature_value = lambda value, suffix="": "UNRESOLVED" if not curvature_complete else f"{value:.9g}{suffix}"
     return ("Power/Laguerre Interface Analysis\n"
         f"Input: {structure}\nGeometry: weighted Power/Laguerre diagram (regular complex)\n"
         f"Chemistry/radius model: Cazals/Chothia; R=r+probe; w=R^2\nProbe: {prepared.probe_radius:.3f} A; alpha: {result.alpha:g}; M: {result.condition_beta_m:g}\n"
@@ -236,11 +240,12 @@ def _user_summary(structure,prepared,result,interface_a,interface_b,facets,compo
         f"Finite polygon facets: {sum(row['area_A2'] is not None for row in facets)}; unresolved polygons: {sum(row['area_A2'] is None for row in facets)}\n"
         f"VIA={stats['VIA_A2']:.9g} A^2; mean/median area={_format_stat(stats['mean_A2'])}/{_format_stat(stats['median_A2'])} A^2\n\n"
         f"TOPOLOGY\nConnected components: {len(components)}; significant components (>=7.5% VIA): {sum(c['significant'] for c in components)}\n\n"
-        f"CURVATURE\nInterior edges: {len(result.included_edges)}; boundary edges: {boundary_edges}; total interior edge length L={totals['length']:.9g} A\n"
+        f"CURVATURE\nStatus: {curvature_status}; edge coverage complete: {edge_contribution_complete}\n"
+        f"Interior edges: {len(result.included_edges)}; boundary edges: {boundary_edges}; observed included edge length L={totals['length']:.9g} A\n"
         f"Positive/negative edges: {totals['positive_edges']}/{totals['negative_edges']}\n"
-        f"C_signed=sum(l beta)={totals['signed']:.9g} A rad; C_unsigned=sum(l |beta|)={totals['unsigned']:.9g} A rad\n"
-        f"s_H signed={totals['signed_mean_rad']:.9g} rad / {totals['signed_mean_deg']:.9g} deg; unsigned={totals['unsigned_mean_rad']:.9g} rad / {totals['unsigned_mean_deg']:.9g} deg\n"
-        f"Conventional H=(k1+k2)/2 edge measure C_H=C_signed/2={totals['signed']/2:.9g} A rad. C_signed is the raw Cazals turning-angle sum.\n")
+        f"C_signed=sum(l beta)={curvature_value(totals['signed'], ' A rad')}; C_unsigned=sum(l |beta|)={curvature_value(totals['unsigned'], ' A rad')}\n"
+        f"s_H signed={curvature_value(totals['signed_mean_rad'], ' rad')} / {curvature_value(totals['signed_mean_deg'], ' deg')}; unsigned={curvature_value(totals['unsigned_mean_rad'], ' rad')} / {curvature_value(totals['unsigned_mean_deg'], ' deg')}\n"
+        f"Conventional H=(k1+k2)/2 edge measure C_H=C_signed/2={curvature_value(totals['signed']/2, ' A rad')}. C_signed is the raw Cazals turning-angle sum.\n")
 
 
 def _format_stat(value):

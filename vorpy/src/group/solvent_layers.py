@@ -3,7 +3,7 @@ import math
 from pathlib import Path
 from types import SimpleNamespace
 
-from vorpy.src.boundary import WATER_RESIDUES
+from vorpy.src.boundary import WATER_RESIDUES, CellTarget
 from vorpy.src.group.group import Group
 from vorpy.src.group.layers import _build_index_maps
 from vorpy.src.output.layout import unique_output_directory
@@ -67,6 +67,7 @@ def build_solvent_layers(system, count, *, calculate_curvature=True):
     if not seed_atoms:
         raise ValueError('Water layers require a non-water solute selection.')
     settings = dict(groups[0].settings)
+    settings['cell_target'] = CellTarget.MOLECULAR.value
     directory = unique_output_directory(Path(system.files['dir']), 'solvent',
         [group.dir for group in groups if group.dir])
     directory.mkdir(parents=True)
@@ -74,7 +75,7 @@ def build_solvent_layers(system, count, *, calculate_curvature=True):
     settings['sys_dir'] = str(directory)
     visited = set(seed_atoms)
     frontier = set(seed_atoms)
-    networks = [group.net for group in groups]
+    networks = [group.net or group.source_network for group in groups]
     layers = []
     water_atoms = {i for i, atom in system.balls.iterrows()
                    if atom['res'].name.strip().upper() in WATER_RESIDUES}
@@ -103,7 +104,7 @@ def build_solvent_layers(system, count, *, calculate_curvature=True):
         # An empty cohort still has four explicit empty exports and a readable checkpoint.
         from copy import copy
         solvent.ball_ndxs = []
-        solvent.net = copy(groups[0].net)
+        solvent.net = copy(networks[0])
         solvent.net.group = []
     surfaces, edges, vertices = boundary_indices(solvent.net, seed_atoms, layers)
     solvent.solvent_layers = dict(atoms=layers, surfs=surfaces, edges=edges, verts=vertices,

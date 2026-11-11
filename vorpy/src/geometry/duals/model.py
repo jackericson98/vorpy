@@ -94,6 +94,46 @@ class DualComplex:
     def simplex_counts(self):
         return {dimension: len(rows) for dimension, rows in self.simplices.items()}
 
+    def record_explicit_group_membership(self, group_a, group_b):
+        """Cache A/B simplex membership from explicit generator groups.
+
+        This records incidence membership only; coordinates and other geometry
+        never participate in the classification.
+        """
+        group_a = frozenset(map(int, group_a))
+        group_b = frozenset(map(int, group_b))
+        if not group_a or not group_b or group_a & group_b:
+            raise ValueError("Dual group membership requires nonempty, disjoint groups")
+        valid = {generator["generator_id"] for generator in self.generators}
+        if not (group_a | group_b) <= valid:
+            raise ValueError("Dual group membership references an unknown generator")
+
+        simplex_ids = {"A": [], "B": [], "AB/contact": []}
+        unclassified = []
+        for rows in self.simplices.values():
+            for simplex in rows.values():
+                ids = frozenset(simplex.generator_ids)
+                if ids <= group_a:
+                    side = "A"
+                elif ids <= group_b:
+                    side = "B"
+                elif ids <= group_a | group_b and ids & group_a and ids & group_b:
+                    side = "AB/contact"
+                else:
+                    unclassified.append(simplex.simplex_id)
+                    continue
+                simplex_ids[side].append(simplex.simplex_id)
+
+        self.metadata["explicit_group_membership"] = {
+            "source": "interface group membership mapped to network-local generator IDs",
+            "generator_ids": {"A": sorted(group_a), "B": sorted(group_b)},
+            "simplex_ids": {
+                side: sorted(values) for side, values in simplex_ids.items()
+            },
+            "unclassified_simplex_ids": sorted(unclassified),
+        }
+        return self.metadata["explicit_group_membership"]
+
     def audit(self):
         feature_counts = Counter()
         feature_status = {}

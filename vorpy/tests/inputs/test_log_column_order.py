@@ -14,7 +14,7 @@ SECTIONS = {
         'Network Type': 'aw', 'Surface Resolution': .2, 'Box Size': 1.25,
         'Maximum Allowable Vertex': 5., 'Maximum Found Vertex': 2.,
         'Total Time': 10., 'Vertex Time': 1., 'Connect Time': 2.,
-        'Surface Building Time': 3., 'Analysis time': 4., 'vorPy version': '3.5.2',
+        'Surface Building Time': 3., 'Analysis time': 4., 'vorPy version': '3.5.3',
     },
     'group information': {
         'Name': 'sample', 'Volume': 20., 'Surface Area': 30., 'Mass': 12.,

@@ -223,13 +223,15 @@ def _curvature_for_selected_interface(interface, filtration, alpha, aw_options):
         smooth = (None if missing_surface_curvature else
                   sum(surface_curvature[sid] for sid in selected_ids))
         edge_by_id = {edge.edge_id: edge for edge in full.selected_edges
-                      if set(edge.surface_ids) <= selected_ids}
+                       if set(edge.surface_ids) <= selected_ids}
         signed = unsigned = positive = negative = 0.0
+        edge_complete = True
         for i, edge in enumerate(interface.edges):
             measured = edge_by_id.get(edge.feature_id)
             if edge.classification != "interior_selected":
                 continue
             if measured is None:
+                edge_complete = False
                 interface.edges[i] = _with_curvature_status(edge, "unresolved_curvature")
                 continue
             signed += measured.signed_contribution or 0.0
@@ -239,10 +241,14 @@ def _curvature_for_selected_interface(interface, filtration, alpha, aw_options):
             interface.edges[i] = _with_edge_measure(edge, measured.length,
                 measured.signed_contribution, measured.unsigned_contribution,
                 None)
+        if not edge_complete:
+            signed = unsigned = positive = negative = None
         summary = _summary(
             "aw", "alpha", area, smooth, signed, unsigned, positive, negative,
             "interface normal A-to-B; reversal flips signed smooth/edge/combined terms",
             "existing orientation-aware AW curvature analyzer; selected surface/edge records filtered by alpha pair mapping",
+            edge_contribution_complete=edge_complete,
+            total_curvature_certified=False,
         )
         if missing_surface_curvature:
             from dataclasses import replace
@@ -331,6 +337,7 @@ def _with_edge_measure(edge, length, signed, unsigned, beta):
         float(unsigned) if unsigned is not None else None,
         edge.dual_triangle_present_at_alpha, edge.dual_triangle_birth,
         edge.dual_triangle_status, "integrated",
+        None if signed is None else 0.5 * float(signed),
     )
 
 
@@ -354,6 +361,7 @@ def _with_curvature_status(edge, status):
         edge.signed_turn_or_beta, edge.signed_integral_A_rad,
         edge.unsigned_integral_A_rad, edge.dual_triangle_present_at_alpha,
         edge.dual_triangle_birth, edge.dual_triangle_status, status,
+        edge.signed_mean_curvature_A,
     )
 
 

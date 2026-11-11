@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, draw_joint, draw_line
-from vorpy.src.output.mesh import MeshData, combine_mesh_parts, write_mesh
+from vorpy.src.output.mesh import MeshData, combine_mesh_parts, mesh_export_allowed, write_mesh
 from vorpy.src.output.surfs import prepare_surfs
 
 _COLORS = {
@@ -461,25 +461,23 @@ def _write_interface_layers(network, interface, directory, prefix, coordinates, 
 def _surface_mesh(network, positions):
     if not positions:
         return None
-    # prepare_surfs is VorPy's shared physical-surface mesh builder. Give it a
-    # shallow network clone with a copied surface table so export-side color
-    # caches cannot mutate the solved network.
+    # prepare_surfs only reads the selected rows here. Avoid copying the full
+    # source surface table before the selected mesh has passed its size gate.
     import copy
     clone = copy.copy(network)
-    clone.surfs = network.surfs.copy(deep=True)
     # Visualization layers have a fixed layer color and must not derive or
     # require scientific curvature fields merely to copy solved triangles.
     clone._export_color_provider = lambda component, index, mode, count: np.tile((0.25, 0.75, 0.8), (count, 1))
     if hasattr(clone, '_export_surface_rows'):
         clone._export_surface_rows = {}
-    if "tri_colors" in clone.surfs.columns:
-        clone.surfs["tri_colors"] = [[] for _ in range(len(clone.surfs))]
     return prepare_surfs(clone, positions, color=(0.25, 0.75, 0.8),
-                         concave_colors=False, ref_surfs=[], universal_max=True,
+                         concave_colors=False, ref_surfs=[], universal_max=False,
                          color_scheme="none")
 
 
 def _physical_edge_mesh(network, positions, radius):
+    if not positions or not mesh_export_allowed(network, "edges", positions):
+        return None
     parts_points, parts_tris = [], []
     for index in positions:
         points = network.edges.iloc[index].get("points", ())

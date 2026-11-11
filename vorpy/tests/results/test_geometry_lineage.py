@@ -1,13 +1,21 @@
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
+from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
 from vorpy.src.results import (
     GeometryLineage,
     GeometryLineageOrigin,
     Provenance,
     Quantity,
+    ResultsDependency,
+    ResultIdentity,
+    SharedNetworkIdentity,
     Status,
+    adapt_cached_result,
+    adapt_group_view_analysis,
+    adapt_interface_analysis,
 )
 from vorpy.src.results.model import dictionary
 
@@ -53,6 +61,50 @@ def _lineage(origin, *, complete=True, exact=False, references=False):
     return GeometryLineage(**values)
 
 
+def _interface_identity():
+    return ResultIdentity(
+        result_kind="interface",
+        system="synthetic",
+        frame="static",
+        network_id="archive:network",
+        network_scope="system",
+        environment="dry",
+        partition="aw",
+        representation="voronoi",
+        radius_configuration_id="radii:synthetic",
+        interface_id="A_B",
+        group_A="A",
+        group_B="B",
+        side="shared",
+        orientation="group1 -> group2",
+        alpha_method="additive",
+        alpha_value=1.0,
+        alpha_units="A",
+        probe_radius=1.4,
+        probe_units="Å",
+    )
+
+
+def _cached_interface_analysis():
+    return InterfaceGeometryAnalysis(metadata={}, voronoi_side_1={})
+
+
+def _shared_identity():
+    return SharedNetworkIdentity(
+        source_network_id="producer:network",
+        source_identity_status="AUTHORITATIVE",
+        solve_universe_id="solve:context",
+        frame_id="static",
+        analysis_context_kind="GLOBAL_NETWORK",
+        geometry_scheme="aw",
+        partition_scheme="aw",
+        scope_mode="full",
+        solvent_mode="MOLECULE_ONLY",
+        solvent_cells_complete=False,
+        selection_id="view:group",
+    )
+
+
 @pytest.mark.parametrize(
     "origin, exact",
     [
@@ -65,6 +117,181 @@ def test_resolved_lineage_origins_are_valid(origin, exact):
     lineage = _lineage(origin, exact=exact)
     assert lineage.origin is origin
     assert lineage.solve_universe_id == "solve:aw:123"
+
+
+@pytest.mark.parametrize(
+    "lineage",
+    [
+        _lineage(GeometryLineageOrigin.DIRECT_SOLVE),
+        _lineage(GeometryLineageOrigin.MATERIALIZED_VIEW),
+        _lineage(GeometryLineageOrigin.EXACT_REUSE, exact=True),
+        GeometryLineage(
+            GeometryLineageOrigin.UNRESOLVED,
+            reason="producer did not preserve geometry provenance",
+        ),
+    ],
+)
+def test_typed_interface_adapter_preserves_producer_lineage(lineage):
+    result = adapt_interface_analysis(
+        _cached_interface_analysis(),
+        _interface_identity(),
+        geometry_lineage=lineage,
+    )
+
+    assert result.provenance.geometry_lineage == lineage
+    assert result.provenance.details["geometry_lineage"]["origin"] == (
+        lineage.origin.value
+    )
+
+
+def test_adapters_do_not_invent_lineage_and_merge_existing_details():
+    identity = _interface_identity()
+    result = adapt_interface_analysis(_cached_interface_analysis(), identity)
+    assert result.provenance.geometry_lineage is None
+
+    lineage = _lineage(GeometryLineageOrigin.DIRECT_SOLVE)
+    result = adapt_interface_analysis(
+        _cached_interface_analysis(),
+        identity,
+        provenance=Provenance("producer", details={"cache_key": "cache:1"}),
+        geometry_lineage=lineage,
+    )
+    assert result.provenance.details["cache_key"] == "cache:1"
+    assert result.provenance.geometry_lineage == lineage
+
+
+def test_cached_result_rejects_conflicting_producer_lineage():
+    identity = _interface_identity()
+    first = _lineage(GeometryLineageOrigin.DIRECT_SOLVE)
+    second = _lineage(GeometryLineageOrigin.MATERIALIZED_VIEW)
+
+    with pytest.raises(ValueError, match="Conflicting geometry lineage"):
+        adapt_cached_result(
+            identity,
+            provenance=Provenance(
+                "producer", details={"geometry_lineage": first}
+            ),
+            geometry_lineage=second,
+        )
+
+
+def test_unresolved_handoff_preserves_existing_archived_lineage():
+    existing = _lineage(GeometryLineageOrigin.MATERIALIZED_VIEW)
+    fallback = GeometryLineage(
+        GeometryLineageOrigin.UNRESOLVED,
+        reason="solver evidence unavailable after archive reload",
+    )
+
+    result = adapt_cached_result(
+        _interface_identity(),
+        provenance=Provenance(
+            "archive cache",
+            details={"geometry_lineage": existing, "cache_key": "archive:1"},
+        ),
+        status=Status.PARTIAL,
+        geometry_lineage=fallback,
+    )
+
+    assert result.provenance.geometry_lineage == existing
+    assert result.provenance.details["cache_key"] == "archive:1"
+    assert result.status is Status.PARTIAL
+
+
+def test_cached_adapter_preserves_identity_status_and_provenance_details():
+    identity = replace(
+        _interface_identity(),
+        source_network_id="producer:network",
+        source_identity_status="PROVISIONAL",
+    )
+    lineage = replace(
+        _lineage(GeometryLineageOrigin.EXACT_REUSE, exact=True),
+        source_network_id="producer:network",
+    )
+    provenance = Provenance(
+        "producer cache",
+        source_revision="producer-v2",
+        scientific_state_id="state:cached",
+        details={"cache_key": "cache:1"},
+        diagnostics=("producer diagnostic",),
+    )
+
+    result = adapt_cached_result(
+        identity,
+        provenance=provenance,
+        status=Status.UNRESOLVED,
+        geometry_lineage=lineage,
+    )
+
+    assert result.identity.network_id == "archive:network"
+    assert result.identity.source_network_id == "producer:network"
+    assert result.identity.source_identity_status == "PROVISIONAL"
+    assert result.status is Status.UNRESOLVED
+    assert result.provenance.details["cache_key"] == "cache:1"
+    assert result.provenance.source_revision == "producer-v2"
+    assert result.provenance.scientific_state_id == "state:cached"
+    assert result.provenance.diagnostics == ("producer diagnostic",)
+    assert result.provenance.geometry_lineage == lineage
+
+
+def test_adapter_rejects_unvalidated_producer_lineage():
+    with pytest.raises(ValueError, match="Resolved geometry lineage is incomplete"):
+        adapt_cached_result(
+            _interface_identity(),
+            provenance=Provenance("producer cache"),
+            geometry_lineage={"origin": "DIRECT_SOLVE"},
+        )
+
+
+def test_nexus_group_adapter_preserves_materialized_lineage():
+    identity = _shared_identity()
+    analysis = SimpleNamespace(
+        source_network_id=identity.source_network_id,
+        solve_universe_id=identity.solve_universe_id,
+        selection_id=identity.selection_id,
+        boundary_surface_ids=("surface:1",),
+        area=2.0,
+        volume=1.0,
+        complete=True,
+        boundary_dependent_area=0.0,
+        physical_interface_area=2.0,
+    )
+    dependency = ResultsDependency(
+        identity=identity,
+        source_id="view-cache:group",
+        source_revision="producer-v1",
+    )
+    lineage = _lineage(GeometryLineageOrigin.MATERIALIZED_VIEW)
+
+    result = adapt_group_view_analysis(
+        analysis,
+        identity,
+        dependency,
+        group_id="group-A",
+        system="synthetic",
+        radius_configuration_id="radii:synthetic",
+        source_solve_context=SimpleNamespace(
+            solve_universe_id=identity.solve_universe_id,
+            frame_id=identity.frame_id,
+            scheme=identity.geometry_scheme,
+            partition_scheme=identity.partition_scheme,
+            scope_mode=identity.scope_mode,
+        ),
+        source_solvent_provenance={
+            "solvent_mode": identity.solvent_mode,
+            "solvent_generator_digest": identity.solvent_generator_digest,
+            "solvent_cells_complete": identity.solvent_cells_complete,
+        },
+        source_retained_generator_provenance={
+            "policy": "explicit_system_indices",
+            "retained_system_indices": (),
+            "retained_generator_ids": (),
+            "retained_generator_digest": None,
+            "boundary_independent": True,
+        },
+        geometry_lineage=lineage,
+    )
+
+    assert result.provenance.geometry_lineage == lineage
 
 
 def test_resolved_lineage_accepts_immutable_metadata_references():

@@ -139,6 +139,11 @@ def restore_runtime_keys(iface):
     if analysis is None or getattr(iface, 'archive_cache_state', None) == 'STALE':
         iface._geometry_analysis_key = iface._geometry_source_key = None
         return
+    # A source-network view has no alpha/dual cache to rebind.  Its archived
+    # Results carry MATERIALIZED_VIEW lineage and must remain read-only.
+    if getattr(analysis, 'metadata', {}).get('source_geometry') == 'full_system_network_view':
+        iface._geometry_analysis_key = iface._geometry_source_key = None
+        return
     from vorpy.src.interface.geometry_analysis import geometry_cache_key
     curvature_requested = bool(analysis.metadata.get('curvature_requested', True))
     key = (*geometry_cache_key(iface, analysis.metadata.get('alpha_value', 0.)), curvature_requested)

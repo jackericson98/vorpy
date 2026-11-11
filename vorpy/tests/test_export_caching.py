@@ -1,3 +1,4 @@
+import json
 import importlib
 from types import SimpleNamespace
 
@@ -30,6 +31,30 @@ def test_every_export_preset_saves_network_archive(tmp_path, monkeypatch, preset
     assert saved == []
 
 
+@pytest.mark.parametrize('preset', ['small', 'medium', 'all'])
+def test_interface_log_presets_also_write_canonical_results_log(tmp_path, monkeypatch, preset):
+    output = importlib.import_module('vorpy.src.output.output')
+    written = []
+    monkeypatch.setattr(output, '_export_canonical_interface_log', lambda iface: written.append(iface))
+    monkeypatch.setattr(output, '_export_dual_geometry_without_launcher', lambda **kwargs: None)
+    monkeypatch.setattr(output, '_export_nonpolar_geometry', lambda **kwargs: None)
+
+    interface = SimpleNamespace(
+        name='A_B', dir=str(tmp_path / 'interface_A_B'),
+        net=SimpleNamespace(settings={'net_type': 'aw'}),
+        export=lambda **kwargs: None,
+    )
+    system = SimpleNamespace(
+        name='example', groups=[], ifaces=[interface], files={'dir': str(tmp_path)},
+        exports=lambda **kwargs: None, update_progress=lambda **kwargs: None,
+        _export_skip_archive=True,
+    )
+
+    output.export_preset(system, preset)
+
+    assert written == [interface]
+
+
 @pytest.mark.parametrize('commands, expected', [
     ([['large'], ['medium']], 1),
     ([['large'], ['no_archive']], 0),
@@ -52,6 +77,37 @@ def test_archive_cli_policy_and_deduplication(tmp_path, monkeypatch, commands, e
     assert len(saved) == expected
     assert not hasattr(system, '_export_skip_archive')
     assert not hasattr(system, '_export_archive_written')
+
+
+def test_explicit_archive_reuses_completed_automatic_archive(tmp_path, monkeypatch):
+    command_module = importlib.import_module('vorpy.src.command.vpy_cmnd')
+    io = importlib.import_module('vorpy.src.io')
+    automatic = tmp_path / 'automatic.vpy'
+    automatic.write_bytes(b'completed archive')
+    automatic_timing = automatic.with_name(automatic.name + '.timing.json')
+    automatic_timing.write_text(json.dumps({
+        'format': 'vorpy.archive_timing',
+        'manifest_version': 1,
+        'archive': automatic.name,
+        'timing': {'total': 0.01},
+    }), encoding='utf-8')
+    destination = tmp_path / 'explicit.vpy'
+    saved = []
+    monkeypatch.setattr(io, 'save_network', lambda *args: saved.append(args))
+    command = command_module.Command()
+    command.sys = SimpleNamespace(
+        frame_count=1,
+        files={'dir': str(tmp_path)},
+        _last_export_archive_path=str(automatic),
+    )
+    command.save_network_path = destination
+
+    command._save_archive()
+
+    assert saved == []
+    assert destination.read_bytes() == automatic.read_bytes()
+    manifest = json.loads(destination.with_name(destination.name + '.timing.json').read_text())
+    assert manifest['archive'] == destination.name
 
 
 def test_surface_parts_combine_without_retriangulation_and_refresh_cache(tmp_path):

@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from itertools import product
+import hashlib
+import json
 
 import numpy as np
 
@@ -19,6 +21,148 @@ class BoundaryMode(str, Enum):
     SES = "ses"
     SAS = "sas"
     PROBE = "probe"
+
+
+class SolventMode(str, Enum):
+    """Scientific generator-universe modes for molecular network solves."""
+
+    MOLECULE_ONLY = "MOLECULE_ONLY"
+    SOLVENT_CONTEXT = "SOLVENT_CONTEXT"
+    FULL_SOLVENT = "FULL_SOLVENT"
+
+
+class CellTarget(str, Enum):
+    """Generators whose cells are actually materialized by a network.
+
+    This is deliberately separate from :class:`SolventMode`: the latter
+    describes the geometric competitor universe, while this enum describes
+    the requested cell targets.
+    """
+
+    MOLECULAR = "MOLECULAR"
+    ALL = "ALL"
+
+
+def normalize_retained_system_indices(values, atom_count=None):
+    """Return a deterministic explicit allowlist of retained System rows."""
+    if values is None:
+        return ()
+    if isinstance(values, (str, bytes)):
+        raise ValueError("retained_system_indices must be an iterable of integers")
+    try:
+        values = tuple(values)
+    except TypeError as error:
+        raise ValueError(
+            "retained_system_indices must be an iterable of integers"
+        ) from error
+
+    normalized = set()
+    for value in values:
+        if isinstance(value, bool):
+            raise ValueError("retained_system_indices must contain integers")
+        try:
+            index = int(value)
+        except (TypeError, ValueError, OverflowError) as error:
+            raise ValueError(
+                "retained_system_indices must contain integers"
+            ) from error
+        if str(value).strip() not in {str(index), f"{index}.0"}:
+            try:
+                if float(value) != float(index):
+                    raise ValueError
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ValueError(
+                    "retained_system_indices must contain integers"
+                ) from error
+        if index < 0 or (atom_count is not None and index >= int(atom_count)):
+            if atom_count is None:
+                bound = "non-negative"
+            else:
+                bound = f"0..{int(atom_count) - 1}"
+            raise IndexError(
+                f"retained System index {index} is outside {bound}"
+            )
+        normalized.add(index)
+    return tuple(sorted(normalized))
+
+
+def normalize_solvent_mode(value=None) -> SolventMode:
+    """Normalize the explicit solvent context used by a geometry producer."""
+    if value is None:
+        return SolventMode.MOLECULE_ONLY
+    if isinstance(value, SolventMode):
+        return value
+    normalized = str(value).strip().upper().replace("-", "_")
+    try:
+        return SolventMode(normalized)
+    except ValueError as error:
+        raise ValueError(
+            "solvent_mode must be MOLECULE_ONLY, SOLVENT_CONTEXT, or FULL_SOLVENT"
+        ) from error
+
+
+def normalize_cell_target(value=None) -> CellTarget:
+    """Normalize the cell-target policy independently of solvent handling."""
+    if value is None:
+        return CellTarget.MOLECULAR
+    if isinstance(value, CellTarget):
+        return value
+    normalized = str(value).strip().upper().replace("-", "_")
+    aliases = {
+        "MOLECULAR_CELLS": CellTarget.MOLECULAR,
+        "ALL_CELLS": CellTarget.ALL,
+    }
+    try:
+        if normalized in aliases:
+            return aliases[normalized]
+        return CellTarget(normalized)
+    except ValueError as error:
+        raise ValueError(
+            "cell_target must be MOLECULAR or ALL"
+        ) from error
+
+
+def molecular_target_system_indices(system, active_system_indices=None):
+    """Return System rows whose cells belong to the molecular target.
+
+    Solvent and retained environment rows remain available to
+    ``prepare_network_geometry`` as competitors.  They are not promoted to
+    cell targets merely because they participate in that universe.
+    """
+    active = (
+        tuple(int(index) for index in active_system_indices)
+        if active_system_indices is not None
+        else tuple(range(len(getattr(system, "balls", ()))))
+    )
+    active_set = set(active)
+    residues = tuple(getattr(system, "residues", ()) or ())
+    selected = set()
+    for residue in residues:
+        selected.update(int(index) for index in (getattr(residue, "atoms", ()) or ()))
+    selected.intersection_update(active_set)
+
+    # Raw ball systems have no residue hierarchy.  Preserve their historical
+    # all-ball default, while molecular systems with an empty hierarchy fall
+    # back to non-solvent active rows.
+    if getattr(system, "type", None) == "balls":
+        return tuple(sorted(active_set))
+    if selected:
+        return tuple(sorted(selected))
+
+    balls = getattr(system, "balls", None)
+    if balls is None:
+        return tuple(sorted(active_set))
+    solvent_names = WATER_RESIDUES | ION_RESIDUES
+    non_solvent = []
+    for index in sorted(active_set):
+        try:
+            row = balls.iloc[index]
+            residue = str(row.get("res_name", "")).strip().upper()
+        except (AttributeError, IndexError, KeyError):
+            residue = ""
+        if residue not in solvent_names:
+            non_solvent.append(index)
+    return tuple(non_solvent or sorted(active_set))
 
 
 # Core loader and Workbench solvent names are merged here to keep detection
@@ -69,6 +213,42 @@ class BoundaryGenerator:
     is_boundary_generator: bool = True
 
 
+@dataclass(frozen=True)
+class NetworkGeometry:
+    """Immutable generator inputs and membership evidence for one solve."""
+
+    locations: tuple
+    radii: tuple
+    masses: tuple
+    system_indices: tuple
+    stable_ids: tuple
+    solvent_local_indices: tuple
+    solvent_generator_ids: tuple
+    retained_system_indices: tuple
+    retained_generator_ids: tuple
+    boundary_indices: tuple
+    boundary_generators: tuple
+    boundary_config: BoundaryConfig | None
+    solvent_mode: str
+    solvent_cells_complete: bool
+
+    @property
+    def solvent_generator_digest(self):
+        if not self.solvent_generator_ids:
+            return None
+        payload = json.dumps(
+            list(self.solvent_generator_ids),
+            ensure_ascii=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    @property
+    def participating_solvent_generator_digest(self):
+        """Compatibility alias for the canonical contract field."""
+        return self.solvent_generator_digest
+
+
 def has_explicit_solvent(atoms) -> bool:
     """Return whether physical atom records contain a recognized solvent/ion residue."""
     if atoms is None:
@@ -80,6 +260,19 @@ def has_explicit_solvent(atoms) -> bool:
     else:
         names = (getattr(atom, "residue_name", "") for atom in atoms)
     return any(str(name).strip().upper() in SOLVENT_RESIDUES for name in names)
+
+
+def has_explicit_water(atoms) -> bool:
+    """Return whether physical atom records contain explicit water molecules."""
+    if atoms is None:
+        return False
+    if hasattr(atoms, "columns"):
+        if "res_name" not in atoms.columns:
+            return False
+        names = atoms["res_name"].fillna("")
+    else:
+        names = (getattr(atom, "residue_name", "") for atom in atoms)
+    return any(str(name).strip().upper() in WATER_RESIDUES for name in names)
 
 
 def resolve_boundary(config: BoundaryConfig, solvent_present: bool) -> BoundaryConfig:
@@ -130,23 +323,161 @@ def virtual_shell(atoms, config: BoundaryConfig) -> tuple[BoundaryGenerator, ...
     return tuple(generators)
 
 
-def network_geometry(system):
-    """Return geometry arrays augmented by the selected boundary provider.
+def _row_value(row, name, default=None):
+    if hasattr(row, "get"):
+        return row.get(name, default)
+    return getattr(row, name, default)
 
-    Physical System tables are left untouched. The returned final indices are
-    artificial generators and are recorded on the resulting Network.
+
+def _stable_row_id(row, system_index):
+    for field in ("stable_id", "atom_stable_id", "generator_id"):
+        value = _row_value(row, field)
+        if value is not None and str(value) != "":
+            return str(value)
+    return f"system:{int(system_index)}"
+
+
+def _solvent_row(row):
+    return str(_row_value(row, "res_name", "")).strip().upper() in SOLVENT_RESIDUES
+
+
+def _system_solvent_present(system, atoms):
+    value = getattr(system, "has_explicit_solvent", None)
+    if callable(value):
+        return bool(value())
+    if value is not None:
+        return bool(value)
+    return has_explicit_solvent(atoms)
+
+
+def prepare_network_geometry(
+    system,
+    solvent_mode=None,
+    retained_system_indices=None,
+) -> NetworkGeometry:
+    """Prepare one immutable physical-generator universe for a Network.
+
+    ``System.balls`` is never filtered or rewritten.  The returned
+    ``system_indices`` retain the source row for every physical generator;
+    ``None`` identifies appended numerical boundary generators.
     """
     atoms = system.balls
+    if atoms is None:
+        raise ValueError("Cannot prepare network geometry without system balls")
+
+    requested_mode = solvent_mode
+    if requested_mode is None:
+        requested_mode = getattr(system, "solvent_mode", None)
+    # Direct legacy callers without a System mode retain the historical
+    # all-physical-generator universe; System instances explicitly default to
+    # MOLECULE_ONLY.
+    if requested_mode is None:
+        requested_mode = SolventMode.SOLVENT_CONTEXT
+    mode = normalize_solvent_mode(requested_mode)
+
+    rows = [atoms.iloc[index] if hasattr(atoms, "iloc") else atoms[index]
+            for index in range(len(atoms))]
+    requested_retained = (
+        getattr(system, "retained_system_indices", ())
+        if retained_system_indices is None
+        else retained_system_indices
+    )
+    retained_system_indices = normalize_retained_system_indices(
+        requested_retained,
+        atom_count=len(rows),
+    )
+    retained_system_set = set(retained_system_indices)
+    solvent_system_indices = tuple(
+        index for index, row in enumerate(rows) if _solvent_row(row)
+    )
+    solvent_system_set = set(solvent_system_indices)
+    if mode is SolventMode.MOLECULE_ONLY:
+        physical_indices = tuple(
+            index for index in range(len(rows))
+            if index not in solvent_system_set or index in retained_system_set
+        )
+    else:
+        physical_indices = tuple(range(len(rows)))
+
+    physical_rows = [rows[index] for index in physical_indices]
+    locs = [_row_value(row, "loc") for row in physical_rows]
+    radii = [_row_value(row, "rad") for row in physical_rows]
+    masses = [_row_value(row, "mass", 0.0) for row in physical_rows]
+    stable_ids = [
+        _stable_row_id(row, system_index)
+        for row, system_index in zip(physical_rows, physical_indices)
+    ]
+    solvent_local_indices = tuple(
+        local_index for local_index, system_index in enumerate(physical_indices)
+        if system_index in solvent_system_set
+        and system_index not in retained_system_set
+    )
+    solvent_generator_ids = tuple(
+        stable_ids[local_index] for local_index in solvent_local_indices
+    )
+    retained_generator_ids = tuple(
+        stable_ids[local_index]
+        for local_index, system_index in enumerate(physical_indices)
+        if system_index in retained_system_set
+    )
+
     config = getattr(system, "boundary_config", None)
-    if config is None:
-        return atoms["loc"], atoms["rad"], atoms["mass"], (), None
-    resolved = resolve_boundary(config, system.has_explicit_solvent)
-    generators = virtual_shell(atoms, resolved) if resolved.mode is BoundaryMode.SHELL else ()
-    system.boundary_config = resolved
-    system.boundary_mode = resolved.mode.value
-    system.boundary_generators = generators
-    locs = list(atoms["loc"]) + [item.position for item in generators]
-    radii = list(atoms["rad"]) + [item.radius for item in generators]
-    masses = list(atoms["mass"]) + [0.0] * len(generators)
-    indices = tuple(range(len(atoms), len(atoms) + len(generators)))
-    return locs, radii, masses, indices, resolved
+    resolved = None
+    generators = ()
+    if config is not None:
+        resolved = resolve_boundary(config, _system_solvent_present(system, atoms))
+        if resolved.mode is BoundaryMode.SHELL:
+            if hasattr(atoms, "iloc"):
+                selected_atoms = atoms.iloc[list(physical_indices)]
+            else:
+                selected_atoms = [rows[index] for index in physical_indices]
+            generators = virtual_shell(selected_atoms, resolved)
+        system.boundary_config = resolved
+        system.boundary_mode = resolved.mode.value
+        system.boundary_generators = generators
+
+    boundary_start = len(physical_indices)
+    boundary_indices = tuple(
+        range(boundary_start, boundary_start + len(generators))
+    )
+    locs.extend(item.position for item in generators)
+    radii.extend(item.radius for item in generators)
+    masses.extend(0.0 for _ in generators)
+    system_indices = physical_indices + (None,) * len(generators)
+    stable_ids.extend(
+        f"boundary:{index}" for index in range(len(generators))
+    )
+
+    return NetworkGeometry(
+        locations=tuple(locs),
+        radii=tuple(radii),
+        masses=tuple(masses),
+        system_indices=tuple(system_indices),
+        stable_ids=tuple(stable_ids),
+        solvent_local_indices=solvent_local_indices,
+        solvent_generator_ids=solvent_generator_ids,
+        retained_system_indices=retained_system_indices,
+        retained_generator_ids=retained_generator_ids,
+        boundary_indices=boundary_indices,
+        boundary_generators=tuple(generators),
+        boundary_config=resolved,
+        solvent_mode=mode.value,
+        solvent_cells_complete=(mode is SolventMode.FULL_SOLVENT),
+    )
+
+
+def network_geometry(system, solvent_mode=None):
+    """Return geometry arrays augmented by the selected boundary provider.
+
+    This compatibility wrapper keeps the historical five-value return shape;
+    new producers should use :func:`prepare_network_geometry` for membership
+    and solvent provenance.
+    """
+    geometry = prepare_network_geometry(system, solvent_mode=solvent_mode)
+    return (
+        list(geometry.locations),
+        list(geometry.radii),
+        list(geometry.masses),
+        geometry.boundary_indices,
+        geometry.boundary_config,
+    )

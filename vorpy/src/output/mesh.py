@@ -5,11 +5,61 @@ from pathlib import Path
 from typing import Dict, Iterable, Optional
 import xml.etree.ElementTree as ET
 from time import perf_counter
+import sys
 
 import numpy as np
 
 
 SUPPORTED_MESH_FORMATS = ("off", "ply", "vtp")
+DEFAULT_MESH_MEMORY_BUDGET = 512 * 1024 * 1024
+
+
+def mesh_export_allowed(net, component, indices, budget=None):
+    """Reject an oversized combined mesh before allocating NumPy arrays."""
+    if indices is None or len(indices) == 0:
+        return True
+    table = getattr(net, component, None)
+    if table is None:
+        return False
+
+    estimate = 0
+    if component == "surfs":
+        for index in indices:
+            row = table.iloc[int(index)]
+            estimate += 72 * len(row.get("points", ()))
+            estimate += 48 * len(row.get("tris", ()))
+    elif component == "edges":
+        endpoint_count = set()
+        for index in indices:
+            row = table.iloc[int(index)]
+            points = row.get("points", ())
+            estimate += 72 * 3 * len(points)
+            estimate += 48 * 6 * max(len(points) - 1, 0)
+            for point in (points[0], points[-1]) if len(points) else ():
+                endpoint_count.add(tuple(point))
+        estimate += len(endpoint_count) * (72 * 12 + 48 * 20)
+    elif component == "verts":
+        estimate = len(indices) * (72 * 12 + 48 * 20)
+    else:
+        raise ValueError(f"Unsupported mesh component: {component!r}")
+
+    limit = getattr(net, "export_memory_budget_bytes", DEFAULT_MESH_MEMORY_BUDGET)
+    if budget is not None:
+        limit = budget
+    if estimate <= int(limit):
+        return True
+
+    message = (
+        f"Skipping {component} mesh export: estimated {estimate / 1024**2:.1f} MiB "
+        f"exceeds the {int(limit) / 1024**2:.1f} MiB mesh budget."
+    )
+    print(message, file=sys.stderr, flush=True)
+    skips = getattr(net, "_export_mesh_skips", None)
+    if skips is None:
+        skips = []
+        net._export_mesh_skips = skips
+    skips.append({"component": component, "estimate_bytes": estimate, "budget_bytes": int(limit)})
+    return False
 
 
 def write_prepared_mesh(net, prepare, file_name, file_type, directory, chunk_size):
@@ -17,7 +67,17 @@ def write_prepared_mesh(net, prepare, file_name, file_type, directory, chunk_siz
     timing = getattr(net, '_export_mesh_timing', None)
     start = perf_counter()
     try:
-        mesh = prepare()
+        try:
+            mesh = prepare()
+        except MemoryError:
+            message = f"Skipping {file_name} mesh export after a memory allocation failure."
+            print(message, file=sys.stderr, flush=True)
+            skips = getattr(net, '_export_mesh_skips', None)
+            if skips is None:
+                skips = []
+                net._export_mesh_skips = skips
+            skips.append({"component": str(file_name), "reason": "MemoryError"})
+            return None
     finally:
         if timing is not None:
             timing['prepare'] += perf_counter() - start

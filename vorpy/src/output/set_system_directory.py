@@ -1,7 +1,17 @@
 import os
+from pathlib import Path
 
 
-def set_sys_dir(sys, dir_name=None):
+def default_output_root(sys):
+    """Return the configured project output root, independent of cwd."""
+    files = getattr(sys, 'files', None) or {}
+    project_root = files.get('vpy_dir')
+    if project_root is None:
+        project_root = Path(__file__).resolve().parents[3]
+    return Path(project_root).expanduser().resolve() / 'output'
+
+
+def set_sys_dir(sys, dir_name=None, *, fail_if_exists=False):
     """
     Creates and sets up an output directory for system data with automatic naming and collision handling.
     
@@ -17,14 +27,22 @@ def set_sys_dir(sys, dir_name=None):
     # Check to see if the system has a name
     if sys.name is None:
         return
-    # If no outer directory was specified use the directory outside the current one
+    # Resolve defaults from the configured project root, not the process cwd.
     if dir_name is None:
         if sys.files['dir'] is not None:
-            dir_name = sys.files['dir'] + '/' + sys.name
-        elif sys.files['vpy_dir'] is not None:
-            dir_name = sys.files['vpy_dir'] + "/output/" + sys.name
+            dir_name = str(Path(sys.files['dir']).expanduser() / sys.name)
         else:
-            dir_name = os.getcwd() + "/output/" + sys.name
+            dir_name = str(default_output_root(sys) / sys.name)
+    if fail_if_exists:
+        try:
+            os.makedirs(dir_name, exist_ok=False)
+        except FileExistsError as error:
+            raise FileExistsError(
+                f'Refusing to reuse existing output directory: {os.path.abspath(dir_name)}'
+            ) from error
+        sys.files['dir'] = dir_name
+        return
+
     # Catch for existing directories. Keep trying out directories until one doesn't exist
     i = 0
     while True:

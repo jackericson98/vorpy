@@ -72,6 +72,8 @@ from vorpy.src.boundary import (
 )
 from vorpy.workbench.ui.structure_browser import StructureBrowser
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
+from vorpy.src.io import load_session, save_session
+from vorpy.workbench.session import session_from_workbench, workbench_from_session
 from vorpy.workbench.ui.molecular_view import (
     ION_RESIDUES,
     WATER_RESIDUES,
@@ -126,6 +128,7 @@ class MainWindow(QMainWindow):
         self.project = Project()
         self.atomic_defaults: dict[str, dict[str, float]] = {}
         self.project_file: Path | None = None
+        self._scientific_session = None
         self._layout_restored = False
         self._project_dirty = False
         self._loading_project = False
@@ -642,7 +645,7 @@ class MainWindow(QMainWindow):
         self.empty_open_button.clicked.connect(self.open_structure)
         layout.addWidget(self.empty_open_button)
         self.load_example_button = QPushButton("Load example")
-        self.load_example_button.clicked.connect(lambda: self.load_path(DEFAULT_DATA_DIRECTORY / "EDTA.pdb"))
+        self.load_example_button.clicked.connect(lambda: self.load_path(DEFAULT_DATA_DIRECTORY / "HO_cube.pdb"))
         layout.addWidget(self.load_example_button)
         self.format_hint = QLabel("PDB structures · More formats available through the CLI")
         self.format_hint.setWordWrap(True)
@@ -1401,21 +1404,35 @@ class MainWindow(QMainWindow):
             self,
             "Open VorPy Workbench project",
             str(self.project_file.parent if self.project_file else Path.cwd()),
-            f"VorPy Workbench projects (*{PROJECT_SUFFIX});;JSON files (*.json)",
+            f"VorPy sessions (*.vpy);;VorPy Workbench projects (*{PROJECT_SUFFIX});;JSON files (*.json)",
         )
         if not filename or not self._confirm_discard_changes():
             return
         try:
             project_file = Path(filename).resolve()
-            project = load_project(project_file)
-            if project.structure is not None and not project.structure.source_path.exists():
-                raise ValueError(
-                    f"Structure file is missing: {project.structure.source_path}"
+            scientific_session = None
+            if project_file.suffix.lower() == ".vpy":
+                scientific_session = load_session(project_file)
+                project, restored_results, active_source, restored_states = workbench_from_session(
+                    scientific_session, project_file
                 )
+            else:
+                project = load_project(project_file)
+                restored_results = {}
+                active_source = None
+                restored_states = {}
+                if project.structure is None and project_file.name.endswith(PROJECT_SUFFIX):
+                    project_file = Path(
+                        str(project_file)[:-len(PROJECT_SUFFIX)] + ".vpy"
+                    )
+            if project.structure is not None and not project.structure.source_path.exists():
+                if scientific_session is None or not restored_results:
+                    raise ValueError(f"Structure file is missing: {project.structure.source_path}")
             self.atomic_defaults = validate_defaults(project.view_state.get("atomic_defaults",
                 {scope: {"radius": value} for scope, value in project.view_state.get("radius_overrides", {}).items()}))
             self.project = project
             self.project_file = project_file
+            self._scientific_session = scientific_session
             if project.backend_settings:
                 allowed = set(VorPySolveSettings.__dataclass_fields__)
                 settings = {key: value for key, value in project.backend_settings.items() if key in allowed}
@@ -1424,7 +1441,29 @@ class MainWindow(QMainWindow):
                 self.boundary_shell_spacing.setValue(self.backend.settings.shell_spacing)
                 self.boundary_shell_offset.setValue(self.backend.settings.shell_offset)
             self._loading_project = True
-            if project.structure is not None:
+            if scientific_session is not None:
+                self._loaded_results = dict(restored_results)
+                self._structure_states = dict(restored_states)
+                self._network_sizes_by_frame = dict(
+                    scientific_session.workbench.get("network_sizes_by_frame", {})
+                )
+                if active_source is not None:
+                    self.source = Path(active_source)
+                    self.current_result = self._loaded_results.get(self.source)
+                if self.current_result is not None:
+                    self._display_result(self.current_result, preserve_view=True)
+                if self.source in self._structure_states:
+                    self._restore_structure_state(self.source)
+                else:
+                    self._restore_project_groups()
+                self._interfaces = {
+                    interface.name: (interface.group_a, interface.group_b)
+                    for interface in project.interfaces
+                }
+                self._populate_loaded_structures()
+                self._refresh_groups_panel()
+                self._restore_view_state(project.view_state)
+            elif project.structure is not None:
                 self.load_path(project.structure.source_path)
                 if project.result_state is not None:
                     restored_result = result_from_json(project.result_state)
@@ -1474,7 +1513,19 @@ class MainWindow(QMainWindow):
             return self.save_project_as()
         try:
             self._sync_project_state()
-            save_project(self.project, self.project_file)
+            if self.project_file.suffix.lower() == ".vpy":
+                self._save_current_structure_state()
+                self._scientific_session = session_from_workbench(
+                    self.project,
+                    self._loaded_results,
+                    self.source,
+                    self._structure_states,
+                    self._trajectory_cache,
+                    self._network_sizes_by_frame,
+                )
+                save_session(self._scientific_session, self.project_file)
+            else:
+                save_project(self.project, self.project_file)
             self._set_project_dirty(False)
             self.statusBar().showMessage(f"Saved project to {self.project_file}")
             return True
@@ -1588,6 +1639,8 @@ class MainWindow(QMainWindow):
             "panel_sizes": self.upper_workspace.sizes(),
             "bottom_panel_sizes": self.right_workspace.sizes(),
             "bottom_pane_sizes": self.bottom_workspace.sizes(),
+            "camera_position": [list(position) for position in getattr(
+                self.viewer.plotter, "camera_position", ())],
         }
 
     def _restore_view_state(self, state: dict) -> None:
@@ -1674,6 +1727,9 @@ class MainWindow(QMainWindow):
         if self.current_result is not None:
             self._apply_defaults_to_result(self.current_result, mark_stale=True)
             self.viewer.display_result(self.current_result)
+        camera_position = state.get("camera_position")
+        if camera_position:
+            self.viewer.plotter.camera_position = camera_position
         self.viewer.set_depth_clipping_fraction(float(state.get("depth_clip_fraction", 0.0)))
 
     def _restore_project_groups(self) -> None:

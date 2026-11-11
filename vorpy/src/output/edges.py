@@ -17,7 +17,7 @@ from vorpy.src.output.draw import (
     draw_edge,
     draw_joint,
 )
-from vorpy.src.output.mesh import combine_mesh_parts, write_mesh, write_prepared_mesh
+from vorpy.src.output.mesh import combine_mesh_parts, mesh_export_allowed, write_mesh, write_prepared_mesh
 
 
 def _resolve_color(color):
@@ -46,6 +46,8 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
     other schemes retain the existing fixed edge color.
     """
     if edges is None or len(edges) == 0:
+        return None
+    if not mesh_export_allowed(net, "edges", edges):
         return None
     if endpoint_tolerance <= 0:
         raise ValueError("endpoint_tolerance must be positive")

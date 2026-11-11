@@ -7,9 +7,11 @@ triangulation diagonals are never treated as interface edges.
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Hashable, Iterable, Sequence
+
+import numpy as np
 
 
 @dataclass(frozen=True)
@@ -201,7 +203,7 @@ def integrated_mean_curvature(smooth_face_terms: Iterable[float],
     certified = (unresolved_faces == 0 and unresolved_internal_edges == 0
                  and math.isfinite(smooth) and math.isfinite(crease))
     return {"smooth_H": smooth, "internal_edge_H": crease,
-            "boundary_H": 0.0, "total_H": smooth + crease if certified else None,
+            "boundary_H": None, "total_H": smooth + crease if certified else None,
             "certified": certified, "unresolved_faces": unresolved_faces,
             "unresolved_internal_edges": unresolved_internal_edges}
 
@@ -294,13 +296,58 @@ def _network_face_cycle(network, surface_row):
     return tuple(cycle)
 
 
-def _aw_supported_gauss_bonnet(network, face_records, supported_surface_ids, group_a, *, order=32):
+def _aw_curved_surface_gaussian(network, surface_id, *, order=8):
+    from vorpy.src.calculations.curvature import (
+        integrate_quadratic_surface_gaussian_curvature,
+    )
+
+    surface = network.surfs.loc[surface_id]
+    generator_ids = tuple(int(value) for value in surface["balls"])
+    if len(generator_ids) != 2:
+        raise ValueError("AW smooth face requires exactly two generators.")
+    generator_ids = tuple(sorted(
+        generator_ids, key=lambda index: float(network.balls.loc[index, "rad"])
+    ))
+    locations = [np.asarray(network.balls.loc[index, "loc"], dtype=float)
+                 for index in generator_ids]
+    direction = locations[1] - locations[0]
+    direction_norm = float(np.linalg.norm(direction))
+    radii = [float(network.balls.loc[index, "rad"]) for index in generator_ids]
+    if not np.isfinite(direction_norm) or direction_norm <= 1e-12:
+        raise ValueError("AW smooth face generator direction is degenerate.")
+    if bool(surface.get("flat", False)) or abs(radii[1] - radii[0]) <= 1e-12:
+        return 0.0
+    return integrate_quadratic_surface_gaussian_curvature(
+        surface["func"], surface["points"], surface["tris"],
+        surface["loc"], direction/direction_norm, locations[0], order=order,
+    )
+
+
+def _aw_supported_gauss_bonnet(
+        network, face_records, supported_surface_ids, group_a, *, order=32,
+        smooth_order=4, smooth_face_method="curved"):
     """Reintegrate each supported (face, physical edge) incidence exactly once."""
+    from vorpy.src.analyze.aw_interface_curvature import _validated_edge_geometry
     from vorpy.src.calculations.edge_geometry import oriented_aw_face_edge_geodesic_curvature
     from vorpy.src.calculations.vertex_geometry import aw_vertex_face_angle
     from vorpy.src.network.edge_geometry_diagnostics import resolve_aw_network_edge
 
     selected = [(sid, pair, cycle) for sid, pair, cycle in face_records if sid in supported_surface_ids]
+    baseline_smooth_terms = {
+        int(sid): float(network.surfs.loc[sid, "int_gauss_curv"])
+        for sid, _, _ in selected
+    }
+    smooth_terms = {}; smooth_failures = set()
+    if smooth_face_method not in {"curved", "triangulated"}:
+        raise ValueError("Unsupported smooth-face Gaussian integration method.")
+    for sid, _, _ in selected:
+        try:
+            smooth_terms[sid] = (
+                _aw_curved_surface_gaussian(network, sid, order=smooth_order)
+                if smooth_face_method == "curved" else baseline_smooth_terms[sid]
+            )
+        except (KeyError, TypeError, ValueError, np.linalg.LinAlgError):
+            smooth_failures.add(sid)
     surface_edges = {sid: set(map(int, network.surfs.loc[sid, "edges"])) for sid, _, _ in selected}
     surface_vertices = {sid: set(map(int, network.surfs.loc[sid, "verts"])) for sid, _, _ in selected}
     edge_surfaces = defaultdict(set); vertex_surfaces = defaultdict(set)
@@ -313,6 +360,10 @@ def _aw_supported_gauss_bonnet(network, face_records, supported_surface_ids, gro
             resolved[eid] = resolve_aw_network_edge(network, eid)
         except Exception:
             edge_failures.add(eid)
+    for eid, edge in tuple(resolved.items()):
+        geometry = _validated_edge_geometry(network, edge)
+        if geometry is not edge.geometry:
+            resolved[eid] = replace(edge, geometry=geometry)
     incidence_terms = {}; face_failures = set()
     for sid, pair, _ in selected:
         a = next((i for i in pair if i in group_a), None)
@@ -336,6 +387,20 @@ def _aw_supported_gauss_bonnet(network, face_records, supported_surface_ids, gro
                         if len(edge_surfaces[eid]) == 1)
     edge_bad = {eid for eid, count in incidence_counts.items()
                 if count != len(edge_surfaces[eid]) or len(edge_surfaces[eid]) not in (1, 2)}
+    edge_diagnostics = []
+    for eid, surface_ids in sorted(edge_surfaces.items()):
+        terms = tuple(
+            {"surface_id": int(sid), "value": float(incidence_terms[(sid, eid)])}
+            for sid in sorted(surface_ids) if (sid, eid) in incidence_terms
+        )
+        edge_complete = len(terms) == len(surface_ids)
+        edge_diagnostics.append({
+            "edge_id": int(eid),
+            "surface_ids": tuple(sorted(map(int, surface_ids))),
+            "incidence_terms": terms,
+            "sum": sum(item["value"] for item in terms) if edge_complete else None,
+            "complete": edge_complete,
+        })
     angles_by_vertex = defaultdict(float); angle_failures = set()
     face_angles = defaultdict(list)
     for sid, pair, _ in selected:
@@ -356,32 +421,58 @@ def _aw_supported_gauss_bonnet(network, face_records, supported_surface_ids, gro
         vertex_terms[vid] = (math.pi-angle_sum) if vid in boundary_vertices else (2*math.pi-angle_sum)
     vertex_interior = sum(v for vid, v in vertex_terms.items() if vid not in boundary_vertices)
     vertex_boundary = sum(v for vid, v in vertex_terms.items() if vid in boundary_vertices)
-    smooth_k = sum(float(network.surfs.loc[sid, "int_gauss_curv"]) for sid, _, _ in selected)
+    smooth_k = (sum(smooth_terms.values()) if not smooth_failures else float("nan"))
     topo_cycles = [cycle for _, _, cycle in selected]
     topology = analyze_surface_topology(topo_cycles)
-    complete = (not face_failures and not edge_bad and not angle_failures and
+    local_complete = (not face_failures and not edge_bad and not angle_failures and
                 topology["boundary_is_manifold"] and topology["orientable"])
+    complete = local_complete and not smooth_failures
     gb = gauss_bonnet_accounting(smooth_K=smooth_k,
         face_boundary_geodesic=edge_interior+edge_boundary,
         vertex_corner_terms=vertex_interior+vertex_boundary,
         euler_characteristic=topology["euler_characteristic"], complete=complete)
+    global_complete = (
+        "complete" in network.balls.columns
+        and bool(network.balls["complete"].all())
+    )
+    gb["local_complete"] = local_complete
+    gb["global_complete"] = global_complete
+    gb["smooth_face_method"] = smooth_face_method
+    gb["smooth_quadrature_order"] = int(smooth_order)
+    gb["baseline_smooth_K"] = sum(baseline_smooth_terms.values())
+    gb["unresolved_smooth_faces"] = len(smooth_failures)
+    if smooth_face_method == "triangulated":
+        gb["certified"] = False
+        gb["status"] = "UNRESOLVED: triangulated smooth-face baseline"
+    if not global_complete:
+        gb["certified"] = False
+        gb["status"] = "UNRESOLVED: global cell completeness"
     face_diagnostics = []
     for sid, pair, _ in selected:
-        face_complete = (len(face_angles[sid]) == len(surface_vertices[sid]) and
+        face_complete = (sid not in smooth_failures and
+                         len(face_angles[sid]) == len(surface_vertices[sid]) and
                          all((sid, eid) in incidence_terms for eid in surface_edges[sid]))
-        lhs = (float(network.surfs.loc[sid, "int_gauss_curv"]) +
-               sum(incidence_terms[(sid, eid)] for eid in surface_edges[sid]) +
-               sum(math.pi-angle for angle in face_angles[sid])) if face_complete else None
+        face_smooth = smooth_terms.get(sid)
+        face_edge = (sum(incidence_terms[(sid, eid)] for eid in surface_edges[sid])
+                     if face_complete else None)
+        face_vertex = (sum(math.pi-angle for angle in face_angles[sid])
+                       if face_complete else None)
+        lhs = face_smooth + face_edge + face_vertex if face_complete else None
         face_diagnostics.append({"surface_id": sid, "pair": str(pair), "complete": face_complete,
+            "smooth_K": face_smooth if face_complete and sid not in smooth_failures else None,
+            "baseline_smooth_K": baseline_smooth_terms[sid],
+            "edge_geodesic_K": face_edge if face_complete else None,
+            "vertex_corner_K": face_vertex if face_complete else None,
             "face_GB_LHS": lhs, "face_GB_residual": lhs-2*math.pi if lhs is not None else None})
     return {"topology": topology, "smooth_K": smooth_k,
-        "face_diagnostics": face_diagnostics,
+        "face_diagnostics": face_diagnostics, "edge_diagnostics": edge_diagnostics,
         "internal_seam_face_geodesic_K": edge_interior,
         "free_boundary_face_geodesic_K": edge_boundary,
         "interior_vertex_defect_K": vertex_interior,
         "boundary_vertex_corner_K": vertex_boundary,
         "vertex_terms": vertex_terms, "unresolved_edges": len(edge_bad),
-        "unresolved_vertices": len(angle_failures), "unresolved_faces": len(face_failures),
+        "unresolved_vertices": len(angle_failures),
+        "unresolved_faces": len(face_failures) + len(smooth_failures),
         **gb}
 
 
@@ -515,7 +606,7 @@ def run_2kai_open_interface_audit(output_dir="output/2KAI_curvature_showcase/ope
         {"term": "smooth_face_H", "value": 0.0, "support": "exact: planar Power facets"},
         {"term": "internal_crease_raw_signed_beta_ds", "value": p_raw, "support": f"{len(p_internal)-p_unresolved}/{len(p_internal)} internal edges"},
         {"term": "internal_edge_H_half_raw", "value": .5*p_raw, "support": "existing validated Power edge beta; internal seams only"},
-        {"term": "free_boundary_H", "value": 0.0, "support": "not a mean-curvature term under H=(k1+k2)/2"},
+        {"term": "free_boundary_H", "value": None, "support": "not_supported: free-boundary conormal is not scalar H"},
         {"term": "total_H", "value": p_mean["total_H"], "support": "certified" if p_mean["certified"] else "UNRESOLVED"},
         {"term": "smooth_K", "value": 0.0, "support": "exact: planar Power facets"},
         {"term": "face_boundary_geodesic_K", "value": 0.0, "support": "straight polygon sides"},
@@ -551,7 +642,7 @@ def run_2kai_open_interface_audit(output_dir="output/2KAI_curvature_showcase/ope
         {"term": "smooth_face_H", "value": aw_smooth_mean, "support": f"{len(aw_surface_rows)-aw_missing_faces}/{len(aw_surface_rows)} surfaces"},
         {"term": "internal_crease_raw_signed_beta_ds", "value": aw_raw, "support": f"{len(aw_included_internal)}/{len(aw_internal)} internal edges"},
         {"term": "internal_edge_H_half_raw", "value": .5*aw_raw, "support": "existing validated AW edge integrals; internal seams only"},
-        {"term": "free_boundary_H", "value": 0.0, "support": "not a mean-curvature term under H=(k1+k2)/2"},
+        {"term": "free_boundary_H", "value": None, "support": "not_supported: free-boundary conormal is not scalar H"},
         {"term": "partial_H_sum", "value": aw_mean["smooth_H"]+aw_mean["internal_edge_H"], "support": "partial; not certified total"},
         {"term": "smooth_K", "value": aw_gb["smooth_K"], "support": f"{len(supported_cycles)}/{len(aw_face_records)} supported faces"},
         {"term": "internal_seam_face_geodesic_K", "value": aw_gb["internal_seam_face_geodesic_K"], "support": "reintegrated once per supported face-edge incidence"},

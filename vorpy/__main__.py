@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+_HELP_FLAGS = frozenset({'-h', '--help'})
+
 
 # Directory execution (python3 vorpy ...) puts the package directory on
 # sys.path; absolute imports need its parent to select the local checkout.
@@ -12,11 +14,17 @@ if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-def main() -> None:
+def main() -> int | None:
     if len(sys.argv) == 1:
         from vorpy.workbench.__main__ import main as gui_main
 
         raise SystemExit(gui_main())
+
+    if any(argument in _HELP_FLAGS for argument in sys.argv[1:]):
+        from vorpy.src.command.commands import print_help
+
+        print_help()
+        return 0
 
     from vorpy.src.command.vpy_cmnd import Command
 

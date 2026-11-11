@@ -123,8 +123,8 @@ def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path,
         directories = [output/'EDTA'] if mode == 'single' else sorted((output/'EDTA/frames').iterdir())
         assert len(directories) == (1 if mode == 'single' else 2)
         for index, directory in enumerate(directories, 1):
-            assert (directory/'EDTA.vpy').is_file()
-            assert (directory/'EDTA/pow_logs.csv').is_file()
+            assert (directory/'EDTA_checkpoint.vpy').is_file()
+            assert (directory/'groups/EDTA/pow_logs.csv').is_file()
             solvent = directory/'solvent'
             assert len(list(solvent.glob('*_logs.csv'))) == 1
             assert len(list(solvent.glob('layer_*.pdb'))) == 4
@@ -138,10 +138,12 @@ def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path,
             parsed = read_logs2(solvent/'pow_logs.csv', all_=False, balls=True)['atoms']
             if rows:
                 assert parsed['Solvent Layer'].tolist() == [int(row['Solvent Layer']) for row in rows]
-            archived = load_network(directory/'EDTA.vpy')
+            from vorpy.src.command.vpy_cmnd import Command
+            loader = Command()
+            archived = loader._load_canonical_checkpoint(directory/'EDTA_checkpoint.vpy')
             saved = next(group for group in archived.sys.groups if getattr(group, 'solvent_layers', None))
             membership = saved.solvent_layers['atoms']
-            assert f'Vertices - {len(archived.verts)} vertices' in (directory/'EDTA/pow_verts.txt').read_text().splitlines()[0]
+            assert f'Vertices - {len(archived.verts)} vertices' in (directory/'pow_verts.txt').read_text().splitlines()[0]
             assert f'Vertices - {len(saved.net.verts)} vertices' in (solvent/'pow_verts.txt').read_text().splitlines()[0]
             complete_count = complete_layer_count(saved)
             if complete_count < 4:
@@ -162,16 +164,18 @@ def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path,
             expected = checkpoint if mode == 'single' else checkpoint.with_name(f'{checkpoint.stem}_frame_{index:04d}.vpy')
             assert expected.is_file()
 
-            from vorpy.src.io.network_archive import _validate_context, ArchiveError
+            from vorpy.src.io.network_archive import _validate_context, ArchiveError, GROUP_LAYER_ATOMS_CONTRACT
+            metadata = {'producer_contracts': {'group.layer_atoms': GROUP_LAYER_ATOMS_CONTRACT}}
             membership[0].append(len(archived.sys.balls))
             with pytest.raises(ArchiveError, match='solvent.atoms'):
-                _validate_context([saved], [{'kind': 'group'}])
+                _validate_context([saved], [{'kind': 'group'}], metadata)
             membership[0].pop()
             original = saved.solvent_layers['surfs'][0]
             saved.solvent_layers['surfs'][0] = None
             with pytest.raises(ArchiveError, match='ID lists'):
-                _validate_context([saved], [{'kind': 'group'}])
+                _validate_context([saved], [{'kind': 'group'}], metadata)
             saved.solvent_layers['surfs'][0] = original
+            loader._cleanup_checkpoint_source()
 
     # A checkpoint retains layer membership and can export it without solving again.
     from vorpy.src.command.vpy_cmnd import Command
