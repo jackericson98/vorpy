@@ -165,6 +165,7 @@ ATOM_CONVERTERS = {
     "Isometric Quotient": _to_float,
     "Inner Ball?": sort_bool,
     "Number of Neighbors": _to_int,
+    "Solvent Layer": _to_int,
     "Closest Neighbor": _to_int,
     "Closest Neighbor Distance": _to_float,
     "Layer Distance Average": parse_string_lists,

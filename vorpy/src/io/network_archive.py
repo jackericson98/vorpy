@@ -787,6 +787,27 @@ def _validate_context(objects, records):
                 for values in getattr(obj, key, None) or []:
                     valid = set(range(len(obj.sys.balls))) if table_name is None else set(obj.net.balls['num']) if table_name == 'balls' else set(range(len(getattr(obj.net, table_name))))
                     _ids(values, valid, f'group.{key}')
+            layers = getattr(obj, 'solvent_layers', None)
+            if layers is not None:
+                keys = {'atoms', 'surfs', 'edges', 'verts', 'seed_atoms'}
+                if not isinstance(layers, dict) or set(layers) != keys or obj.net is None:
+                    raise ArchiveError('Invalid solvent layer metadata')
+                if any(not isinstance(layers[key], (list, tuple)) for key in keys):
+                    raise ArchiveError('Invalid solvent layer lists')
+                count = len(layers['atoms'])
+                if not count or any(len(layers[key]) != count for key in keys - {'seed_atoms'}):
+                    raise ArchiveError('Inconsistent solvent layer counts')
+                if any(not isinstance(values, (list, tuple)) for key in keys - {'seed_atoms'} for values in layers[key]):
+                    raise ArchiveError('Invalid solvent layer ID lists')
+                valid_atoms = set(range(len(obj.sys.balls)))
+                _ids(layers['seed_atoms'], valid_atoms, 'solvent.seed_atoms')
+                for key in keys - {'seed_atoms'}:
+                    valid = valid_atoms if key == 'atoms' else set(range(len(getattr(obj.net, key))))
+                    for values in layers[key]:
+                        _ids(values, valid, 'solvent.' + key)
+                atoms = [atom for values in layers['atoms'] for atom in values]
+                if len(atoms) != len(set(atoms)) or set(atoms) != set(obj.ball_ndxs) or set(atoms).intersection(layers['seed_atoms']):
+                    raise ArchiveError('Solvent layers must be disjoint and match the solvent selection')
         elif kind == 'interface':
             if not isinstance(obj.group1, classes['group']) or not isinstance(obj.group2, classes['group']):
                 raise ArchiveError('Invalid interface group reference')

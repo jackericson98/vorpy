@@ -275,7 +275,11 @@ Options:
     Note: Use 'and' to combine components within the same group. Use multiple -g flags for multiple groups.
 
   -c <calculation_type>
-    Identify additional calculations like interfaces between groups (iface, ifc, i) or calculating vertices up to specified layers (layers)
+    Targets: system (s), groups (g), interfaces (i), chain (c <selector>),
+    or water layers (l, layer, layers <positive count>), e.g. -c l 4.
+    Layer 1 shares a Voronoi face with the selected solute; later layers follow
+    water-water faces. Whole water molecules are retained; ions are excluded.
+    Layer outputs are in solvent/ beside the ordinary group outputs.
 
   --all-frames
     Process every frame in a PDB trajectory sequentially without prompting.

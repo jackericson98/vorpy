@@ -126,6 +126,12 @@ def run_parallel_frames(parent, workers, total_frames=None):
                     frame_file.parent.rmdir()
                     if error is None:
                         print(f'Frame {ordinal}/{total_frames} complete: {directory}', flush=True)
+                        log_path = directory / 'run.log'
+                        if log_path.is_file():
+                            with log_path.open(encoding='utf-8') as stream:
+                                for line in stream:
+                                    if line.startswith('Warning: ') and 'will not be included in logs.' in line:
+                                        print(f'Frame {ordinal}/{total_frames}: {line.strip()}', flush=True)
                     else:
                         failures.append((ordinal, error))
                         print(f'Frame {ordinal}/{total_frames} FAILED: {error}\n'

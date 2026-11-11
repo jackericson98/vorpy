@@ -566,11 +566,11 @@ def ggroup(my_sys, group_commands, settings=None, make_net=True):
             ]
         return
     # First check if there are specific names without identifiers, no sol, full
-    if group_commands[0][0] in noSOL_objs:
+    if group_commands[0] and group_commands[0][0][0].lower() in noSOL_objs:
         my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings,
                                make_net=make_net)]
         return
-    if group_commands[0][0] in full_objs:
+    if group_commands[0] and group_commands[0][0][0].lower() in full_objs:
         # Group atom membership always uses zero-based SYSTEM row indices.
         # ``balls['num']`` may contain PDB serial numbers and is metadata only.
         my_sys.groups = [

@@ -61,6 +61,21 @@ def write_logs(group, net_name=None, round_to=None):
         round_to (int, optional): Number of decimal places to round numerical values to. Defaults to 3.
     """
 
+    layer_data = getattr(group, 'solvent_layers', None)
+    if layer_data:
+        from copy import copy
+        from vorpy.src.group.solvent_layers import complete_layer_count
+        logged_layers = layer_data['atoms'][:complete_layer_count(group)]
+        # Recompute log totals for the retained selection without changing the saved/exported group.
+        group = copy(group)
+        group.ball_ndxs = [atom for atoms in logged_layers for atom in atoms]
+        group.layer_surfs = None
+        group._export_info_ready = False
+        group._export_topology_indices = None
+        if not group.ball_ndxs:
+            group.com = group.vdw_com = [0., 0., 0.]
+            group.moi = group.spatial_moment = [[0., 0., 0.] for _ in range(3)]
+
     if round_to is None:
         round_to = group.sys.round_to
 
@@ -193,7 +208,7 @@ def write_logs(group, net_name=None, round_to=None):
         # ==============================================================
 
         lg_fl.writerow(["Atoms"])
-        lg_fl.writerow(["Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass", "X", "Y", "Z", "Radius",
+        atom_headers = ["Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass", "X", "Y", "Z", "Radius",
                         "Volume", "Van Der Waals Volume", "Surface Area", "Complete Cell?", "Maximum Mean Curvature",
                         "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
                         "Average Gaussian Surface Curvature", "Integrated Mean Curvature",
@@ -206,7 +221,15 @@ def write_logs(group, net_name=None, round_to=None):
                         "Integrated Mean Curvature (Face)", "Integrated Mean Curvature (Edge)",
                         "Integrated Mean Curvature (Total)", "Integrated Gaussian Curvature (Face)",
                         "Integrated Gaussian Curvature (Edge)", "Integrated Gaussian Curvature (Vertex)",
-                        "Integrated Gaussian Curvature (Total)"])
+                        "Integrated Gaussian Curvature (Total)"]
+
+        membership = ({atom: layer for layer, atoms in enumerate(logged_layers, 1)
+                       for atom in atoms} if layer_data else None)
+        selected_topology = ({int(row.num) for system_id, row in zip(sys_nums, net.balls.itertuples())
+                              if system_id in membership} if membership is not None else None)
+        if membership is not None:
+            atom_headers.append('Solvent Layer')
+        lg_fl.writerow(atom_headers)
 
         atom_rows = net.balls.itertuples(index=True, name='AtomRow')
 
@@ -216,10 +239,20 @@ def write_logs(group, net_name=None, round_to=None):
                 continue
             sys_ball = sys_balls[i]
 
-            if atom.sa == 0:
-                continue
-
-            if not atom.complete:
+            system_index = sys_nums[net.balls.index.get_loc(i)]
+            if membership is not None:
+                if system_index not in membership:
+                    continue
+                if not atom.complete or atom.sa == 0:
+                    # Keep incomplete water identities/flags; unavailable cell metrics stay blank.
+                    record = dict(zip(['Index', 'Name', 'Residue', 'Residue Sequence', 'Chain',
+                                       'Mass', 'X', 'Y', 'Z', 'Radius'],
+                        [i, sys_ball['name'], sys_ball['res_name'], sys_ball['res_seq'],
+                         sys_ball['chain_name'], sys_ball['mass'], *atom.loc, atom.rad]))
+                    record.update({'Complete Cell?': False, 'Solvent Layer': membership[system_index]})
+                    lg_fl.writerow([record.get(header, '') for header in atom_headers])
+                    continue
+            elif atom.sa == 0 or not atom.complete:
                 continue
 
             atom_num = atom.num
@@ -229,7 +262,7 @@ def write_logs(group, net_name=None, round_to=None):
                 balls = surf_balls[surf_ndx]
                 nbrs.append(balls[0] if balls[0] != atom_num else balls[1])
 
-            lg_fl.writerow([
+            atom_values = [
                 i,
                 sys_ball['name'],
                 sys_ball['res_name'],
@@ -280,7 +313,11 @@ def write_logs(group, net_name=None, round_to=None):
                 r(getattr(atom, "int_gauss_curv_edge", 0.0)),
                 r(getattr(atom, "int_gauss_curv_vertex", 0.0)),
                 r(getattr(atom, "int_gauss_curv_total", atom.int_gauss_curv))
-            ])
+            ]
+
+            if membership is not None:
+                atom_values.append(membership[system_index])
+            lg_fl.writerow(atom_values)
 
         # ==============================================================
         # Surfaces
@@ -296,6 +333,8 @@ def write_logs(group, net_name=None, round_to=None):
 
         for surf in net.surfs.itertuples(index=True, name='SurfRow'):
             ball1, ball2 = surf.balls
+            if selected_topology is not None and not selected_topology.intersection(surf.balls):
+                continue
             vols = surf.vols
 
             lg_fl.writerow([surf.Index, ball1, ball2, r(surf.sa), r(surf.mean_curv), r(surf.avg_mean_curv),
@@ -313,6 +352,8 @@ def write_logs(group, net_name=None, round_to=None):
 
         for edge in net.edges.itertuples(index=True, name='EdgeRow'):
             balls = edge.balls
+            if selected_topology is not None and not selected_topology.intersection(balls):
+                continue
 
             lg_fl.writerow([
                 edge.Index,
@@ -339,6 +380,8 @@ def write_logs(group, net_name=None, round_to=None):
 
         for vert in net.verts.itertuples(index=True, name='VertRow'):
             balls = vert.balls
+            if selected_topology is not None and not selected_topology.intersection(balls):
+                continue
             loc = r(vert.loc)
 
             lg_fl.writerow([

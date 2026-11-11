@@ -33,7 +33,7 @@ FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
                  'visualize_dual_requested', 'visualize_alpha_value',
                  'execution_profile', 'calculation_plan',
                  '_build_group_networks', '_full_system_separate',
-                 '_planned_interface_operands')
+                 '_planned_interface_operands', 'save_network_path')
 
 EXECUTION_PROFILES = frozenset({'geometry', 'interface', 'analysis', 'full'})
 
@@ -432,7 +432,6 @@ class Command:
         if total_frames is None:
             total_frames = count_pdb_frames(self.base_file)
         print(f'{Path(self.base_file).name}: {total_frames} frames found; processing all frames sequentially.')
-        option_names = (*FRAME_OPTIONS, 'save_network_path')
         with closing(iter_pdb_frames(self.base_file)) as frames:
             for ordinal, frame_file in frames:
                 frame_input = frame_file
@@ -666,6 +665,10 @@ class Command:
 
         # Create the requested groups
         self.create_groups()
+
+        layer_count = self.calculation_plan.solvent_layers if self.calculation_plan else 0
+        if layer_count and (self.interface_mode or isinstance((self.settings_dict or {}).get('net_type'), list)):
+            raise ValueError('Solvent layers require a single-scheme group calculation.')
         self._build_full_system_target()
 
         comparison_mode = (
@@ -771,6 +774,11 @@ class Command:
         if self._full_system_group is not None and self._full_system_group not in self.sys.groups:
             self.sys.groups.append(self._full_system_group)
 
+        if layer_count:
+            from vorpy.src.group.solvent_layers import build_solvent_layers
+            build_solvent_layers(self.sys, layer_count,
+                                 calculate_curvature=self.sys._network_calculate_curvature)
+
         # Run optional read-only diagnostics after construction and before
         # export so the report describes the completed in-memory networks.
         if self.diagnose_edges:
@@ -815,6 +823,8 @@ class Command:
         self.sys._loaded_from_archive = True
         self.sys.set_output_directory(self.sys.files['dir'])
         self.parse_commands()
+        if self.calculation_plan and self.calculation_plan.solvent_layers:
+            raise ValueError('Layer calculation requires a structure input. Export saved layers from a checkpoint with -e large.')
         self.sys._compact_interface_workflow = any(
             command and str(command[0]).strip().lower() == 'visualize'
             for command in self.exports

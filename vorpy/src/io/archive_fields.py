@@ -9,6 +9,9 @@ GROUP_FIELDS = ('name', 'group_id', 'ball_ndxs', 'settings', 'interface_metadata
 
 INTERFACE_FIELDS = ('group1_name', 'interface_id', 'settings', 'name', 'group1_indices', 'group2_indices', 'water_geometries', 'water_topology', 'group2_name')
 
+# Optional primitive membership/export indices; absent in older checkpoints.
+GROUP_FIELDS += ('solvent_layers',)
+
 NETWORK_FIELDS = ('group', 'iface_grps', 'group_name', 'settings', 'metrics', 'box',
     'network_mode', 'loaded_from_logs', 'completion_kind', 'vert_timing',
     'surface_timing', 'build_surf_timing', 'analysis_timing', 'max_curv', 'interface_vertex_state',

@@ -331,7 +331,7 @@ def export_preset(sys, preset):
                        iface.net.settings.get('net_type', 'aw') == 'aw'] if preset in {'large', 'all'} else []
     archive_enabled = (not getattr(sys, '_export_skip_archive', False)
                        and not getattr(sys, '_export_archive_written', False))
-    total = (len(system_plan) + len(group_plan) * len(groups)
+    total = (len(system_plan) + sum(1 if getattr(group, 'solvent_layers', None) else len(group_plan) for group in groups)
              + len(interface_plan) * len(ifaces) + len(canonical_interface_logs)
              + analysis_count + len(dual_interfaces) + int(archive_enabled))
     progress = ExportProgress(total, sys)
@@ -341,8 +341,12 @@ def export_preset(sys, preset):
     for group in groups:
         _set_group_directory(sys, group)
         with _group_export_cache(group):
-            for name, kwargs in group_plan:
-                _run_export(progress, f'{group.name}: {name}', group.exports, **kwargs)
+            if getattr(group, 'solvent_layers', None):
+                from vorpy.src.output.solvent import export_solvent_layers
+                _run_export(progress, 'solvent layers', export_solvent_layers, group=group, plan=group_plan)
+            else:
+                for name, kwargs in group_plan:
+                    _run_export(progress, f'{group.name}: {name}', group.exports, **kwargs)
         # The vertex log is a network-level artifact. Move it once after the
         # group's export plan, rather than checking it from every individual
         # export stage.
@@ -504,5 +508,10 @@ def other_exports(sys, usr_npt):
     progress = ExportProgress(len(groups), sys)
     for group in groups:
         _set_group_directory(sys, group)
-        _run_export(progress, f'{group.name}: {option}', group.exports, **kwargs)
+        if getattr(group, 'solvent_layers', None):
+            from vorpy.src.output.solvent import export_solvent_layers
+            _run_export(progress, f'{group.name}: {option}', export_solvent_layers,
+                        group=group, plan=[(option, kwargs)])
+        else:
+            _run_export(progress, f'{group.name}: {option}', group.exports, **kwargs)
     progress.finish()

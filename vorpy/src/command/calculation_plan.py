@@ -22,6 +22,7 @@ _TARGET_ALIASES = {
     'interfaces': 'interfaces',
     'c': 'chain',
     'chain': 'chain',
+    'l': 'layers', 'layer': 'layers', 'layers': 'layers',
 }
 
 # These are exact tokens.  In particular, ``-5`` is deliberately not a
@@ -179,6 +180,11 @@ class CalculationPlan:
     blocks: tuple[CommandBlock, ...] = ()
 
     @property
+    def solvent_layers(self):
+        return max((int(request.selector[0]) for request in self.calculation_requests
+                    if request.target == 'layers'), default=0)
+
+    @property
     def interface_only(self):
         """Whether all group definitions are interface operands only."""
         return bool(self.interface_requests) and not (
@@ -277,7 +283,16 @@ def _target_requests(args):
         if canonical is None:
             raise ValueError(f'Unknown calculation target: {tokens[index]}')
         index += 1
-        if canonical == 'chain':
+        if canonical == 'layers':
+            try:
+                count = int(tokens[index])
+            except (IndexError, ValueError):
+                raise ValueError('Calculation target layers requires a positive integer count.') from None
+            if count < 1:
+                raise ValueError('Calculation target layers requires a positive integer count.')
+            index += 1
+            requests.append(CalculationRequest('layers', (str(count),)))
+        elif canonical == 'chain':
             if index >= len(tokens):
                 raise ValueError('Calculation target c/chain requires a selector.')
             selector = ('c', tokens[index])
