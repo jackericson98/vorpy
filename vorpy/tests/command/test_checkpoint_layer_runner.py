@@ -27,6 +27,21 @@ def test_manifest_orders_by_size_and_rejects_colliding_outputs(tmp_path):
         runner.load_jobs(manifest, tmp_path)
 
 
+@pytest.mark.parametrize('small_first, expected', [
+    (0, [6, 5, 4, 3, 2, 1]), (2, [1, 2, 6, 5, 4, 3]),
+    (4, [1, 2, 3, 4, 6, 5]), (20, [1, 2, 3, 4, 5, 6])])
+def test_small_checkpoints_start_first_without_losing_largest_job_priority(tmp_path, small_first, expected):
+    manifest = tmp_path / 'jobs.csv'
+    rows = ['checkpoint,output']
+    for size in range(1, 7):
+        (tmp_path / f'{size}.vpy').write_bytes(b'x' * size)
+        rows.append(f'{size}.vpy,out/{size}')
+    manifest.write_text('\n'.join(rows))
+    jobs = runner.load_jobs(manifest, tmp_path, small_first=small_first)
+    assert [job[2] for job in jobs] == expected
+    assert len({job[0] for job in jobs}) == 6
+
+
 def test_queue_bounds_workers_and_records_failed_jobs(tmp_path, monkeypatch):
     manifest = tmp_path / 'jobs.csv'
     rows = ['checkpoint,output']
@@ -58,7 +73,7 @@ def test_queue_bounds_workers_and_records_failed_jobs(tmp_path, monkeypatch):
     monkeypatch.setattr(runner.subprocess, 'Popen', Process)
     monkeypatch.setattr(runner.time, 'sleep', lambda _: None)
     assert runner.main([str(manifest), '--workers', '2']) == 1
-    assert started == ['2.vpy', '1.vpy', '0.vpy']
+    assert started == ['0.vpy', '1.vpy', '2.vpy']
     with next(tmp_path.glob('vorpy_layer4_runlogs/*/summary.csv')).open() as stream:
         results = list(csv.DictReader(stream))
     assert len(results) == 3

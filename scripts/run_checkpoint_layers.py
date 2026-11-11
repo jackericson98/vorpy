@@ -1,4 +1,4 @@
-"""Run a portable checkpoint manifest, largest first, with bounded concurrency."""
+"""Run a few small checkpoints first, then largest first, with bounded concurrency."""
 from __future__ import annotations
 
 import argparse
@@ -17,7 +17,7 @@ sys.path.insert(0, str(REPO))
 from vorpy.src.worker_progress import ProgressDisplay
 
 
-def load_jobs(manifest, root):
+def load_jobs(manifest, root, small_first=0):
     with manifest.open(newline='', encoding='utf-8-sig') as stream:
         rows = list(csv.DictReader(stream))
     jobs = []
@@ -33,7 +33,9 @@ def load_jobs(manifest, root):
     if not jobs:
         raise ValueError('The manifest contains no checkpoints.')
     # shortcut: archive bytes estimate runtime; use measured durations if scheduling tails stay large.
-    return sorted(jobs, key=lambda job: (-job[2], str(job[0])))
+    jobs.sort(key=lambda job: (-job[2], str(job[0])))
+    count = min(small_first, len(jobs))
+    return list(reversed(jobs[-count:])) + jobs[:-count] if count else jobs
 
 
 def build_command(source, output):
@@ -46,17 +48,22 @@ def main(argv=None):
     parser.add_argument('manifest', type=Path, help='CSV with checkpoint and output paths relative to its folder.')
     parser.add_argument('--root', type=Path, help='Data root override; defaults to the manifest folder.')
     parser.add_argument('--workers', type=int, default=20, help='Concurrent single-thread jobs (default: 20).')
+    parser.add_argument('--small-first', type=int, default=4,
+                        help='Start this many smallest checkpoints before the largest jobs (default: 4).')
     parser.add_argument('--dry-run', action='store_true', help='Validate and print commands without running them.')
     args = parser.parse_args(argv)
     if args.workers < 1:
         parser.error('--workers must be positive')
+    if args.small_first < 0:
+        parser.error('--small-first must be nonnegative')
     manifest = args.manifest.resolve()
     root = (args.root or manifest.parent).resolve()
     try:
-        jobs = load_jobs(manifest, root)
+        jobs = load_jobs(manifest, root, small_first=args.small_first)
     except (OSError, ValueError, KeyError) as error:
         parser.error(str(error))
-    print(f'{len(jobs)} checkpoints; up to {args.workers} concurrent jobs, largest first.', flush=True)
+    print(f'{len(jobs)} checkpoints; up to {args.workers} concurrent jobs; '
+          f'{min(args.small_first, len(jobs))} smallest first, then largest first.', flush=True)
     if args.dry_run:
         for source, output, _ in jobs:
             print(subprocess.list2cmdline(build_command(source, output)))

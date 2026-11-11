@@ -167,9 +167,13 @@ python scripts/run_checkpoint_layers.py "path/to/vorpy_layer4_jobs.csv" --worker
 python scripts/run_checkpoint_layers.py "path/to/vorpy_layer4_jobs.csv" --workers 20
 ```
 
-The runner validates every checkpoint and output destination before launching,
-sorts by decreasing checkpoint bytes as an estimate of runtime, and immediately
-fills free worker slots. Each child uses one numerical-library thread. This is
+The runner validates every checkpoint and output destination before launching.
+By default, it starts the four smallest checkpoints first for early feedback,
+then launches the remainder by decreasing checkpoint bytes as an estimate of
+runtime. With 20 workers, the initial wave contains four small jobs and 16 large
+jobs. Free worker slots are immediately filled from the remaining queue.
+Use `--small-first N` to change the initial small-job count, or `--small-first 0`
+for the original largest-first ordering. Each child uses one numerical-library thread. This is
 a concurrency limit, not CPU affinity; memory use grows with active jobs. Reduce
 `--workers` if RAM is limiting. Console logs and a flushed completion summary
 are written under `vorpy_layer4_runlogs` beside the manifest. Nonzero exits are
