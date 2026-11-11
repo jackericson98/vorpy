@@ -520,12 +520,11 @@ class System:
 
         interactive = getattr(sys.stdout, 'isatty', lambda: False)()
         if not interactive:
-            # Redirected output cannot interpret carriage-return redraws. Keep
-            # only phase changes/completions; interface CLI workflows opt in
-            # so their lifecycle remains visible without a second progress UI.
+            # Batch dashboards opt into periodic, line-safe progress in logs.
+            stream_progress = os.environ.get('VORPY_PROGRESS_STREAM') == '1'
             cli_stage_output = bool(getattr(self, '_cli_stage_output_enabled', False))
-            if (not getattr(self, 'verbose', False) and not cli_stage_output) or not force:
-                self._progress_last_emit = now_t
+            if (not getattr(self, 'verbose', False) and not cli_stage_output and not stream_progress) or (
+                    not force and (not stream_progress or now_t - self._progress_last_emit < 0.5)):
                 self._progress_last_process = self.run_process
                 self._progress_line_len = 0
                 return

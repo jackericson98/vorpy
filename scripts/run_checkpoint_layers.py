@@ -69,6 +69,17 @@ def latest_output(path):
     return 'Starting...'
 
 
+def progress_message(message):
+    match = re.fullmatch(r'\d+:\d+:\d+(?:\.\d+)? - (.+) - ([\d.]+) %', message)
+    if not match:
+        return message
+    context, percentage = match.groups()
+    network, separator, process = context.rpartition(' - ')
+    stage, _, counts = (process if separator else context).partition(':')
+    details = f' ({counts.strip()})' if counts else ''
+    return f'{stage} {percentage}%{details}' + (f' | {network}' if separator else '')
+
+
 class ProgressDisplay:
     def __init__(self, root, workers, total):
         self.root, self.workers, self.total = root, workers, total
@@ -85,10 +96,12 @@ class ProgressDisplay:
         lines = [f'VorPy | {finished}/{self.total} completed | {len(active)} running | {failures} failed']
         for _, _, source, _, log_path, started in active:
             label = source.parent.relative_to(self.root).as_posix().replace('/Checkpoints/', '/')
-            message = latest_output(log_path)
-            lines.append(f'{label} | {int(now - started)}s | {message}')
+            message = progress_message(latest_output(log_path))
+            number = log_path.stem.lstrip('0') or '0'
+            row = f'Job {number}/{self.total} | {message} | {int(now - started)}s | {label}'
+            lines.append(row)
             if not self.live and self.previous.get(log_path) != message:
-                print(f'[{label}] {message}', flush=True)
+                print(row, flush=True)
                 self.previous[log_path] = message
         if not self.live:
             return
@@ -123,6 +136,7 @@ def main(argv=None):
         return 0
 
     env = os.environ.copy()
+    env['VORPY_PROGRESS_STREAM'] = '1'
     for key in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
                 'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS', 'BLIS_NUM_THREADS'):
         env[key] = '1'
@@ -145,7 +159,7 @@ def main(argv=None):
                     log_path = log_dir / f'{number:04d}.log'
                     log = log_path.open('w', encoding='utf-8')
                     command = build_command(source, output)
-                    log.write(subprocess.list2cmdline(command) + '\n\n')
+                    log.write(subprocess.list2cmdline(command) + '\n\nLoading checkpoint...\n')
                     log.flush()
                     try:
                         process = subprocess.Popen(command, cwd=REPO, env=env,

@@ -177,7 +177,12 @@ recorded and the remaining jobs continue; the runner exits nonzero if any fail.
 Runs do not automatically skip existing outputs or retry failed jobs.
 
 An interactive console shows a dashboard with one row per active worker:
-checkpoint/frame, elapsed seconds, and its latest VorPy output. It refreshes
+job number, current stage and percentage, elapsed seconds, and checkpoint/frame.
+For example: `Job 7/429 | Vertices 12.00% (120 / ~1,000) | water_frontier_2`.
+The percentage belongs to that stage, not the entire job; approximate solver
+totals remain approximate. The runner enables periodic redirected progress with
+`VORPY_PROGRESS_STREAM=1` in its children; ordinary redirected CLI output keeps
+its existing behavior. The dashboard refreshes
 twice per second while full verbose output stays in each job's log. Use a
 terminal at least 22 rows high for 20 workers. Redirected output falls back to
 tagged worker messages without terminal escape sequences. The invocation is

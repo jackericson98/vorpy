@@ -111,6 +111,26 @@ def test_redirected_progress_does_not_emit_carriage_return_fragments(monkeypatch
     assert stream.getvalue() == ''
 
 
+def test_batch_progress_stream_emits_throttled_in_stage_percentages(monkeypatch):
+    stream = io.StringIO()
+    stream.isatty = lambda: False
+    monkeypatch.setattr('sys.stdout', stream)
+    monkeypatch.setenv('VORPY_PROGRESS_STREAM', '1')
+    system = System(simple=True, make_dir=False)
+    clock = [100.0]
+    monkeypatch.setattr('vorpy.src.system.system.time.perf_counter', lambda: clock[0])
+    system.update_progress('Vertices', 0, network='water_frontier_1')
+    for elapsed, percentage in [(0.1, 5), (0.6, 12), (0.7, 15), (1.2, 50)]:
+        clock[0] = 100.0 + elapsed
+        system.update_progress('Vertices', percentage, network='water_frontier_1')
+    output = stream.getvalue()
+    assert 'Vertices - 12.00 %' in output
+    assert 'Vertices - 50.00 %' in output
+    assert 'Vertices - 5.00 %' not in output
+    assert 'Vertices - 15.00 %' not in output
+    assert '\r' not in output
+
+
 def test_progress_payloads_use_stable_labels_and_errors_start_cleanly(monkeypatch):
     stream = io.StringIO()
     stream.isatty = lambda: True
