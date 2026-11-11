@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from vorpy.src import worker_progress
+
 
 spec = importlib.util.spec_from_file_location(
     'checkpoint_layer_runner', Path(__file__).resolve().parents[3] / 'scripts/run_checkpoint_layers.py')
@@ -69,14 +71,14 @@ def test_live_display_updates_each_worker_without_interleaving(tmp_path, monkeyp
     import os
     log = tmp_path / '0001.log'
     log.write_bytes(b'old stage\rVertices - 25%\r\x1b[32mSurfaces - 50%\x1b[0m\n')
-    assert runner.latest_output(log) == 'Surfaces - 50%'
+    assert worker_progress.latest_output(log) == 'Surfaces - 50%'
     stream = io.StringIO()
     monkeypatch.setattr(runner.sys, 'stdout', stream)
-    monkeypatch.setattr(runner, 'enable_live_console', lambda: True)
-    monkeypatch.setattr(runner.shutil, 'get_terminal_size', lambda _: os.terminal_size((140, 30)))
-    display = runner.ProgressDisplay(tmp_path, 2, 3)
+    monkeypatch.setattr(worker_progress, 'enable_live_console', lambda: True)
+    monkeypatch.setattr(worker_progress.shutil, 'get_terminal_size', lambda _: os.terminal_size((140, 30)))
+    display = worker_progress.ProgressDisplay(2, 3)
     source = tmp_path / 'PEG/Checkpoints/aw/EG/frame_0001/EG.vpy'
-    active = [(None, None, source, None, log, runner.time.monotonic())]
+    active = [(1, 'PEG/aw/EG/frame_0001', log, runner.time.monotonic())]
     display.render(active, 1, 0, 'Job finished', force=True)
     first = stream.getvalue()
     assert '1/3 completed | 1 running | 0 failed' in first
@@ -95,11 +97,11 @@ def test_progress_percentage_stays_visible_in_a_narrow_console(tmp_path, monkeyp
     log.write_text('0:01:23.45 - water_frontier_2 - Vertices: 120 / ~1,000 - 12.00 %\n')
     stream = io.StringIO()
     monkeypatch.setattr(runner.sys, 'stdout', stream)
-    monkeypatch.setattr(runner, 'enable_live_console', lambda: True)
-    monkeypatch.setattr(runner.shutil, 'get_terminal_size', lambda _: os.terminal_size((80, 30)))
-    display = runner.ProgressDisplay(tmp_path, 1, 429)
+    monkeypatch.setattr(worker_progress, 'enable_live_console', lambda: True)
+    monkeypatch.setattr(worker_progress.shutil, 'get_terminal_size', lambda _: os.terminal_size((80, 30)))
+    display = worker_progress.ProgressDisplay(1, 429)
     source = tmp_path / 'Heparin/Checkpoints/aw/dp36/frame_0001/dp36_checkpoint.vpy'
-    display.render([(None, None, source, None, log, runner.time.monotonic())], 0, 0, '', force=True)
+    display.render([(7, 'Heparin/aw/dp36/frame_0001', log, runner.time.monotonic())], 0, 0, '', force=True)
     row = stream.getvalue().splitlines()[1]
     assert row.startswith('Job 7/429 | Vertices 12.00% (120 / ~1,000) | water_frontier_2')
     assert len(row) <= 79
@@ -111,7 +113,7 @@ def test_real_workers_keep_full_logs_and_show_progress(tmp_path, monkeypatch, ca
     (tmp_path / 'one.vpy').write_bytes(b'x')
     (tmp_path / 'two.vpy').write_bytes(b'xx')
     manifest.write_text('checkpoint,output\none.vpy,out/one\ntwo.vpy,out/two\n')
-    monkeypatch.setattr(runner, 'enable_live_console', lambda: False)
+    monkeypatch.setattr(worker_progress, 'enable_live_console', lambda: False)
     code = ('import time\nfrom vorpy.src.system import System\n'
             'system = System(simple=True, make_dir=False)\n'
             'system.update_progress("Connections", 0, network="water_frontier_1")\n'

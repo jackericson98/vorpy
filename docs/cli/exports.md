@@ -187,3 +187,10 @@ twice per second while full verbose output stays in each job's log. Use a
 terminal at least 22 rows high for 20 workers. Redirected output falls back to
 tagged worker messages without terminal escape sequences. The invocation is
 unchanged; this display is enabled automatically in supported terminals.
+
+The same display is used by `python vorpy trajectory.pdb --parallel-frames 20`:
+each row starts with `Frame N/total`, reads that frame's `run.log` during the
+solve, and reports the actual current stage/percentage without needing `-v`.
+Choosing parallel execution in the interactive all-frames prompt uses this
+same path. Ordinary single-frame/sequential commands retain their usual CLI
+progress; the checkpoint queue dashboard requires `scripts/run_checkpoint_layers.py`.

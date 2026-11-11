@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier, Lock
+from threading import Barrier, Event, Lock
 
 import pytest
 
@@ -120,6 +120,7 @@ def test_worker_failure_records_traceback_and_restores_cwd(tmp_path, monkeypatch
     output = tmp_path / 'output'
     output.mkdir()
     original_cwd = Path.cwd()
+    original_progress = os.environ.get('VORPY_PROGRESS_STREAM')
 
     def fail(command):
         os.chdir(output)
@@ -129,8 +130,53 @@ def test_worker_failure_records_traceback_and_restores_cwd(tmp_path, monkeypatch
     error = run_frame(str(source), str(output), 2, 3, {}, None)
     assert error == 'ValueError: test frame failure'
     assert Path.cwd() == original_cwd
+    assert os.environ.get('VORPY_PROGRESS_STREAM') == original_progress
     assert 'Traceback' in (output / 'run.log').read_text()
     assert 'test frame failure' in (output / 'run.log').read_text()
+
+
+def test_frame_worker_emits_progress_without_verbose_mode(tmp_path, monkeypatch):
+    source = tmp_path / 'input.pdb'
+    source.write_text('ATOM      1  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C\nEND\n')
+    output = tmp_path / 'output'
+    output.mkdir()
+    monkeypatch.delenv('VORPY_PROGRESS_STREAM', raising=False)
+
+    def solve(command):
+        command.sys.update_progress('Vertices', 12, network='test_frame')
+
+    monkeypatch.setattr(Command, '_process_system', solve)
+    assert run_frame(str(source), str(output), 1, 2, {}, None) is None
+    assert 'Vertices - 12.00 %' in (output / 'run.log').read_text()
+    assert 'VORPY_PROGRESS_STREAM' not in os.environ
+
+
+def test_scheduler_displays_progress_before_worker_finishes(tmp_path, monkeypatch, capsys):
+    from vorpy.src.worker_progress import latest_output, ProgressDisplay
+    source = tmp_path / 'trajectory.pdb'
+    source.write_text('ATOM      1  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C\nEND\n')
+    monkeypatch.setattr(sys, 'argv', ['vorpy', str(source), '--parallel-frames', '1',
+                                    '-e', 'dir', str(tmp_path / 'results')])
+    observed = Event()
+
+    def worker(frame_file, directory, ordinal, total, options, settings):
+        Path(directory, 'run.log').write_text('0:00:01.00 - solute - Vertices - 12.00 %\n')
+        assert observed.wait(timeout=5), 'The parent never displayed progress while the worker was running'
+
+    class ObservedDisplay(ProgressDisplay):
+        def render(self, active, *args, **kwargs):
+            for _, _, log_path, _ in active:
+                if 'Vertices - 12.00 %' in latest_output(log_path):
+                    observed.set()
+            return super().render(active, *args, **kwargs)
+
+    monkeypatch.setattr(parallel_frames, 'run_frame', worker)
+    monkeypatch.setattr(parallel_frames, 'ProgressDisplay', ObservedDisplay)
+    monkeypatch.setattr(parallel_frames, 'ProcessPoolExecutor',
+                        lambda max_workers, mp_context: ThreadPoolExecutor(max_workers=max_workers))
+    Command().run()
+    assert observed.is_set()
+    assert 'Frame 1/1 | Vertices 12.00%' in capsys.readouterr().out
 
 
 @pytest.mark.parametrize('workers, total', [(2, 3), (6, 10)])
@@ -207,3 +253,4 @@ def test_spawned_cli_builds_and_exports_every_frame(tmp_path, workers, entry):
         log = (directory / 'run.log').read_text()
         assert f'Frame: {i}/3 loaded' in log
         assert 'network built' in log
+        assert 'Vertices' in log and '%' in log

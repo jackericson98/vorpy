@@ -8,11 +8,13 @@ import multiprocessing
 import os
 from pathlib import Path
 import shutil
+import time
 from tempfile import TemporaryDirectory
 import traceback
 
 from vorpy.src.inputs.frames import count_pdb_frames, iter_pdb_frames
 from vorpy.src.boundary import BoundaryMode, resolve_boundary
+from vorpy.src.worker_progress import ProgressDisplay
 
 
 def run_frame(frame_file, directory, ordinal, total_frames, options, settings):
@@ -21,11 +23,14 @@ def run_frame(frame_file, directory, ordinal, total_frames, options, settings):
     from vorpy.src.system.system import System
 
     original_directory = os.getcwd()
+    original_progress = os.environ.get('VORPY_PROGRESS_STREAM')
     system = None
     command = None
     with open(Path(directory) / 'run.log', 'w', encoding='utf-8', buffering=1) as log:
         with redirect_stdout(log), redirect_stderr(log):
             try:
+                os.environ['VORPY_PROGRESS_STREAM'] = '1'
+                print(f'Frame {ordinal}/{total_frames}: loading input...', flush=True)
                 system = System(
                     file=frame_file,
                     make_dir=False,
@@ -45,6 +50,10 @@ def run_frame(frame_file, directory, ordinal, total_frames, options, settings):
                 traceback.print_exc()
                 return f'{type(error).__name__}: {error}'
             finally:
+                if original_progress is None:
+                    os.environ.pop('VORPY_PROGRESS_STREAM', None)
+                else:
+                    os.environ['VORPY_PROGRESS_STREAM'] = original_progress
                 os.chdir(original_directory)
                 if system is not None:
                     Command._release_frame_system(system)
@@ -99,11 +108,15 @@ def run_parallel_frames(parent, workers, total_frames=None):
         parent.sys = None
         print(f'{Path(parent.base_file).name}: {total_frames} frames found; '
               f'processing with {workers} worker processes.', flush=True)
+        display = ProgressDisplay(workers, total_frames, unit='Frame')
+        finished = 0
+        event = 'Starting frame workers...'
 
         with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context('spawn')) as pool:
             pending = {}
 
             def submit(ordinal, source):
+                nonlocal event
                 # iter_pdb_frames reuses its path: copy before advancing it.
                 frame_dir = Path(staging) / f'frame_{ordinal:04d}'
                 frame_dir.mkdir()
@@ -113,8 +126,10 @@ def run_parallel_frames(parent, workers, total_frames=None):
                 directory.mkdir(parents=True, exist_ok=False)
                 future = pool.submit(run_frame, str(frame_file), str(directory),
                                      ordinal, total_frames, options, settings)
-                pending[future] = (ordinal, frame_file, directory)
-                print(f'Frame {ordinal}/{total_frames} started: {directory}', flush=True)
+                pending[future] = (ordinal, frame_file, directory, time.monotonic())
+                event = f'Frame {ordinal}/{total_frames} started: {directory}'
+                if not display.live:
+                    print(event, flush=True)
 
             submit(first_ordinal, first_file)
             exhausted = False
@@ -127,9 +142,14 @@ def run_parallel_frames(parent, workers, total_frames=None):
                         submit(*frame)
                 if not pending:
                     break
-                completed, _ = wait(pending, return_when=FIRST_COMPLETED)
+                completed, _ = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
+                display.render([
+                    (ordinal, directory.name, directory / 'run.log', started)
+                    for ordinal, _, directory, started in pending.values()
+                ], finished, len(failures), event)
                 for future in completed:
-                    ordinal, frame_file, directory = pending.pop(future)
+                    ordinal, frame_file, directory, _ = pending.pop(future)
+                    finished += 1
                     try:
                         error = future.result()
                     except Exception as exception:
@@ -137,17 +157,21 @@ def run_parallel_frames(parent, workers, total_frames=None):
                     frame_file.unlink()
                     frame_file.parent.rmdir()
                     if error is None:
-                        print(f'Frame {ordinal}/{total_frames} complete: {directory}', flush=True)
+                        event = f'Frame {ordinal}/{total_frames} complete: {directory}'
+                        if not display.live:
+                            print(event, flush=True)
                         log_path = directory / 'run.log'
                         if log_path.is_file():
                             with log_path.open(encoding='utf-8') as stream:
                                 for line in stream:
                                     if line.startswith('Warning: ') and 'will not be included in logs.' in line:
-                                        print(f'Frame {ordinal}/{total_frames}: {line.strip()}', flush=True)
+                                        display.announce(f'Frame {ordinal}/{total_frames}: {line.strip()}')
                     else:
                         failures.append((ordinal, error))
-                        print(f'Frame {ordinal}/{total_frames} FAILED: {error}\n'
-                              f'  Log: {directory / "run.log"}', flush=True)
+                        event = f'Frame {ordinal}/{total_frames} FAILED: {error}'
+                        display.announce(f'{event}\n  Log: {directory / "run.log"}')
+
+            display.render([], finished, len(failures), event, force=True)
 
     if failures:
         details = '; '.join(f'frame {ordinal}: {error}' for ordinal, error in sorted(failures))
