@@ -1,4 +1,5 @@
 import csv
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -99,7 +100,7 @@ def atom_records(path):
     raise AssertionError('Missing Atoms/Surfaces sections')
 
 
-def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path, monkeypatch):
+def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path, monkeypatch, capsys):
     root = Path(__file__).resolve().parents[3]
     # Real molecular coordinates, bounded fixture size; complete input remains context.
     records = [line for line in (root/'vorpy/data/EDTA.pdb').read_text().splitlines(True)
@@ -188,3 +189,106 @@ def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path,
                                     '-e', 'large', 'and', 'dir', str(tmp_path/'reloaded')])
     Command().run()
     assert len(list((tmp_path/'reloaded/EDTA/solvent').glob('layer_*.pdb'))) == 4
+
+    checkpoint = tmp_path/'single_checkpoint.vpy'
+    original_digest = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    capsys.readouterr()
+    monkeypatch.setattr(sys, 'argv', ['vorpy', str(checkpoint), '-c', 'l', '4',
+                                    '-e', 'small', 'and', 'dir', str(tmp_path/'reused_layers')])
+    Command().run()
+    assert 'Reusing 4 saved water layers; no geometry solve is needed.' in capsys.readouterr().out
+    assert len(list((tmp_path/'reused_layers/EDTA/solvent').glob('layer_*.pdb'))) == 4
+    assert hashlib.sha256(checkpoint.read_bytes()).hexdigest() == original_digest
+
+
+@pytest.mark.parametrize('source_mode, target', [
+    ('SOLVENT_CONTEXT', 'MOLECULAR'), ('MOLECULE_ONLY', 'MOLECULAR'), ('SOLVENT_CONTEXT', 'ALL')])
+def test_checkpoint_layer_calculation_preserves_source_geometry(tmp_path, monkeypatch, source_mode, target):
+    from vorpy.src.command.vpy_cmnd import Command
+    from vorpy.src.group import Group
+    from vorpy.src.network import Network
+    from vorpy.src.output.checkpoint import write_checkpoint
+    from vorpy.src.system import System
+    root = Path(__file__).resolve().parents[3]
+    source = tmp_path/'EDTA.pdb'
+    records = [line for line in (root/'vorpy/data/EDTA.pdb').read_text().splitlines(True)
+               if line.startswith(('ATOM  ', 'HETATM'))][:69]
+    source.write_text(''.join(records))
+    saved_dir = tmp_path/'saved'
+    saved_dir.mkdir()
+    system = System(file=str(source), make_dir=False, solvent_mode=source_mode)
+    system.files['dir'] = str(saved_dir)
+    body = Group(system, name='EDTA', atoms=list(range(32)), solvent_mode=source_mode, cell_target=target,
+        settings=dict(net_type='pow', max_vert=5., surf_res=1., sys_dir=str(saved_dir)))
+    system.groups = [body]
+    body.build()
+    original = body.net.balls[['num', 'system_num', 'rad', 'vol', 'sa', 'complete']].copy(deep=True)
+    checkpoint = write_checkpoint(system)
+    original_digest = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    original_build = Network.build
+    builds = []
+
+    def tracked_build(network, *args, **kwargs):
+        assert network.group_name != 'EDTA', 'The saved solute network must never be rebuilt'
+        builds.append(network.group_name)
+        return original_build(network, *args, **kwargs)
+
+    monkeypatch.setattr(Network, 'build', tracked_build)
+    monkeypatch.setattr(sys, 'argv', ['vorpy', str(checkpoint), '-e', 'small', '-c', 'l', '4',
+                                    '-e', 'dir', str(tmp_path/'rerun')])
+    command = Command()
+    try:
+        command.run()
+        saved_body = next(group for group in command.sys.groups if group.name == 'EDTA')
+        pd.testing.assert_frame_equal(saved_body.net.balls[original.columns], original)
+        if target == 'ALL':
+            assert builds == [], 'A fully cached solvent network needs no new solve'
+        else:
+            assert builds
+            assert ('water_seed_context' in builds) == (source_mode == 'MOLECULE_ONLY')
+        directory = tmp_path/'rerun/EDTA/solvent'
+        assert len(list(directory.glob('*_logs.csv'))) == 1
+        assert len(list(directory.glob('layer_*.pdb'))) == 4
+        assert hashlib.sha256(checkpoint.read_bytes()).hexdigest() == original_digest
+    finally:
+        command._cleanup_checkpoint_source()
+
+
+def test_virtual_boundary_is_not_a_water_layer():
+    system, net = graph()
+    net.balls = pd.concat([net.balls, pd.DataFrame({'num': [111], 'system_num': [-1]})], ignore_index=True)
+    net.surfs.loc[5] = [[100, 111], 1., [], []]
+    assert water_neighbors(net, system, {0}, {0}) == {2, 3, 4}
+    assert boundary_indices(net, [0], [[2, 3, 4]])[0] == [[0]]
+
+
+def test_geometry_only_frontier_is_not_reused_as_analyzed_solvent(tmp_path, monkeypatch):
+    from copy import copy
+    import vorpy.src.group.solvent_layers as module
+    system, source = graph()
+    source.surfs = source.surfs.loc[[0]].copy()
+    source.settings = {'net_type': 'pow'}
+    source.group = [100]
+    system.files = {'dir': str(tmp_path)}
+    system.groups = [SimpleNamespace(net=source, ball_ndxs=[0], settings=source.settings,
+                                    name='solute', group_id='solute', dir=None)]
+    builds = []
+
+    class TestGroup:
+        def __init__(self, system, name, atoms, settings, **kwargs):
+            self.ball_ndxs, self.settings, self.name = list(atoms), settings, name
+            self.net = None
+
+        def build(self, *, calculate_curvature):
+            builds.append((self.name, calculate_curvature))
+            self.net = copy(source)
+            self.net.balls = source.balls.copy()
+            self.net.group = source.balls.iloc[self.ball_ndxs]['num'].tolist()
+            if calculate_curvature:
+                for column in ['vol', 'vdw_vol', 'com', 'moi', 'int_mean_curv', 'int_gauss_curv']:
+                    self.net.balls[column] = 0.
+
+    monkeypatch.setattr(module, 'Group', TestGroup)
+    result = module.build_solvent_layers(system, 4)
+    assert builds == [('water_frontier_1', False), ('solvent', True)]
+    assert result.solvent_layers['atoms'] == [[2, 3, 4], [], [], []]

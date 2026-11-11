@@ -3562,8 +3562,9 @@ class Command:
         if profile is not None:
             started = (perf_counter(), process_time())
         self.parse_commands()
-        if self.calculation_plan and self.calculation_plan.solvent_layers:
-            raise ValueError('Layer calculation requires a structure input. Export saved layers from a checkpoint with -e large.')
+        layer_count = self.calculation_plan.solvent_layers if self.calculation_plan else 0
+        if layer_count and self.interface_mode:
+            raise ValueError('Solvent layers require a group calculation, not interface recovery.')
         if (self.export_plan.scope == 'system' and not self.calculation_plan.calculation_requests
                 and any(getattr(group, 'solvent_layers', None) for group in self.sys.groups)):
             from vorpy.src.command.calculation_plan import build_export_plan
@@ -3594,6 +3595,7 @@ class Command:
             return
         if self.builds or self.load_commands or self.settings_cmnds:
             raise ValueError('Archive input reuses solved geometry. Use -e export options or -g selections; rebuild/settings commands require a structure input.')
+        selected_groups = []
         if self.groups:
             previous = list(self.sys.groups)
             ggroup(self.sys, self.groups, dict(network.settings), make_net=False)
@@ -3601,7 +3603,11 @@ class Command:
             # Some command paths replace the group list rather than append it.
             self.sys.groups = previous
             for definition in definitions:
-                group_from_network(network, definition.ball_ndxs, definition.name)
+                selected_groups.append(group_from_network(network, definition.ball_ndxs, definition.name))
+        if layer_count:
+            from vorpy.src.group.solvent_layers import build_solvent_layers
+            print('Calculating water layers from checkpoint; saved source geometry will be reused.', flush=True)
+            build_solvent_layers(self.sys, layer_count, seed_groups=selected_groups or None)
         if self.diagnose_edges:
             self.run_edge_diagnostics()
         if self.apollonius_requested:

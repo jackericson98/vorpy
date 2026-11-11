@@ -3,7 +3,7 @@ import math
 from pathlib import Path
 from types import SimpleNamespace
 
-from vorpy.src.boundary import WATER_RESIDUES, CellTarget
+from vorpy.src.boundary import WATER_RESIDUES, CellTarget, SolventMode
 from vorpy.src.group.group import Group
 from vorpy.src.group.layers import _build_index_maps
 from vorpy.src.output.layout import unique_output_directory
@@ -27,7 +27,7 @@ def water_neighbors(network, system, frontier, visited):
     for face in network.surfs.itertuples():
         if not math.isfinite(face.sa) or face.sa <= 0:
             continue
-        first, second = (mapping[int(atom)] for atom in face.balls)
+        first, second = (mapping.get(int(atom), -1) for atom in face.balls)
         for inside, outside in ((first, second), (second, first)):
             if inside not in frontier or outside in visited or not 0 <= outside < len(system.balls):
                 continue
@@ -46,7 +46,7 @@ def boundary_indices(network, seed_atoms, layers):
     for face in network.surfs.itertuples():
         if not math.isfinite(face.sa) or face.sa <= 0:
             continue
-        first, second = (membership.get(mapping[int(atom)]) for atom in face.balls)
+        first, second = (membership.get(mapping.get(int(atom))) for atom in face.balls)
         if first is not None and second is not None and abs(first - second) == 1:
             surfaces[max(first, second) - 1].append(int(face.Index))
     edges, vertices = [], []
@@ -59,14 +59,28 @@ def boundary_indices(network, seed_atoms, layers):
     return surfaces, edges, vertices
 
 
-def build_solvent_layers(system, count, *, calculate_curvature=True):
+def build_solvent_layers(system, count, *, calculate_curvature=True, seed_groups=None):
     """Discover each frontier once, then solve one combined solvent export network."""
-    groups = list(system.groups)
+    original_groups = list(system.groups)
+    groups = list(seed_groups) if seed_groups is not None else [
+        group for group in original_groups if not getattr(group, 'solvent_layers', None)]
     seed_atoms = sorted({int(atom) for group in groups for atom in group.ball_ndxs
                          if system.balls.iloc[int(atom)]['res'].name.strip().upper() not in WATER_RESIDUES})
     if not seed_atoms:
         raise ValueError('Water layers require a non-water solute selection.')
+    saved_layers = [group for group in original_groups if getattr(group, 'solvent_layers', None)]
+    for saved in saved_layers:
+        if saved.solvent_layers['seed_atoms'] == seed_atoms and len(saved.solvent_layers['atoms']) == count:
+            print(f'Reusing {count} saved water layers; no geometry solve is needed.', flush=True)
+            system.groups = [group for group in original_groups if group not in saved_layers] + [saved]
+            return saved
     settings = dict(groups[0].settings)
+    for key in ('generator_policy', 'source_generator_count', 'active_generator_count',
+                'target_cell_count', 'target_system_indices', 'excluded_generator_count',
+                'excluded_water_generator_count'):
+        settings.pop(key, None)
+    settings['solvent_mode_resolution'] = 'explicit_layer_context'
+    settings['solvent_mode'] = SolventMode.SOLVENT_CONTEXT.value
     settings['cell_target'] = CellTarget.MOLECULAR.value
     directory = unique_output_directory(Path(system.files['dir']), 'solvent',
         [group.dir for group in groups if group.dir])
@@ -75,7 +89,33 @@ def build_solvent_layers(system, count, *, calculate_curvature=True):
     settings['sys_dir'] = str(directory)
     visited = set(seed_atoms)
     frontier = set(seed_atoms)
-    networks = [group.net or group.source_network for group in groups]
+    cached = []
+    physical_atoms = set(range(len(system.balls)))
+    for group in original_groups:
+        network = group.net or getattr(group, 'source_network', None)
+        if network is None or network.settings['net_type'] != settings['net_type']:
+            continue
+        _, mapping, _ = _build_index_maps(SimpleNamespace(net=network))
+        if physical_atoms.issubset(mapping.values()):
+            targets = {mapping[int(atom)] for atom in network.group if int(atom) in mapping}
+            if all(network is not previous for previous, _ in cached):
+                cached.append((network, targets))
+
+    def cached_for(atoms, *, require_analysis=False):
+        fields = {'vol', 'vdw_vol', 'com', 'moi', 'int_mean_curv', 'int_gauss_curv'}
+        return next((network for network, targets in cached if set(atoms).issubset(targets)
+                     and (not require_analysis or fields.issubset(network.balls.columns))), None)
+
+    covered = set().union(*(targets for _, targets in cached))
+    if not set(seed_atoms).issubset(covered):
+        missing = sorted(set(seed_atoms) - covered)
+        print(f'Saved geometry lacks wet-context seed cells; solving {len(missing)} seed cells '
+              'in solvent context. The saved network is preserved.', flush=True)
+        probe = Group(system, name='water_seed_context', atoms=missing,
+                      settings=dict(settings), print_metrics=False)
+        probe.build(calculate_curvature=False)
+        cached.append((probe.net, set(missing)))
+    networks = [network for network, _ in cached]
     layers = []
     water_atoms = {i for i, atom in system.balls.iterrows()
                    if atom['res'].name.strip().upper() in WATER_RESIDUES}
@@ -88,27 +128,38 @@ def build_solvent_layers(system, count, *, calculate_curvature=True):
         if layer == count or not following or water_atoms.issubset(visited):
             layers.extend([] for _ in range(count - layer))
             break
+        reused = cached_for(following)
+        if reused is not None:
+            networks = [reused]
+            frontier = following
+            continue
         print(f'Solving water frontier {layer}: {len(following)} atoms', flush=True)
         probe = Group(system, name=f'water_frontier_{layer}', atoms=sorted(following),
                       settings=dict(settings), print_metrics=False)
         probe.build(calculate_curvature=False)
         frontier = following
         networks = [probe.net]
+        cached.append((probe.net, set(following)))
 
     selected = sorted({atom for layer in layers for atom in layer})
-    solvent = Group(system, name='solvent', atoms=selected or list(seed_atoms),
-                    settings=settings, make_net=bool(selected), print_metrics=False)
-    if selected:
-        solvent.build(calculate_curvature=calculate_curvature)
+    reused = cached_for(selected, require_analysis=calculate_curvature) if selected else networks[0]
+    name = 'solvent'
+    identifiers = {group.group_id or group.name for group in original_groups}
+    suffix = 2
+    while name in identifiers:
+        name = f'solvent_{suffix}'
+        suffix += 1
+    solvent = Group(system, name=name, atoms=selected or list(seed_atoms),
+                    settings=settings, make_net=False, print_metrics=False)
+    if reused is not None:
+        solvent.net = reused
     else:
-        # An empty cohort still has four explicit empty exports and a readable checkpoint.
-        from copy import copy
+        solvent.build(calculate_curvature=calculate_curvature)
+    if not selected:
         solvent.ball_ndxs = []
-        solvent.net = copy(networks[0])
-        solvent.net.group = []
     surfaces, edges, vertices = boundary_indices(solvent.net, seed_atoms, layers)
     solvent.solvent_layers = dict(atoms=layers, surfs=surfaces, edges=edges, verts=vertices,
                                   seed_atoms=seed_atoms)
     solvent.dir = str(directory)
-    system.groups.append(solvent)
+    system.groups = [group for group in original_groups if group not in saved_layers] + [solvent]
     return solvent

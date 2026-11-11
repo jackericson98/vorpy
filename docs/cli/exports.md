@@ -139,4 +139,39 @@ PDBs, meshes, and checkpoint membership remain available for inspection.
 
 The root `.vpy` stores both networks and layer membership/boundary indices.
 Re-export it with `python vorpy <checkpoint.vpy> -e large`; this does not solve
-geometry again. New layer calculations (`-c l N`) require the structure input.
+geometry again. To calculate layers from a checkpoint, use:
+
+```powershell
+python vorpy "path/to/dp12_checkpoint.vpy" -c l 4 -e small -e dir "path/to/rerun"
+```
+
+The `.vpy` must be the actual input argument. A comment containing its path does
+not make a command that opens a `.pdb` reuse saved geometry; PDB input starts a
+fresh solute calculation.
+
+Checkpoint layer calculations preserve the saved solute network and input
+checkpoint. Matching saved layers and already computed solvent cells are reused.
+Missing water frontiers and the combined solvent export network are calculated
+as needed. If the saved network excluded solvent generators, its dry-cell faces
+cannot identify water contacts: VorPy explicitly reports a separate wet-context
+seed calculation, using the saved atom coordinates, radii, and solver settings.
+This does not overwrite or rebuild the original dry network. Explicit settings
+and interface recovery remain separate checkpoint operations.
+
+For many independent checkpoints, use a CSV manifest with `checkpoint,output`
+columns. Paths are relative to the manifest's folder, so a Dropbox manifest can
+move between computers without retaining drive letters:
+
+```powershell
+python scripts/run_checkpoint_layers.py "path/to/vorpy_layer4_jobs.csv" --workers 20 --dry-run
+python scripts/run_checkpoint_layers.py "path/to/vorpy_layer4_jobs.csv" --workers 20
+```
+
+The runner validates every checkpoint and output destination before launching,
+sorts by decreasing checkpoint bytes as an estimate of runtime, and immediately
+fills free worker slots. Each child uses one numerical-library thread. This is
+a concurrency limit, not CPU affinity; memory use grows with active jobs. Reduce
+`--workers` if RAM is limiting. Console logs and a flushed completion summary
+are written under `vorpy_layer4_runlogs` beside the manifest. Nonzero exits are
+recorded and the remaining jobs continue; the runner exits nonzero if any fail.
+Runs do not automatically skip existing outputs or retry failed jobs.
