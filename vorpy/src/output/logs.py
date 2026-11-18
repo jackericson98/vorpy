@@ -65,7 +65,8 @@ def write_logs(group, net_name=None, round_to=None):
     if layer_data:
         from copy import copy
         from vorpy.src.group.solvent_layers import complete_layer_count
-        logged_layers = layer_data['atoms'][:complete_layer_count(group)]
+        logged_layers = (layer_data['atoms'] if layer_data.get('allow_partial') else
+                         layer_data['atoms'][:complete_layer_count(group)])
         # Recompute log totals for the retained selection without changing the saved/exported group.
         group = copy(group)
         group.ball_ndxs = [atom for atoms in logged_layers for atom in atoms]
@@ -173,7 +174,7 @@ def write_logs(group, net_name=None, round_to=None):
         ])
 
         lg_fl.writerow(["group information"])
-        lg_fl.writerow([
+        group_headers = [
             "Name", "Volume", "Surface Area", "Mass", "Density", "Center of Mass",
             "VDW Volume", "VDW Center of Mass", "Moment of Inertia", "Spatial Moment of Inertia",
             "Integrated Mean Curvature", "Integrated Mean Curvature Squared",
@@ -184,7 +185,13 @@ def write_logs(group, net_name=None, round_to=None):
             "Gauss-Bonnet Relative Error", "Boundary Complete", "Boundary Closed", "Boundary Manifold",
             "Boundary Orientable", "Boundary Components", "Missing Faces", "Missing Edges",
             "Missing Vertices", "Nonmanifold Edges", "Nonmanifold Vertices"
-        ])
+        ]
+        if layer_data and layer_data.get('allow_partial'):
+            group_headers.extend([
+                "Solvent Layer", "Contained Volume", "Complete Cells", "Total Cells",
+                "Layer Complete", "Metrics Status",
+            ])
+        lg_fl.writerow(group_headers)
 
         group.get_info()
 
@@ -192,7 +199,7 @@ def write_logs(group, net_name=None, round_to=None):
         if getattr(net, "rebuilt_from_logs", False):
             log_name = f"{log_name}_rebuilt_from_logs"
 
-        lg_fl.writerow([
+        group_values = [
             log_name,
             r(group.vol),
             r(group.sa),
@@ -225,7 +232,20 @@ def write_logs(group, net_name=None, round_to=None):
             getattr(group, "boundary_missing_vertices", 0),
             getattr(group, "boundary_nonmanifold_edges", 0),
             getattr(group, "boundary_nonmanifold_vertices", 0)
-        ])
+        ]
+        if layer_data and layer_data.get('allow_partial'):
+            group_values.extend([
+                getattr(group, 'solvent_layer_number', ''),
+                optional_round(getattr(group, 'contained_volume', None)),
+                getattr(group, 'complete_cell_count', ''),
+                getattr(group, 'total_cell_count', ''),
+                getattr(group, 'layer_complete', False),
+                getattr(group, 'metrics_status', 'partial'),
+            ])
+        if layer_data and not logged_layers and not layer_data.get('allow_partial'):
+            # No complete layer is unavailable data, not a zero-valued solvent measurement.
+            group_values[1:] = [''] * (len(group_values) - 1)
+        lg_fl.writerow(group_values)
 
         # ==============================================================
         # Atoms

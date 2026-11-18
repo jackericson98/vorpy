@@ -1,7 +1,10 @@
 """Molecule-level water shells, solved against the complete input geometry."""
 import math
+import gc
 from pathlib import Path
 from types import SimpleNamespace
+
+import pandas as pd
 
 from vorpy.src.boundary import WATER_RESIDUES, CellTarget, SolventMode
 from vorpy.src.group.group import Group
@@ -163,3 +166,146 @@ def build_solvent_layers(system, count, *, calculate_curvature=True, seed_groups
     solvent.dir = str(directory)
     system.groups = [group for group in original_groups if group not in saved_layers] + [solvent]
     return solvent
+
+
+def stream_solvent_layers(system, count, export_layer, *, calculate_curvature=True,
+                          seed_groups=None):
+    """Solve, export, and release one water shell at a time.
+
+    All input generators remain available as geometric competitors.  Only the
+    current shell is a target, so its topology and analysis can be released
+    after ``export_layer`` returns.  Volumes are in A^3, areas in A^2, and
+    integrated curvatures use the network's existing A / dimensionless units.
+    """
+    original_groups = list(system.groups)
+    groups = list(seed_groups) if seed_groups is not None else [
+        group for group in original_groups if not getattr(group, 'solvent_layers', None)]
+    seed_atoms = sorted({int(atom) for group in groups for atom in group.ball_ndxs
+                         if system.balls.iloc[int(atom)]['res'].name.strip().upper()
+                         not in WATER_RESIDUES})
+    if not seed_atoms:
+        raise ValueError('Water layers require a non-water solute selection.')
+
+    settings = dict(groups[0].settings)
+    for key in ('generator_policy', 'source_generator_count', 'active_generator_count',
+                'target_cell_count', 'target_system_indices', 'excluded_generator_count',
+                'excluded_water_generator_count'):
+        settings.pop(key, None)
+    settings.update(solvent_mode_resolution='explicit_layer_context',
+                    solvent_mode=SolventMode.SOLVENT_CONTEXT.value,
+                    cell_target=CellTarget.MOLECULAR.value)
+    directory = unique_output_directory(Path(system.files['dir']), 'solvent',
+        [group.dir for group in groups if group.dir])
+    directory.mkdir(parents=True)
+    settings['sys_dir'] = str(directory)
+
+    physical_atoms = set(range(len(system.balls)))
+    source = None
+    source_targets = set()
+    for group in original_groups:
+        network = group.net or getattr(group, 'source_network', None)
+        if network is None or network.settings['net_type'] != settings['net_type']:
+            continue
+        _, mapping, _ = _build_index_maps(SimpleNamespace(net=network))
+        if not physical_atoms.issubset(mapping.values()):
+            continue
+        targets = {mapping[int(atom)] for atom in network.group if int(atom) in mapping}
+        if set(seed_atoms).issubset(targets):
+            source, source_targets = network, targets
+            break
+    if source is None:
+        print(f'Solving wet-context seed cells: {len(seed_atoms)} atoms', flush=True)
+        seed = Group(system, name='water_seed_context', atoms=list(seed_atoms),
+                     settings=dict(settings), print_metrics=False)
+        seed.build(calculate_curvature=False)
+        source, source_targets = seed.net, set(seed_atoms)
+        del seed
+
+    # Main outputs/checkpoint already exist; retain only the source needed to find layer 1.
+    for group in original_groups:
+        group.net = None
+        group.source_network = None
+        group.source_view = None
+        group.source_view_analysis = None
+
+    def partial_volume(network, atoms):
+        mapping = network.balls.get('system_num', network.balls['num'])
+        rows = {int(system_id): row for system_id, (_, row)
+                in zip(mapping, network.balls.iterrows())}
+        return sum(float(rows[atom]['vol']) for atom in atoms
+                   if atom in rows and bool(rows[atom].get('complete', False))
+                   and math.isfinite(float(rows[atom].get('vol', math.nan))))
+
+    contained_volume = partial_volume(source, seed_atoms)
+    visited, frontier = set(seed_atoms), set(seed_atoms)
+    water_atoms = {i for i, atom in system.balls.iterrows()
+                   if atom['res'].name.strip().upper() in WATER_RESIDUES}
+    summaries = []
+    analysis_fields = {'vol', 'vdw_vol', 'com', 'moi', 'int_mean_curv', 'int_gauss_curv'}
+    for number in range(1, count + 1):
+        atoms = sorted(water_neighbors(source, system, frontier, visited)) if frontier else []
+        if atoms:
+            can_reuse = set(atoms).issubset(source_targets)
+            can_reuse &= not calculate_curvature or analysis_fields.issubset(source.balls.columns)
+            # Group normalizes its atom input in place; keep frontier membership immutable.
+            layer = Group(system, name=f'layer_{number:02d}', atoms=list(atoms),
+                          settings=dict(settings), make_net=False, print_metrics=False)
+            if can_reuse:
+                layer.net = source
+            else:
+                source = None
+                gc.collect()
+                # shortcut: reuse prior outer vertices once Network accepts them as bounded seeds.
+                print(f'Solving water layer {number}: {len(atoms)} atoms', flush=True)
+                layer.build(calculate_curvature=calculate_curvature)
+            surfaces, edges, vertices = boundary_indices(layer.net, frontier, [atoms])
+        else:
+            layer = Group(system, name=f'layer_{number:02d}', atoms=list(seed_atoms),
+                          settings=dict(settings), make_net=False, print_metrics=False)
+            layer.ball_ndxs = []
+            layer.net = source
+            surfaces, edges, vertices = [[]], [[]], [[]]
+
+        layer.solvent_layers = dict(atoms=[atoms], surfs=surfaces, edges=edges,
+                                    verts=vertices, seed_atoms=sorted(frontier),
+                                    numbers=[number], allow_partial=True)
+        layer.dir = str(directory / f'layer_{number:02d}')
+        layer.get_info()
+        contained_volume += float(layer.vol)
+        layer.contained_volume = contained_volume
+        layer.solvent_layer_number = number
+        mapping = layer.net.balls.get('system_num', layer.net.balls['num'])
+        complete = {int(atom) for atom, done in zip(
+            mapping, layer.net.balls['complete'].eq(True).fillna(False)) if done}
+        layer.complete_cell_count = sum(atom in complete for atom in atoms)
+        layer.total_cell_count = len(atoms)
+        layer.layer_complete = bool(atoms) and layer.complete_cell_count == len(atoms)
+        layer.metrics_status = 'complete' if layer.layer_complete else 'partial'
+        export_layer(layer)
+        summaries.append(dict(layer=number, atoms=len(atoms),
+            complete_cells=layer.complete_cell_count, complete=layer.layer_complete,
+            metrics_status=layer.metrics_status, contained_volume=layer.contained_volume,
+            layer_volume=layer.vol, layer_surface_area=layer.sa,
+            integrated_mean_curvature=layer.int_mean_curv,
+            integrated_gaussian_curvature=layer.int_gauss_curv))
+
+        visited.update(atoms)
+        frontier = set(atoms)
+        if atoms:
+            source = layer.net
+            _, mapping, _ = _build_index_maps(SimpleNamespace(net=source))
+            source_targets = {mapping[int(atom)] for atom in source.group if int(atom) in mapping}
+        if water_atoms.issubset(visited):
+            frontier = set()
+        del layer
+
+    pd.DataFrame(summaries).to_csv(directory / 'layers.csv', index=False)
+    (directory / 'README.txt').write_text(
+        'Each layer_NN directory contains one independently exported water-shell solve.\n'
+        'layer_volume and contained_volume are in A^3; layer_surface_area is in A^2.\n'
+        'contained_volume is the solute volume plus every shell through the listed layer.\n'
+        'Integrated mean curvature uses A; integrated Gaussian curvature is dimensionless.\n'
+        'metrics_status=partial means totals use available complete cells and boundary geometry.\n'
+        'All input atoms remain geometric competitors, but only one layer topology is retained at a time.\n',
+        encoding='utf-8')
+    return summaries

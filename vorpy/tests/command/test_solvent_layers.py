@@ -86,6 +86,59 @@ def test_incomplete_layer_warning_and_summary(tmp_path, capsys):
     assert summary.included_in_logs.tolist() == [True, True, False, False]
 
 
+@pytest.mark.parametrize('complete', [True, False])
+def test_solvent_info_never_reports_a_partial_or_zero_filled_layer(tmp_path, complete):
+    from vorpy.src.output.solvent import export_solvent_layers
+    system, net = graph()
+    net.balls['complete'] = [complete and i in [2, 3, 4] for i in range(11)]
+    calls = []
+
+    class TestGroup:
+        def exports(self, **options):
+            calls.append(list(self.ball_ndxs))
+            (tmp_path / 'group_info.txt').write_text(str(self.ball_ndxs))
+
+    group = TestGroup()
+    group.sys, group.net, group.dir = system, net, str(tmp_path)
+    group.ball_ndxs = [2, 3, 4, 5, 6, 7]
+    group.solvent_layers = dict(atoms=[[2, 3, 4], [5, 6, 7]], surfs=[[], []], edges=[[], []])
+    export_solvent_layers(group, [('info', {'info': True})])
+    assert group.ball_ndxs == [2, 3, 4, 5, 6, 7]
+    if complete:
+        assert calls == [[2, 3, 4]]
+    else:
+        assert not calls
+        assert 'summary unavailable' in (tmp_path / 'group_info.txt').read_text()
+
+
+def test_streamed_incomplete_layer_exports_partial_totals(tmp_path):
+    from vorpy.src.output.solvent import export_solvent_layers
+    system, net = graph()
+    net.balls['complete'] = [False] * len(net.balls)
+    calls = []
+
+    class TestGroup:
+        def exports(self, **options):
+            calls.append(options)
+
+    group = TestGroup()
+    group.sys, group.net, group.dir = system, net, str(tmp_path)
+    group.ball_ndxs = [2, 3, 4]
+    group.vol, group.sa = 12.5, 8.25
+    group.int_mean_curv, group.int_gauss_curv = 3.5, 1.25
+    group.contained_volume, group.metrics_status = 112.5, 'partial'
+    group.solvent_layers = dict(atoms=[[2, 3, 4]], surfs=[[]], edges=[[]],
+                                numbers=[1], allow_partial=True)
+    export_solvent_layers(group, [('logs', {'logs': True})])
+    summary = pd.read_csv(tmp_path/'layers.csv').iloc[0]
+    assert calls == [{'logs': True}]
+    assert summary['included_in_logs']
+    assert summary['metrics_status'] == 'partial'
+    assert summary['contained_volume'] == 112.5
+    assert summary['layer_volume'] == 12.5
+    assert summary['layer_surface_area'] == 8.25
+
+
 def atom_records(path):
     with path.open(newline='') as stream:
         rows = csv.reader(stream)
@@ -127,60 +180,50 @@ def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path,
             assert (directory/'EDTA_checkpoint.vpy').is_file()
             assert (directory/'groups/EDTA/pow_logs.csv').is_file()
             solvent = directory/'solvent'
-            assert len(list(solvent.glob('*_logs.csv'))) == 1
-            assert len(list(solvent.glob('layer_*.pdb'))) == 4
-            assert len(list(solvent.glob('layer_*_surfs.off'))) == 4
-            assert len(list(solvent.glob('layer_*_edges.off'))) == 4
-            rows = atom_records(solvent/'pow_logs.csv')
+            assert len(list(solvent.glob('layer_*/*_logs.csv'))) == 4
+            assert len(list(solvent.glob('layer_*/layer_*.pdb'))) == 4
+            assert len(list(solvent.glob('layer_*/layer_*_surfs.off'))) == 4
+            assert len(list(solvent.glob('layer_*/layer_*_edges.off'))) == 4
+            rows = [row for path in sorted(solvent.glob('layer_*/*_logs.csv'))
+                    for row in atom_records(path)]
             assert all(row['Residue'] == 'SOL' for row in rows)
             assert all(1 <= int(row['Solvent Layer']) <= 4 for row in rows)
             assert len({row['Index'] for row in rows}) == len(rows)
             from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
-            parsed = read_logs2(solvent/'pow_logs.csv', all_=False, balls=True)['atoms']
+            parsed = pd.concat([
+                read_logs2(path, all_=False, balls=True)['atoms']
+                for path in sorted(solvent.glob('layer_*/*_logs.csv'))
+            ], ignore_index=True)
             if rows:
                 assert parsed['Solvent Layer'].tolist() == [int(row['Solvent Layer']) for row in rows]
             from vorpy.src.command.vpy_cmnd import Command
             loader = Command()
             archived = loader._load_canonical_checkpoint(directory/'EDTA_checkpoint.vpy')
-            saved = next(group for group in archived.sys.groups if getattr(group, 'solvent_layers', None))
-            membership = saved.solvent_layers['atoms']
             assert f'Vertices - {len(archived.verts)} vertices' in (directory/'pow_verts.txt').read_text().splitlines()[0]
-            assert f'Vertices - {len(saved.net.verts)} vertices' in (solvent/'pow_verts.txt').read_text().splitlines()[0]
-            complete_count = complete_layer_count(saved)
-            if complete_count < 4:
-                assert 'Warning: 4 layers were requested;' in result.stdout
-            assert sum(map(len, membership[:complete_count])) == len(rows)
-            assert all(int(row['Solvent Layer']) <= complete_count for row in rows)
-            assert all(len(layer) % 3 == 0 for layer in membership)
-            for layer, atoms in enumerate(membership, 1):
-                pdb = solvent/f'layer_{layer:02d}.pdb'
-                assert sum(line.startswith(('ATOM  ', 'HETATM')) for line in pdb.read_text().splitlines()) == len(atoms)
+            assert not any(getattr(group, 'solvent_layers', None) for group in archived.sys.groups)
+            summary = pd.read_csv(solvent/'layers.csv')
+            if not summary.complete.all():
+                assert 'will be included with explicitly partial totals' in result.stdout
+            assert summary.metrics_status.isin(['complete', 'partial']).all()
+            for layer, atom_count in zip(summary.layer, summary.atoms):
+                pdb = solvent/f'layer_{layer:02d}'/f'layer_{layer:02d}.pdb'
+                assert sum(line.startswith(('ATOM  ', 'HETATM')) for line in pdb.read_text().splitlines()) == atom_count
             tree = {str(path.relative_to(directory)) for path in directory.rglob('*')
                     if path.is_file() and path.name != 'run.log'}
             if reference_tree is None:
-                reference_tree, reference_membership = tree, membership
+                reference_tree, reference_membership = tree, summary.atoms.tolist()
             else:
                 assert tree == reference_tree
-                assert membership == reference_membership
+                assert summary.atoms.tolist() == reference_membership
             expected = checkpoint if mode == 'single' else checkpoint.with_name(f'{checkpoint.stem}_frame_{index:04d}.vpy')
             assert expected.is_file()
 
-            from vorpy.src.io.network_archive import _validate_context, ArchiveError, GROUP_LAYER_ATOMS_CONTRACT
-            metadata = {'producer_contracts': {'group.layer_atoms': GROUP_LAYER_ATOMS_CONTRACT}}
-            membership[0].append(len(archived.sys.balls))
-            with pytest.raises(ArchiveError, match='solvent.atoms'):
-                _validate_context([saved], [{'kind': 'group'}], metadata)
-            membership[0].pop()
-            original = saved.solvent_layers['surfs'][0]
-            saved.solvent_layers['surfs'][0] = None
-            with pytest.raises(ArchiveError, match='ID lists'):
-                _validate_context([saved], [{'kind': 'group'}], metadata)
-            saved.solvent_layers['surfs'][0] = original
             loader._cleanup_checkpoint_source()
 
-    # A checkpoint retains layer membership and can export it without solving again.
+    # The recovery checkpoint contains the main solve, not released layer topology.
     from vorpy.src.command.vpy_cmnd import Command
     from vorpy.src.network.network import Network
+    original_build = Network.build
     def forbidden(*args, **kwargs):
         pytest.fail('Checkpoint export attempted a network solve')
     monkeypatch.setattr(Network, 'build', forbidden)
@@ -188,7 +231,8 @@ def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path,
     monkeypatch.setattr(sys, 'argv', ['vorpy', str(tmp_path/'single_checkpoint.vpy'),
                                     '-e', 'large', 'and', 'dir', str(tmp_path/'reloaded')])
     Command().run()
-    assert len(list((tmp_path/'reloaded/EDTA/solvent').glob('layer_*.pdb'))) == 4
+    assert not (tmp_path/'reloaded/EDTA/solvent').exists()
+    monkeypatch.setattr(Network, 'build', original_build)
 
     checkpoint = tmp_path/'single_checkpoint.vpy'
     original_digest = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
@@ -196,8 +240,8 @@ def test_cli_layer_exports_match_single_sequential_and_parallel_frames(tmp_path,
     monkeypatch.setattr(sys, 'argv', ['vorpy', str(checkpoint), '-c', 'l', '4',
                                     '-e', 'small', 'and', 'dir', str(tmp_path/'reused_layers')])
     Command().run()
-    assert 'Reusing 4 saved water layers; no geometry solve is needed.' in capsys.readouterr().out
-    assert len(list((tmp_path/'reused_layers/EDTA/solvent').glob('layer_*.pdb'))) == 4
+    assert 'Calculating water layers from checkpoint' in capsys.readouterr().out
+    assert len(list((tmp_path/'reused_layers/EDTA/solvent').glob('layer_*/layer_*.pdb'))) == 4
     assert hashlib.sha256(checkpoint.read_bytes()).hexdigest() == original_digest
 
 
@@ -222,7 +266,6 @@ def test_checkpoint_layer_calculation_preserves_source_geometry(tmp_path, monkey
         settings=dict(net_type='pow', max_vert=5., surf_res=1., sys_dir=str(saved_dir)))
     system.groups = [body]
     body.build()
-    original = body.net.balls[['num', 'system_num', 'rad', 'vol', 'sa', 'complete']].copy(deep=True)
     checkpoint = write_checkpoint(system)
     original_digest = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
     original_build = Network.build
@@ -240,15 +283,19 @@ def test_checkpoint_layer_calculation_preserves_source_geometry(tmp_path, monkey
     try:
         command.run()
         saved_body = next(group for group in command.sys.groups if group.name == 'EDTA')
-        pd.testing.assert_frame_equal(saved_body.net.balls[original.columns], original)
+        assert saved_body.net is None, 'The exported main solve should be released before layer solves'
         if target == 'ALL':
             assert builds == [], 'A fully cached solvent network needs no new solve'
         else:
             assert builds
             assert ('water_seed_context' in builds) == (source_mode == 'MOLECULE_ONLY')
         directory = tmp_path/'rerun/EDTA/solvent'
-        assert len(list(directory.glob('*_logs.csv'))) == 1
-        assert len(list(directory.glob('layer_*.pdb'))) == 4
+        assert len(list(directory.glob('layer_*/*_logs.csv'))) == 4
+        assert len(list(directory.glob('layer_*/layer_*.pdb'))) == 4
+        summary = pd.read_csv(directory/'layers.csv')
+        assert {'contained_volume', 'layer_volume', 'layer_surface_area',
+                'integrated_mean_curvature', 'integrated_gaussian_curvature',
+                'metrics_status'}.issubset(summary.columns)
         assert hashlib.sha256(checkpoint.read_bytes()).hexdigest() == original_digest
     finally:
         command._cleanup_checkpoint_source()

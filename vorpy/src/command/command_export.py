@@ -15,6 +15,18 @@ FORMAT_COMMANDS = {'ft', 'file_type', 'file_format', 'format', 'mesh_format'}
 FORMAT_VALUES = {'off': 'off', 'ply': 'ply', 'vtp': 'vtp', 'vtk': 'vtp'}
 ONLY_COMMANDS = {'only', 'just'}
 
+GROUP_OPTIONS = {
+    'edges': {'edges': True}, 'surfaces': {'surfs': True},
+    'vertices': {'verts': True}, 'shell': {'shell_surfs': True},
+    'shell_edges': {'shell_edges': True}, 'shell_vertices': {'shell_verts': True},
+    'group_atoms': {'atoms': True}, 'surrounding_atoms': {'surr_atoms': True},
+    'surrounding_residues': {'surr_resids': True}, 'external_atoms': {'ext_atoms': True},
+    'separate_surfaces': {'sep_surfs': True}, 'separate_edges': {'sep_edges': True},
+    'separate_vertices': {'sep_verts': True}, 'atom_surfaces': {'atom_surfs': True},
+    'atom_edges': {'atom_edges': True}, 'atom_vertices': {'atom_verts': True},
+    'logs': {'logs': True}, 'info': {'info': True},
+}
+
 
 def _export_scope(system):
     """Infer a scope only for callers that bypass Command.parse_commands."""
@@ -37,26 +49,7 @@ def _run_component_plan(system, plan):
     ):
         output.prepare_canonical_root(system)
 
-    group_options = {
-        'edges': {'edges': True},
-        'surfaces': {'surfs': True},
-        'vertices': {'verts': True},
-        'shell': {'shell_surfs': True},
-        'shell_edges': {'shell_edges': True},
-        'shell_vertices': {'shell_verts': True},
-        'group_atoms': {'atoms': True},
-        'surrounding_atoms': {'surr_atoms': True},
-        'surrounding_residues': {'surr_resids': True},
-        'external_atoms': {'ext_atoms': True},
-        'separate_surfaces': {'sep_surfs': True},
-        'separate_edges': {'sep_edges': True},
-        'separate_vertices': {'sep_verts': True},
-        'atom_surfaces': {'atom_surfs': True},
-        'atom_edges': {'atom_edges': True},
-        'atom_vertices': {'atom_verts': True},
-        'logs': {'logs': True},
-        'info': {'info': True},
-    }
+    group_options = GROUP_OPTIONS
     interface_options = {
         'edges': {'edges': True},
         'surfaces': {'surfs': True},
@@ -124,13 +117,21 @@ def _run_component_plan(system, plan):
         getattr(system, 'balls', None) is not None
         and not getattr(system, '_source_structure_only_export', False)
     )
-    total = len(system_calls) + group_call_count + interface_call_count + int(checkpoint)
+    pending_layers = getattr(system, '_pending_solvent_layers', None)
+    total = (len(system_calls) + group_call_count + interface_call_count + int(checkpoint)
+             + (int(pending_layers['count']) if pending_layers else 0))
     progress = output.ExportProgress(total, system)
 
     if checkpoint:
-        output._run_export(
-            progress, 'network archive', output._export_network_archive, sys=system
-        )
+        if pending_layers:
+            del system._pending_solvent_layers
+        try:
+            output._run_export(
+                progress, 'network archive', output._export_network_archive, sys=system
+            )
+        finally:
+            if pending_layers:
+                system._pending_solvent_layers = pending_layers
 
     # Validate profile/output compatibility only after the mandatory
     # checkpoint succeeds.  Geometry-only profiles do not populate analysis
@@ -176,6 +177,20 @@ def _run_component_plan(system, plan):
                     output._run_export(
                         progress, f'{group.name}: {component}', group.exports, **kwargs
                     )
+
+    if pending_layers:
+        from vorpy.src.group.solvent_layers import stream_solvent_layers
+        from vorpy.src.output.solvent import export_solvent_layers
+        layer_plan = [(component, group_options[component]) for component in components
+                      if component in group_options]
+
+        def export_layer(layer):
+            with output._group_export_cache(layer):
+                output._run_export(progress, layer.name, export_solvent_layers,
+                                   group=layer, plan=layer_plan)
+
+        stream_solvent_layers(system, export_layer=export_layer, **pending_layers)
+        del system._pending_solvent_layers
 
     for iface in ifaces:
         calls = [

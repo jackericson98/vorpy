@@ -203,8 +203,8 @@ def test_batch_uses_independent_systems_and_standard_exports(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize('answers, expected', [(['y'], 'all'), (['YES'], 'all'),
-                                             ([''], 'all'), (['n'], 'first'),
-                                             (['no'], 'first'), (['maybe', 'y'], 'all')])
+                                             ([''], 'all'), (['n', '1'], 'first'),
+                                             (['no', '1'], 'first'), (['maybe', 'y'], 'all')])
 def test_frame_prompt_routes_answer(tmp_path, monkeypatch, answers, expected):
     source = tmp_path / 'trajectory.pdb'
     source.write_text(atom(1) + 'END\n' + atom(2) + 'END\n')
@@ -222,8 +222,27 @@ def test_frame_prompt_routes_answer(tmp_path, monkeypatch, answers, expected):
     monkeypatch.setattr(command, '_process_system', lambda: actions.append(('first', 1)))
     command.run()
     assert actions == [(expected, 2 if expected == 'all' else 1)]
-    assert prompts == (['2 frames found. Run all? [Y/n] '] * len(answers)
-                       + (['Parallelize frame runs? [Y/n] '] if expected == 'all' else []))
+    all_answers = answers if expected == 'all' else answers[:-1]
+    assert prompts == (['2 frames found. Run all? [Y/n] '] * len(all_answers)
+                       + (['Parallelize frame runs? [Y/n] '] if expected == 'all' else
+                          ['Which frame should be run? [1-2] ']))
+
+
+def test_frame_prompt_loads_selected_frame(tmp_path, monkeypatch):
+    source = tmp_path / 'trajectory.pdb'
+    source.write_text(atom(1) + 'END\n' + atom(2) + 'END\n')
+    monkeypatch.setattr('sys.argv', ['vorpy', str(source)])
+    replies = iter(['n', 'outside', '3', '2'])
+    monkeypatch.setattr('builtins.input', lambda prompt: next(replies))
+    observed = []
+    command = Command()
+    monkeypatch.setattr(command, 'parse_commands', lambda: None)
+    monkeypatch.setattr(command, '_process_system', lambda: observed.append(
+        (command.sys.frame_index, command.sys.frame_count,
+         command.sys.balls.iloc[0]['loc'][0], command.sys.files['base_file'])))
+    command.run()
+    assert observed == [(2, 2, 2., str(source))]
+    assert command._selected_frame_tempdir is None
 
 
 def test_batch_collects_previous_frame_before_loading_next(tmp_path, monkeypatch):

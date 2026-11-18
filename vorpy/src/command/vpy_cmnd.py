@@ -480,6 +480,22 @@ def prompt_frame_workers(total_frames):
         print('Enter a percentage from 1 to 100.')
 
 
+def prompt_frame_number(total_frames):
+    """Prompt for one 1-based trajectory frame and validate its bounds."""
+    while True:
+        try:
+            answer = input(f'Which frame should be run? [1-{total_frames}] ').strip()
+        except EOFError:
+            raise SystemExit('No frame selected.') from None
+        try:
+            frame = int(answer)
+        except ValueError:
+            frame = 0
+        if 1 <= frame <= total_frames:
+            return frame
+        print(f'Please enter a frame number from 1 to {total_frames}.')
+
+
 def frame_cli_options(args):
     """Remove the parallel-frame option before the legacy grouped parser."""
     remaining = []
@@ -731,6 +747,10 @@ class Command:
         self.interface_result_handoffs = ()
         self.interface_result_errors = ()
         self._checkpoint_source_tempdir = None
+        self._selected_frame_tempdir = None
+        self._selected_frame_input = None
+        self._selected_frame_number = None
+        self._selected_frame_count = None
         # Directory ownership is process-local.  A new Command over a reused
         # System must not inherit a failed run's reservations.
         self._interface_reservation_owner = object()
@@ -752,6 +772,10 @@ class Command:
             raise
         finally:
             self._cleanup_checkpoint_source()
+            if self._selected_frame_tempdir is not None:
+                self._selected_frame_tempdir.cleanup()
+                self._selected_frame_tempdir = None
+                self._selected_frame_input = None
 
     def _cleanup_checkpoint_source(self):
         temporary = self._checkpoint_source_tempdir
@@ -1425,9 +1449,12 @@ class Command:
                             self.run_all_frames(total_frames=total_frames, workers=workers)
                         return
                     if answer in {'n', 'no'}:
-                        print('Running frame 1 only.')
+                        frame = prompt_frame_number(total_frames)
+                        print(f'Running frame {frame} only.')
+                        if frame != 1:
+                            self._select_frame_input(frame, total_frames)
                         break
-                    print('Please enter y (all frames) or n (frame 1 only).')
+                    print('Please enter y (all frames) or n (choose one frame).')
 
         # Interface workflows get the compact, stage-oriented CLI trace. Keep
         # the established non-interface transcript unchanged.
@@ -1442,16 +1469,16 @@ class Command:
         # use a temporary copy without water HETATM records; neither the source
         # PDB nor the independent Cazals/Power preparation is altered.
         comparison_temp = None
-        system_input = self.base_file
+        system_input = self._selected_frame_input or self.base_file
         if self.power_vs_aw_requested and Path(self.base_file).suffix.lower() == '.pdb':
             from vorpy.src.analyze.power_interface_cli import (
                 aw_comparison_structure_without_waters,
             )
-            comparison_temp, self.power_aw_water_records_omitted = aw_comparison_structure_without_waters(self.base_file)
+            comparison_temp, self.power_aw_water_records_omitted = aw_comparison_structure_without_waters(system_input)
             system_input = comparison_temp
         elif self.aw_alpha_values and Path(self.base_file).suffix.lower() == '.pdb':
             from vorpy.src.geometry.aw_alpha.cli import parser_safe_aw_alpha_structure
-            comparison_temp, self.aw_alpha_solvent_chains_normalized = parser_safe_aw_alpha_structure(self.base_file)
+            comparison_temp, self.aw_alpha_solvent_chains_normalized = parser_safe_aw_alpha_structure(system_input)
             if comparison_temp is not None:
                 system_input = comparison_temp
         try:
@@ -1469,6 +1496,11 @@ class Command:
                 self.sys.solvent_mode = self.solvent_mode
                 self.sys.cell_target = self.cell_target
             self.sys._fail_if_exists = self.fail_if_exists
+            if self._selected_frame_number is not None:
+                self.sys.frame_index = self._selected_frame_number
+                self.sys.frame_count = self._selected_frame_count
+                self.sys.loaded_frame_count = 1
+                self.sys.files['base_file'] = self.base_file
         finally:
             if comparison_temp is not None:
                 comparison_temp.unlink(missing_ok=True)
@@ -1495,6 +1527,23 @@ class Command:
             if callable(finish_progress):
                 finish_progress()
             raise
+
+    def _select_frame_input(self, frame_number, total_frames):
+        """Materialize one selected trajectory frame for the normal pipeline."""
+        temporary = tempfile.TemporaryDirectory(prefix='vorpy_selected_frame_')
+        destination = Path(temporary.name) / Path(self.base_file).name
+        with closing(iter_pdb_frames(self.base_file)) as frames:
+            for ordinal, frame_file in frames:
+                if ordinal == frame_number:
+                    shutil.copyfile(frame_file, destination)
+                    break
+            else:
+                temporary.cleanup()
+                raise ValueError(f'Frame {frame_number} was not found in {self.base_file}.')
+        self._selected_frame_tempdir = temporary
+        self._selected_frame_input = str(destination)
+        self._selected_frame_number = frame_number
+        self._selected_frame_count = total_frames
 
     def run_all_frames(self, total_frames=None, workers=None):
         """Run the normal workflow independently for every input PDB frame."""
@@ -3147,9 +3196,11 @@ class Command:
             self.sys.groups.append(self._full_system_group)
 
         if layer_count:
-            from vorpy.src.group.solvent_layers import build_solvent_layers
-            build_solvent_layers(self.sys, layer_count,
-                                 calculate_curvature=self.sys._network_calculate_curvature)
+            self.sys._pending_solvent_layers = dict(
+                count=layer_count,
+                calculate_curvature=self.sys._network_calculate_curvature,
+                seed_groups=None,
+            )
         for _, network in self._diagnostic_networks():
             self._record_generator_policy(network)
         self._record_network_timings()
@@ -3607,9 +3658,12 @@ class Command:
             for definition in definitions:
                 selected_groups.append(group_from_network(network, definition.ball_ndxs, definition.name))
         if layer_count:
-            from vorpy.src.group.solvent_layers import build_solvent_layers
             print('Calculating water layers from checkpoint; saved source geometry will be reused.', flush=True)
-            build_solvent_layers(self.sys, layer_count, seed_groups=selected_groups or None)
+            self.sys._pending_solvent_layers = dict(
+                count=layer_count,
+                calculate_curvature=getattr(self.sys, '_network_calculate_curvature', True),
+                seed_groups=selected_groups or None,
+            )
         if self.diagnose_edges:
             self.run_edge_diagnostics()
         if self.apollonius_requested:
