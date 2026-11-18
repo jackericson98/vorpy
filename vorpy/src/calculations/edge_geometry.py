@@ -813,7 +813,12 @@ def match_aw_trisector_conic_to_samples(
                 (sample_parameters[-1] - end_parameter)/two_pi
             )
 
-        if abs(float(end_parameter - start_parameter)) <= tolerance:
+        parameter_scale = max(
+            1.0, abs(float(start_parameter)), abs(float(end_parameter))
+        )
+        # Residual tolerance must not erase a geometrically valid short edge.
+        if abs(float(end_parameter - start_parameter)) <= (
+                np.finfo(float).eps*parameter_scale):
             continue
         source = AdditivelyWeightedTrisectorConic(
             locations, radii,

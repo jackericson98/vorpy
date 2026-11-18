@@ -308,6 +308,31 @@ def test_nonsingular_aw_match_handles_equal_rho_endpoints():
     )
 
 
+def test_nonsingular_aw_match_preserves_short_valid_edge():
+    # Frame-8 edge 40243 geometry; coordinates and radii are in Angstroms.
+    locations = np.array([
+        [38.676, 44.661, 20.353],
+        [36.566, 47.721, 21.353],
+        [35.296, 46.191, 21.083],
+    ])
+    radii = np.array([1.3, 1.5, 1.3])
+    endpoints = np.array([
+        [37.09927259614942, 45.87461746588731, 20.302214592023923],
+        [37.09927260308609, 45.874617451099645, 20.302214655134986],
+    ])
+
+    match = match_aw_trisector_conic_to_samples(
+        locations, radii, [26839, 26841], endpoints, endpoints,
+        tolerance=1e-7,
+    )
+
+    assert match.status == "matched_nonsingular"
+    assert match.geometry.arc_length() == pytest.approx(
+        np.linalg.norm(endpoints[1] - endpoints[0]), rel=1e-6
+    )
+    assert max(match.endpoint_errors) < 2e-13
+
+
 def test_nonsingular_aw_parabola_is_regular_at_normal_coordinate_zero():
     theta = 0.5
     locations = [[0., 0., 0.], [4., 0., 0.], [0., 5., 0.]]
