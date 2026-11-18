@@ -16,7 +16,7 @@ NETWORK_FIELDS = ('group', 'iface_grps', 'group_name', 'settings', 'metrics', 'b
     'network_mode', 'loaded_from_logs', 'completion_kind', 'vert_timing',
     'surface_timing', 'build_surf_timing', 'analysis_timing', 'max_curv', 'interface_vertex_state',
     'balls', 'verts', 'edges', 'surfs')
-SYSTEM_FIELDS = ('name', 'type', 'foam_box', 'foam_data', 'ndxs', 'ndx_names',
+SYSTEM_FIELDS = ('name', 'type', 'foam_box', 'foam_data', 'periodic_box', 'ndxs', 'ndx_names',
     'atom_names', 'chn_names', 'res_names', 'group_names', 'elements',
     'element_radii', 'special_radii', 'round_to', 'export_type', 'file_type',
     'max_atom_rad', 'frame_index', 'frame_count', 'loaded_frame_count', 'data',

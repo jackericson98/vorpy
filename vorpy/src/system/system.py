@@ -318,6 +318,7 @@ class System:
         self.type = 'mol'  # Type of file        :   Holds the type of file loaded (mol, coarse, foam)
         self.foam_box = None  # Foam Retaining Box  :   Indicated in file the box that contains all balls
         self.foam_data = None  # Foam Data Info      :   Holds general information from the foam generation
+        self.periodic_box = None  # PDB CRYST1 Wigner-Seitz vertex limit
 
         # Loadable objects
         self.balls = spheres  # Spheres             :   List holding the atom objects

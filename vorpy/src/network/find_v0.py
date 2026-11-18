@@ -8,6 +8,7 @@ from vorpy.src.network.fast import find_site_container
 from vorpy.src.network.slow import find_site_container_slow
 from vorpy.src.network.slow import find_site
 from vorpy.src.calculations import verify_site
+from vorpy.src.geometry.periodic_box import point_in_vertex_box
 
 
 def is_interface_vertex(vertex_balls, iface_grps):
@@ -376,11 +377,7 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
 
             # Reject a candidate whose primary location falls outside
             # the requested network box.
-            if box is not None and any(
-                box[0][axis] > candidate['loc'][axis]
-                or candidate['loc'][axis] > box[1][axis]
-                for axis in range(3)
-            ):
+            if not point_in_vertex_box(candidate['loc'], box):
                 continue
 
             # This is a valid seed vertex. In interface mode, it has

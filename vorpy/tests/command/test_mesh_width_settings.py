@@ -27,6 +27,15 @@ def test_vertex_and_edge_color_cli_settings_are_applied():
     assert settings["edge_col"] == "orange"
 
 
+def test_box_multiplier_accepts_cryst1_contraction():
+    assert sett("bm", ["0.95"])["box_size"] == pytest.approx(0.95)
+
+
+@pytest.mark.parametrize("value", ["0", "-0.1", "nan", "inf"])
+def test_box_multiplier_rejects_nonpositive_or_nonfinite_values(value):
+    assert sett("bm", [value])["box_size"] == pytest.approx(1.25)
+
+
 @pytest.mark.parametrize("setting", ["ew", "vs"])
 @pytest.mark.parametrize("value", ["0", "-0.1", "nan", "inf", "bad"])
 def test_mesh_width_settings_reject_nonpositive_or_nonfinite_values(setting, value):

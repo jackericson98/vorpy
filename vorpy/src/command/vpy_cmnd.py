@@ -1837,6 +1837,8 @@ class Command:
         source = self._full_system_group.net
         source_network_id = self._full_system_source_network_id()
         for group in self.sys.groups or ():
+            if group is self._full_system_group:
+                continue
             view = make_group_view(
                 group, source, source_network_id=source_network_id
             )
@@ -4246,6 +4248,12 @@ class Command:
                     int(index) for index in getattr(group, 'atms', ())
                     if int(index) in active
                 ]
+
+        if implicit_full_default and len(self.sys.groups or ()) == 1:
+            selected = tuple(self.sys.groups[0].ball_ndxs)
+            full_selection = tuple(self._full_system_group.ball_ndxs)
+            if selected == full_selection:
+                self.sys.groups = [self._full_system_group]
 
         # Propagate the universal verbose flag into every created group and
         # network. This lets existing timing code use:

@@ -612,9 +612,9 @@ def ggroup(my_sys, group_commands, settings=None, make_net=True):
         return
     # First case: if no groups are entered, then make the standard group (no sol for 'mol' or coarse and all for 'foam')
     if len(group_commands) == 0:
-        # Raw ball systems have no molecular residue/chain hierarchy.
+        # Raw-ball and solvent-only systems have no molecular residues.
         # Their natural default group is therefore the complete set of balls.
-        if my_sys.type == 'balls':
+        if my_sys.type == 'balls' or not my_sys.residues:
             my_sys.groups = [
                 Group(
                     my_sys,

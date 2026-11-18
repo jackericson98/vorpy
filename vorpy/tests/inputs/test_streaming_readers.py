@@ -41,6 +41,20 @@ def test_pdb_streaming_preserves_hierarchy_and_silent_mode(tmp_path, capsys):
     assert capsys.readouterr().out == ''
 
 
+def test_pdb_cryst1_records_rhombic_dodecahedron_vertex_region(tmp_path):
+    path = tmp_path / 'water.pdb'
+    path.write_text(
+        'CRYST1   39.854   39.854   39.854  60.00  60.00  90.00 P 1           1\n'
+        'ATOM      1  OW  SOL     1      29.891  29.891  14.091  1.00  0.00           O\n'
+    )
+    sys = system(path)
+
+    read_pdb(sys)
+
+    assert sys.periodic_box['kind'] == 'cryst1_wigner_seitz'
+    assert sys.periodic_box['face_count'] == 12
+
+
 def test_pdb_skips_blank_element_water_virtual_sites(tmp_path, monkeypatch):
     path = tmp_path / 'water.pdb'
     path.write_text(''.join(

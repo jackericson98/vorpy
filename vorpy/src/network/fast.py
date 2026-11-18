@@ -19,6 +19,7 @@ from vorpy.src.calculations import calc_com
 from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
 from vorpy.src.calculations import calc_circ
+from vorpy.src.geometry.periodic_box import point_in_vertex_box
 
 warnings.filterwarnings("error", category=RuntimeWarning)
 
@@ -429,7 +430,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
             invalid_ndxs.append(ball)
             continue
         # Check if the vert is outside the box
-        if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
+        if not point_in_vertex_box(v_loc, box):
             continue
         # Reject oversized Primitive vertices before verification.
         if vert_rad >= max_vert:
@@ -549,7 +550,7 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
             continue
 
         # Check if the vert is outside the box
-        if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
+        if not point_in_vertex_box(v_loc, box):
             continue
         # Reject oversized Power vertices before verification.
         max_power = max_vert ** 2 - min(rads[_] for _ in vert_balls) ** 2
@@ -712,7 +713,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
             v_loc2, v_rad2 = None, None
 
         # Check if the vert is outside the box
-        if box is not None and any(box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)):
+        if not point_in_vertex_box(v_loc, box):
             continue
 
         # Add the vertex to the list of calculated vertices

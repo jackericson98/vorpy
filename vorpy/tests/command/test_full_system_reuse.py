@@ -303,3 +303,28 @@ def test_full_system_non_interface_groups_do_not_create_subgroup_networks(monkey
     command.create_groups()
 
     assert calls == [False]
+
+
+def test_implicit_full_group_reuses_incomplete_source_network(monkeypatch):
+    source = _network(scheme="aw")
+    source.balls.loc[2, "complete"] = False
+    selected = _Group("default", [10, 11, 12, 13])
+    full_group = _Group("synthetic_full_system", [10, 11, 12, 13])
+    full_group.net = source
+    command = _command_with_source(source, [])
+    command.calculation_plan = build_calculation_plan(
+        ["synthetic.pdb"], input_source="synthetic.pdb"
+    )
+    command._full_system_group = full_group
+    command._source_system_indices = (10, 11, 12, 13)
+    monkeypatch.setattr(
+        "vorpy.src.command.vpy_cmnd.ggroup",
+        lambda system, *args, **kwargs: setattr(system, "groups", [selected]),
+    )
+
+    command.create_groups()
+    command._attach_full_system_group_views()
+
+    assert command.sys.groups == [full_group]
+    assert full_group.net is source
+    assert not hasattr(full_group, "source_view")

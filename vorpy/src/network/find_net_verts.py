@@ -546,6 +546,9 @@ def find_net_verts(net):
     # Initial vertex search
     # --------------------------------------------------------------
     checkpoint(net, 'Initial vertex search')
+    vertex_box = list(net.box['verts'])
+    if net.box.get('vertex_region'):
+        vertex_box.append(net.box['vertex_region'])
     my_guuy = find_verts(
         net=net,
         locs=net.balls['loc'].to_numpy(),
@@ -563,7 +566,7 @@ def find_net_verts(net):
         b_verts=averts,
         start_time=net.metrics['start'],
         vert_box=net.settings['foam_box'],
-        box=net.box['verts'],
+        box=vertex_box,
         timing=timer
     )
 
@@ -671,7 +674,7 @@ def find_net_verts(net):
             start_time=net.metrics['start'],
             vert_box=net.settings['foam_box'],
             b_verts=averts,
-            box=net.box['verts'],
+            box=vertex_box,
             seed_timeout=0.05,
             net=net,
             timing=timer

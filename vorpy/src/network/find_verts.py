@@ -7,6 +7,7 @@ from vorpy.src.network.fast import find_site_container
 from vorpy.src.calculations import get_time
 from vorpy.src.calculations import ndx_search
 from vorpy.src.calculations import calc_vert
+from vorpy.src.geometry.periodic_box import point_in_vertex_box
 
 
 # Find network function. Keeps searching the network until all verts are found
@@ -241,6 +242,11 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     # If no v0 is possible (e.g., a lone ball) return
     if v0 is None:
         return
+    if box is not None and len(box) >= 3 and not point_in_vertex_box(v0.get('loc'), box):
+        return
+    if (box is not None and len(box) >= 3 and v0.get('loc2') is not None
+            and not point_in_vertex_box(v0['loc2'], box)):
+        v0['loc2'], v0['rad2'] = None, None
     # Check if this is the first go around
     t_stage = time.perf_counter()
     if vert_ndxs is None:
@@ -376,11 +382,11 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 rejected_loc += 1
                 _add_time('candidate_validation', time.perf_counter() - t_validate)
                 continue
-            if box is not None and any([box[0][k] > my_vert['loc'][k] or my_vert['loc'][k] > box[1][k] for k in range(3)]):
+            if not point_in_vertex_box(my_vert['loc'], box):
                 rejected_box += 1
                 _add_time('candidate_validation', time.perf_counter() - t_validate)
                 continue
-            if box is not None and 'loc2' in my_vert and my_vert['loc2'] is not None and any([box[0][k] > my_vert['loc2'][k] or my_vert['loc2'][k] > box[1][k] for k in range(3)]):
+            if 'loc2' in my_vert and my_vert['loc2'] is not None and not point_in_vertex_box(my_vert['loc2'], box):
                 my_vert['loc2'], my_vert['rad2'] = None, None
             _add_time('candidate_validation', time.perf_counter() - t_validate)
 

@@ -12,6 +12,7 @@ from vorpy.src.chemistry import residue_names
 from vorpy.src.chemistry import residue_atoms
 from vorpy.src.chemistry import my_masses
 from vorpy.src.inputs.fix_sol import fix_sol
+from vorpy.src.geometry.periodic_box import vertex_region_from_cryst1
 import os.path as path
 import numpy as np
 from pandas import DataFrame
@@ -87,6 +88,7 @@ def _read_pdb_lines(sys, file, lines, report):
     previous_res_seq, previous_chain = None, None
     # Initialize the chains and residues lists
     sys.chains, sys.residues = [], []
+    sys.periodic_box = None
     # Solvent ownership is independent of the author chain identifier. Water
     # can follow protein records on an already existing PDB chain.
     sys.sol = Sol(sys=sys, atoms=[], residues=[])
@@ -131,6 +133,8 @@ def _read_pdb_lines(sys, file, lines, report):
         if not line:
             continue
         word = line[:6].lower().strip()
+        if word == 'cryst1':
+            sys.periodic_box = vertex_region_from_cryst1(line)
         # Check to see if the line is an atom line
         if line and word in {'atom', 'hetatm'}:
             # Water charge sites are not atoms/Voronoi generators.

@@ -438,6 +438,8 @@ class Group:
                     'cell_target': normalize_cell_target(
                         getattr(self, 'cell_target', cell_target)
                     ).value}
+        if getattr(self.sys, 'periodic_box', None) is not None:
+            defaults['vertex_region'] = self.sys.periodic_box
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults

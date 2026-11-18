@@ -7,6 +7,7 @@ from vorpy.src.calculations import verify_site
 from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_vert
 from vorpy.src.calculations import verify_aw_cached
+from vorpy.src.geometry.periodic_box import point_in_vertex_box
 
 
 def _verify_seed_aw(loc, rad, vert_balls, locs, rads):
@@ -224,7 +225,7 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
             invalid_ndxs.append(ball)
             continue
 
-        if box is not None and any(box[0][axis] > vert_loc[axis] or vert_loc[axis] > box[1][axis] for axis in range(3)):
+        if not point_in_vertex_box(vert_loc, box):
             invalid_ndxs.append(ball)
             continue
 
@@ -237,6 +238,7 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
             )
             secondary_valid = (
                 vert_loc2 is not None
+                and (box is None or len(box) < 3 or point_in_vertex_box(vert_loc2, box))
                 and abs(vert_rad2) < max_vert
                 and _verify_seed_aw(vert_loc2, vert_rad2, vert_balls, locs, rads)
             )
@@ -250,6 +252,7 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
             )
             secondary_valid = (
                 vert_loc2 is not None
+                and (box is None or len(box) < 3 or point_in_vertex_box(vert_loc2, box))
                 and abs(vert_rad2) < max_vert
                 and verify_site(
                     loc=np.asarray(vert_loc2), rad=vert_rad2,

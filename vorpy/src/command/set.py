@@ -164,7 +164,7 @@ def set_bs(box_size, settings, print_change=False):
 
     Notes:
     ------
-    - Valid range: 1.0 to 10.0
+    - Valid range: greater than 0.0 through 10.0
     - Recommended value: 1.5
     - Values outside the valid range will result in an error message and
       return the current setting
@@ -175,14 +175,14 @@ def set_bs(box_size, settings, print_change=False):
     try:
         # Attempt to convert box_size to a float
         good_val = float(box_size)
-        # Validate that the value is within the allowed range [1.0, 10.0]
-        if not (1.0 <= good_val <= 10.0):
+        # Values below one intentionally contract an input CRYST1 region.
+        if not (math.isfinite(good_val) and 0.0 < good_val <= 10.0):
             # If not valid and print_change is True, print an error message
             if print_change:
                 _vorpy_print_error(
                     "Box Size Multiplier",
                     good_val,
-                    "a float value from 1.0 to 10.0 (recommended 1.5)"
+                    "a positive float up to 10.0 (recommended 1.25)"
                 )
             # Return the current setting if invalid
             return settings['box_size']
@@ -196,7 +196,7 @@ def set_bs(box_size, settings, print_change=False):
         _vorpy_print_error(
             "Box Size Multiplier",
             box_size,
-            "a float value from 1.0 to 10.0 (recommended 1.5)"
+            "a positive float up to 10.0 (recommended 1.25)"
         )
         # Return the current setting if conversion fails
         return settings['box_size']

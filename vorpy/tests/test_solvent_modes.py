@@ -111,6 +111,16 @@ def test_full_selector_does_not_create_an_empty_group_warning(capsys):
     assert "empty group" not in capsys.readouterr().out.lower()
 
 
+def test_water_only_default_group_contains_every_atom():
+    system = System(spheres=_balls(), name="water", make_dir=False)
+    system.type = "mol"
+    system.residues = []
+
+    ggroup(system, {}, make_net=False)
+
+    assert system.groups[0].ball_ndxs == [0, 1, 2]
+
+
 def test_explicit_empty_group_keeps_warning(capsys):
     system = System(spheres=_balls(), name="solvent-mode", make_dir=False)
 

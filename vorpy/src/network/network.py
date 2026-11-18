@@ -30,6 +30,7 @@ from vorpy.src.boundary import (
     normalize_retained_system_indices,
     normalize_solvent_mode,
 )
+from vorpy.src.geometry.periodic_box import scaled_vertex_region
 
 
 def _progress_label(value):
@@ -551,6 +552,8 @@ class Network:
         max_vert = array([-inf, -inf, -inf])
         if box_size is None:
             box_size = self.settings['box_size']
+        region = self.settings.get('vertex_region') if isinstance(self.settings, dict) else None
+        grid_box_size = max(1.25, box_size) if region else box_size
         # Loop through each ball in the network
         for loc in locs:
             # Loop through x, y, z
@@ -568,7 +571,10 @@ class Network:
             if r_box[i] == 0 or abs(r_box[i]) == inf:
                 r_box[i], min_vert[i], max_vert[i] = 4 * rads[0], locs[0][i], locs[0][i]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
-        min_vert, max_vert = max_vert - r_box * box_size, min_vert + r_box * box_size
+        min_vert, max_vert = (
+            max_vert - r_box * grid_box_size,
+            min_vert + r_box * grid_box_size,
+        )
         # Return the list of array turned list vertices
         box = [[round(_, 3) for _ in min_vert], [round(_, 3) for _ in max_vert]]
         # If the values are to be returned
@@ -577,6 +583,10 @@ class Network:
         if self.box is None:
             self.box = {}
         self.box['verts'] = box
+        if region:
+            self.box['vertex_region'] = scaled_vertex_region(region, box_size)
+        else:
+            self.box.pop('vertex_region', None)
         return box
 
     def update_progress(self, process, progress=0.0):
