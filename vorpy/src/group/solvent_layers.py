@@ -12,6 +12,14 @@ from vorpy.src.group.layers import _build_index_maps
 from vorpy.src.output.layout import unique_output_directory
 
 
+def _announce_layer_solve(system, number, atom_count):
+    """Print a layer transition after clearing any live progress line."""
+    finish_progress = getattr(system, 'finish_progress_line', None)
+    if callable(finish_progress):
+        finish_progress()
+    print(f'Solving water layer {number}: {atom_count:,} atoms', flush=True)
+
+
 def complete_layer_count(group):
     """Count consecutive nonempty layers whose water cells are all complete."""
     mapping = group.net.balls.get('system_num', group.net.balls['num'])
@@ -41,7 +49,7 @@ def water_neighbors(network, system, frontier, visited):
 
 
 def boundary_indices(network, seed_atoms, layers):
-    """Select only faces between layer n-1 and n, plus their edges/vertices."""
+    """Select each water layer's outward faces, plus their edges/vertices."""
     _, mapping, _ = _build_index_maps(SimpleNamespace(net=network))
     membership = {int(atom): 0 for atom in seed_atoms}
     membership.update({int(atom): layer for layer, atoms in enumerate(layers, 1) for atom in atoms})
@@ -50,8 +58,10 @@ def boundary_indices(network, seed_atoms, layers):
         if not math.isfinite(face.sa) or face.sa <= 0:
             continue
         first, second = (membership.get(mapping.get(int(atom))) for atom in face.balls)
-        if first is not None and second is not None and abs(first - second) == 1:
-            surfaces[max(first, second) - 1].append(int(face.Index))
+        if first is not None and first > 0 and (second is None or second > first):
+            surfaces[first - 1].append(int(face.Index))
+        elif second is not None and second > 0 and (first is None or first > second):
+            surfaces[second - 1].append(int(face.Index))
     edges, vertices = [], []
     for selected in surfaces:
         edge_ids = {int(edge) for face in selected for edge in network.surfs.loc[face, 'edges']}
@@ -60,6 +70,34 @@ def boundary_indices(network, seed_atoms, layers):
         edges.append(sorted(edge_ids))
         vertices.append(sorted(vertex_ids))
     return surfaces, edges, vertices
+
+
+def outer_vertex_seed_state(network, inner_atoms, outer_atoms):
+    """Return native vertices incident to both the current and next layers."""
+    _, _, system_to_topology = _build_index_maps(SimpleNamespace(net=network))
+    inner = {system_to_topology[atom] for atom in inner_atoms if atom in system_to_topology}
+    outer = {system_to_topology[atom] for atom in outer_atoms if atom in system_to_topology}
+    if not inner or not outer or network.verts is None:
+        return []
+
+    rows = list(network.verts.itertuples(index=False))
+    records = []
+    for position, row in enumerate(rows):
+        balls = [int(value) for value in row.balls]
+        if not inner.intersection(balls) or not outer.intersection(balls):
+            continue
+        doublet = int(getattr(row, 'dub', 0) or 0)
+        if doublet == 1:
+            continue
+        loc2 = rad2 = None
+        if position + 1 < len(rows):
+            secondary = rows[position + 1]
+            if list(secondary.balls) == list(row.balls) and int(secondary.dub) == 1:
+                loc2 = [float(value) for value in secondary.loc]
+                rad2 = float(secondary.rad)
+        records.append({'balls': balls, 'loc': [float(value) for value in row.loc],
+                        'rad': float(row.rad), 'loc2': loc2, 'rad2': rad2})
+    return records
 
 
 def build_solvent_layers(system, count, *, calculate_curvature=True, seed_groups=None):
@@ -247,19 +285,26 @@ def stream_solvent_layers(system, count, export_layer, *, calculate_curvature=Tr
         if atoms:
             can_reuse = set(atoms).issubset(source_targets)
             can_reuse &= not calculate_curvature or analysis_fields.issubset(source.balls.columns)
+            vertex_seeds = outer_vertex_seed_state(source, frontier, atoms)
             # Group normalizes its atom input in place; keep frontier membership immutable.
             layer = Group(system, name=f'layer_{number:02d}', atoms=list(atoms),
                           settings=dict(settings), make_net=False, print_metrics=False)
             if can_reuse:
                 layer.net = source
+                vertex_seeds = []
             else:
+                layer.make_net()
+                if vertex_seeds:
+                    from vorpy.src.network.find_net_verts import _vertex_seed_dependency
+                    layer.net.seed_vertex_state = vertex_seeds
+                    layer.net.seed_vertex_state_dependency = _vertex_seed_dependency(layer.net)
                 source = None
                 gc.collect()
-                # shortcut: reuse prior outer vertices once Network accepts them as bounded seeds.
-                print(f'Solving water layer {number}: {len(atoms)} atoms', flush=True)
+                _announce_layer_solve(system, number, len(atoms))
                 layer.build(calculate_curvature=calculate_curvature)
             surfaces, edges, vertices = boundary_indices(layer.net, frontier, [atoms])
         else:
+            vertex_seeds = []
             layer = Group(system, name=f'layer_{number:02d}', atoms=list(seed_atoms),
                           settings=dict(settings), make_net=False, print_metrics=False)
             layer.ball_ndxs = []
@@ -281,11 +326,16 @@ def stream_solvent_layers(system, count, export_layer, *, calculate_curvature=Tr
         layer.total_cell_count = len(atoms)
         layer.layer_complete = bool(atoms) and layer.complete_cell_count == len(atoms)
         layer.metrics_status = 'complete' if layer.layer_complete else 'partial'
+        layer.requested_seed_vertex_count = len(vertex_seeds)
+        layer.seed_vertex_count = int(
+            getattr(layer.net, 'seed_vertex_stats', {}).get('accepted', 0))
         export_layer(layer)
         summaries.append(dict(layer=number, atoms=len(atoms),
             complete_cells=layer.complete_cell_count, complete=layer.layer_complete,
             metrics_status=layer.metrics_status, contained_volume=layer.contained_volume,
             layer_volume=layer.vol, layer_surface_area=layer.sa,
+            seed_vertices_requested=layer.requested_seed_vertex_count,
+            seed_vertices=layer.seed_vertex_count,
             integrated_mean_curvature=layer.int_mean_curv,
             integrated_gaussian_curvature=layer.int_gauss_curv))
 
@@ -306,6 +356,7 @@ def stream_solvent_layers(system, count, export_layer, *, calculate_curvature=Tr
         'contained_volume is the solute volume plus every shell through the listed layer.\n'
         'Integrated mean curvature uses A; integrated Gaussian curvature is dimensionless.\n'
         'metrics_status=partial means totals use available complete cells and boundary geometry.\n'
+        'seed_vertices records validated outer vertices reused from the preceding layer.\n'
         'All input atoms remain geometric competitors, but only one layer topology is retained at a time.\n',
         encoding='utf-8')
     return summaries

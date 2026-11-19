@@ -113,8 +113,20 @@ def analytic_edge_tangent_away_from_network_vertex(
     end_error = float(np.linalg.norm(end - vertex_location))
 
     if start_error <= tolerance and end_error <= tolerance:
-        raise ValueError(
-            "Analytic edge endpoints are indistinguishable at this vertex."
+        coordinate_scale = max(
+            1.0,
+            float(np.linalg.norm(start)),
+            float(np.linalg.norm(end)),
+            float(np.linalg.norm(vertex_location)),
+        )
+        error_resolution = 8.0*np.finfo(float).eps*coordinate_scale
+        if abs(start_error - end_error) <= error_resolution:
+            raise ValueError(
+                "Analytic edge endpoints are indistinguishable at this vertex."
+            )
+        return outward_edge_tangent_at_vertex(
+            edge_geometry,
+            0 if start_error < end_error else 1,
         )
 
     if start_error <= tolerance:

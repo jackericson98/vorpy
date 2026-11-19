@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import io
 from pathlib import Path
 import subprocess
 import sys
@@ -9,8 +10,29 @@ import pandas as pd
 import pytest
 
 from vorpy.src.command.calculation_plan import build_calculation_plan
-from vorpy.src.group.solvent_layers import water_neighbors, boundary_indices, complete_layer_count
+from vorpy.src.group.solvent_layers import (
+    _announce_layer_solve,
+    boundary_indices,
+    complete_layer_count,
+    outer_vertex_seed_state,
+    water_neighbors,
+)
 from vorpy.src.io import load_network
+from vorpy.src.system.system import System
+
+
+def test_layer_solve_announcement_starts_after_live_progress(monkeypatch):
+    stream = io.StringIO()
+    stream.isatty = lambda: True
+    monkeypatch.setattr(sys, 'stdout', stream)
+    system = System(simple=True, make_dir=False)
+    system.update_progress('Exporting physical geometry', 55, network='layer_01')
+
+    _announce_layer_solve(system, 2, 1578)
+
+    assert stream.getvalue().split('\r')[-1] == (
+        'Solving water layer 2: 1,578 atoms\n'
+    )
 
 
 @pytest.mark.parametrize('alias', ['l', 'layer', 'layers'])
@@ -55,9 +77,109 @@ def test_water_graph_uses_whole_molecules_and_excludes_ions_and_zero_faces():
     assert water_neighbors(net, system, {2, 3, 4}, {0, 2, 3, 4}) == {5, 6, 7}
     assert water_neighbors(net, system, {5, 6, 7}, {0, 2, 3, 4, 5, 6, 7}) == set()
     surfaces, edges, verts = boundary_indices(net, [0], [[2, 3, 4], [5, 6, 7], [], []])
-    assert surfaces == [[0], [3], [], []]
-    assert edges == [[0], [3], [], []]
-    assert verts == [[0, 1], [3, 4], [], []]
+    assert surfaces == [[3], [2], [], []]
+    assert edges == [[3], [2], [], []]
+    assert verts == [[3, 4], [2, 3], [], []]
+
+
+def test_outer_layer_surfaces_are_oriented_from_enclosed_cells(
+        tmp_path, monkeypatch):
+    from vorpy.src.output.solvent import export_solvent_layers
+    system, net = graph()
+    net.balls['complete'] = True
+    calls = []
+    monkeypatch.setattr(
+        'vorpy.src.output.solvent.write_surfs',
+        lambda network, selected, name, **kwargs:
+            calls.append((selected, name, kwargs['target_cells'])),
+    )
+    group = SimpleNamespace(
+        sys=system,
+        net=net,
+        dir=str(tmp_path),
+        settings={'file_type': 'off'},
+        solvent_layers={
+            'atoms': [[2, 3, 4], [5, 6, 7]],
+            'surfs': [[3], [2]],
+            'edges': [[], []],
+            'verts': [[], []],
+            'seed_atoms': [0],
+        },
+    )
+
+    export_solvent_layers(group, [('surfs', {'surfs': True})])
+
+    assert calls == [
+        ([3], 'layer_01_surfs', [100, 102, 103, 104]),
+        ([2], 'layer_02_surfs', [100, 102, 103, 104, 105, 106, 107]),
+    ]
+
+
+def test_outer_vertex_seeds_keep_boundary_vertices_and_doublets():
+    _, net = graph()
+    net.verts = pd.DataFrame({
+        'balls': [[100, 102, 103, 104], [100, 102, 103, 104],
+                  [102, 103, 104, 105]],
+        'loc': [[1., 2., 3.], [1., 2., 4.], [5., 6., 7.]],
+        'rad': [0.5, 0.75, 1.0],
+        # mark_doublets uses 0/1 after a build; native search state uses 2/1.
+        'dub': [0, 1, 0],
+    })
+    seeds = outer_vertex_seed_state(net, {0}, {2, 3, 4})
+    assert seeds == [{
+        'balls': [100, 102, 103, 104], 'loc': [1., 2., 3.], 'rad': 0.5,
+        'loc2': [1., 2., 4.], 'rad2': 0.75,
+    }]
+
+
+def test_aw_outer_vertex_seeds_match_clean_edta_topology(tmp_path):
+    from vorpy.src.group import Group
+    from vorpy.src.network.find_net_verts import _vertex_seed_dependency
+    from vorpy.src.system import System
+
+    root = Path(__file__).resolve().parents[3]
+    source = tmp_path/'EDTA.pdb'
+    records = [line for line in (root/'vorpy/data/EDTA.pdb').read_text().splitlines(True)
+               if line.startswith(('ATOM  ', 'HETATM'))][:69]
+    source.write_text(''.join(records))
+    system = System(file=str(source), make_dir=False, solvent_mode='SOLVENT_CONTEXT')
+    settings = dict(net_type='aw', max_vert=5., surf_res=1., sys_dir=str(tmp_path))
+    seed = Group(system, name='seed', atoms=list(range(32)), settings=dict(settings),
+                 solvent_mode='SOLVENT_CONTEXT', cell_target='MOLECULAR')
+    seed.build(calculate_curvature=False)
+    atoms = sorted(water_neighbors(seed.net, system, set(range(32)), set(range(32))))
+    copied = outer_vertex_seed_state(seed.net, set(range(32)), atoms)
+    assert atoms and copied
+
+    clean = Group(system, name='clean', atoms=list(atoms), settings=dict(settings),
+                  solvent_mode='SOLVENT_CONTEXT', cell_target='MOLECULAR')
+    clean.build(calculate_curvature=False)
+    reused = Group(system, name='reused', atoms=list(atoms), settings=dict(settings),
+                   solvent_mode='SOLVENT_CONTEXT', cell_target='MOLECULAR', make_net=False)
+    reused.make_net()
+    reused.net.seed_vertex_state = copied
+    reused.net.seed_vertex_state_dependency = _vertex_seed_dependency(reused.net)
+    reused.build(calculate_curvature=False)
+
+    def topology(network):
+        vertices = {
+            int(index): (tuple(int(value) for value in row.balls),
+                         tuple(float(value).hex() for value in row['loc']), int(row.dub))
+            for index, row in network.verts.iterrows()
+        }
+        edges = {
+            int(index): (tuple(int(value) for value in row.balls),
+                         tuple(sorted(vertices[int(value)] for value in row.verts)))
+            for index, row in network.edges.iterrows()
+        }
+        surfaces = sorted(
+            (tuple(int(value) for value in row.balls),
+             tuple(sorted(edges[int(value)] for value in row.edges)))
+            for row in network.surfs.itertuples())
+        return sorted(vertices.values()), sorted(edges.values()), surfaces
+
+    assert topology(reused.net) == topology(clean.net)
+    assert reused.net.balls['complete'].tolist() == clean.net.balls['complete'].tolist()
 
 
 @pytest.mark.parametrize('complete_atoms, expected', [([], 0), ([2, 3, 4], 1),
@@ -270,11 +392,14 @@ def test_checkpoint_layer_calculation_preserves_source_geometry(tmp_path, monkey
     original_digest = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
     original_build = Network.build
     builds = []
+    seed_stats = []
 
     def tracked_build(network, *args, **kwargs):
         assert network.group_name != 'EDTA', 'The saved solute network must never be rebuilt'
         builds.append(network.group_name)
-        return original_build(network, *args, **kwargs)
+        result = original_build(network, *args, **kwargs)
+        seed_stats.append(getattr(network, 'seed_vertex_stats', {}))
+        return result
 
     monkeypatch.setattr(Network, 'build', tracked_build)
     monkeypatch.setattr(sys, 'argv', ['vorpy', str(checkpoint), '-e', 'small', '-c', 'l', '4',
@@ -295,7 +420,10 @@ def test_checkpoint_layer_calculation_preserves_source_geometry(tmp_path, monkey
         summary = pd.read_csv(directory/'layers.csv')
         assert {'contained_volume', 'layer_volume', 'layer_surface_area',
                 'integrated_mean_curvature', 'integrated_gaussian_curvature',
-                'metrics_status'}.issubset(summary.columns)
+                'metrics_status', 'seed_vertices'}.issubset(summary.columns)
+        if target != 'ALL':
+            assert summary.seed_vertices.sum() > 0
+            assert max((item.get('accepted', 0) for item in seed_stats), default=0) > 0, seed_stats
         assert hashlib.sha256(checkpoint.read_bytes()).hexdigest() == original_digest
     finally:
         command._cleanup_checkpoint_source()
@@ -306,7 +434,7 @@ def test_virtual_boundary_is_not_a_water_layer():
     net.balls = pd.concat([net.balls, pd.DataFrame({'num': [111], 'system_num': [-1]})], ignore_index=True)
     net.surfs.loc[5] = [[100, 111], 1., [], []]
     assert water_neighbors(net, system, {0}, {0}) == {2, 3, 4}
-    assert boundary_indices(net, [0], [[2, 3, 4]])[0] == [[0]]
+    assert boundary_indices(net, [0], [[2, 3, 4]])[0] == [[3]]
 
 
 def test_geometry_only_frontier_is_not_reused_as_analyzed_solvent(tmp_path, monkeypatch):

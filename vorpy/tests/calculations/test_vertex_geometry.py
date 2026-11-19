@@ -308,6 +308,30 @@ def test_network_vertex_tangent_does_not_depend_on_edge_parameter_orientation():
     )
 
 
+@pytest.mark.parametrize(
+    ("vertex_position", "expected"),
+    [(0, 1.0), (1, -1.0)],
+)
+def test_network_vertex_tangent_distinguishes_short_edge_endpoints(
+        vertex_position, expected):
+    # Frame-8 edge 40243 length, in Angstroms.
+    edge = LineEdgeGeometry([0.0, 0.0, 0.0], [6.519048081356903e-8, 0.0, 0.0])
+    vertex = edge.point(float(vertex_position))
+
+    tangent = analytic_edge_tangent_away_from_network_vertex(edge, vertex)
+
+    assert tangent == pytest.approx([expected, 0.0, 0.0], abs=1e-14)
+
+
+def test_network_vertex_tangent_rejects_short_edge_midpoint_tie():
+    edge = LineEdgeGeometry([0.0, 0.0, 0.0], [6.0e-8, 0.0, 0.0])
+
+    with pytest.raises(ValueError, match="endpoints are indistinguishable"):
+        analytic_edge_tangent_away_from_network_vertex(
+            edge, [3.0e-8, 0.0, 0.0]
+        )
+
+
 def test_network_vertex_tangent_rejects_point_not_on_edge_endpoint():
     edge = LineEdgeGeometry(
         [0.0, 0.0, 0.0],

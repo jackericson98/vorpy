@@ -60,7 +60,7 @@ def export_solvent_layers(group, plan):
     (directory / 'README.txt').write_text(
         'Layer 1 touches the selected solute; later layers follow water-water Voronoi faces.\n'
         'Each water molecule appears once, at its shortest observed face distance. Ions are excluded.\n'
-        'layer_NN_surfs/edges/verts show the interface from layer NN-1 to NN (solute = 0).\n'
+        'layer_NN_surfs/edges/verts show the outer boundary of layer NN.\n'
         'Each layer directory has its own native *_logs.csv.\n'
         'A layer is complete only if it is nonempty and every water atom cell is marked complete.\n'
         'Incomplete layers retain partial totals and are marked metrics_status=partial.\n'
@@ -96,7 +96,7 @@ def export_solvent_layers(group, plan):
                     continue
                 writer = {'surfs': write_surfs, 'edges': write_edges, 'verts': write_off_verts}[kind]
                 inside = set(data['seed_atoms'])
-                inside.update(atom for layer in data['atoms'][:index] for atom in layer)
+                inside.update(atom for layer in data['atoms'][:index + 1] for atom in layer)
                 kwargs = dict(directory=str(directory), file_type=file_type,
                     target_cells=[int(cells[atom]['num']) for atom in sorted(inside)])
                 if kind == 'edges':
