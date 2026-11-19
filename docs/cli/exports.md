@@ -157,6 +157,10 @@ cannot identify water contacts: VorPy explicitly reports a separate wet-context
 seed calculation, using the saved atom coordinates, radii, and solver settings.
 This does not overwrite or rebuild the original dry network. Explicit settings
 and interface recovery remain separate checkpoint operations.
+Molecular PDB export from source-less legacy archives now requires preserved
+original serial metadata. It raises an explicit error instead of treating
+zero-based internal atom numbers as original PDB serials. A verified source
+reattachment is the recovery path for older archives without that metadata.
 
 For many independent checkpoints, use a CSV manifest with `checkpoint,output`
 columns. Paths are relative to the manifest's folder, so a Dropbox manifest can
@@ -168,6 +172,9 @@ python scripts/run_checkpoint_layers.py "path/to/vorpy_layer4_jobs.csv" --worker
 ```
 
 The runner validates every checkpoint and output destination before launching.
+It now requests one solved solvent layer by default; `--layers N` changes that
+count. All original physical generators remain available as geometric context.
+The legacy `layer4` manifest/log-directory names do not set the layer count.
 By default, it starts the four smallest checkpoints first for early feedback,
 then launches the remainder by decreasing checkpoint bytes as an estimate of
 runtime. With 20 workers, the initial wave contains four small jobs and 16 large
