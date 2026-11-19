@@ -18,6 +18,7 @@ from vorpy.src.calculations.vert import (
     filter_vert_locrads,
     calc_vert,
     calc_vert_numba,
+    calc_vert_numba_indexed,
     calc_flat_vert,
     calc_flat_vert_numba,
     verify_aw,
@@ -408,6 +409,23 @@ class TestCalcVertNumba:
                     np.testing.assert_allclose(actual, expected, rtol=2e-9, atol=2e-9)
                 else:
                     np.testing.assert_allclose(actual, expected, rtol=2e-9, atol=2e-9)
+
+    def test_ill_conditioned_dp12_vertex_is_refined_to_equal_clearance(self):
+        # Frame 10, layer 4, edge 13075; coordinates and residuals are in Angstroms.
+        locs = np.array([
+            [53.96, 26.68, 14.92],
+            [55.3, 27.42, 12.17],
+            [54.77, 29.76, 14.89],
+            [54.4, 28.96, 15.28],
+        ])
+        rads = np.array([1.5, 1.3, 1.5, 1.3])
+
+        location, radius, _, _ = calc_vert_numba_indexed(
+            locs, rads, np.arange(4)
+        )
+        clearances = np.linalg.norm(locs - location, axis=1) - rads
+
+        assert clearances == pytest.approx([radius] * 4, abs=1e-12)
 
 
 class TestCalcFlatVert:

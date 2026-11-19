@@ -303,8 +303,53 @@ def calc_vert_case_1_numba(Fs, l0, r0, tol=1e-12):
 
 
 @jit(nopython=True, cache=True)
+def _refine_aw_vertex(location, radius, locs, rads):
+    """Newton-refine one analytic root against the four clearance equations."""
+    refined_location = location.copy()
+    refined_radius = radius
+    for _ in range(2):
+        residual = np.empty(4, dtype=np.float64)
+        jacobian = np.empty((4, 4), dtype=np.float64)
+        maximum_residual = 0.0
+        scale = max(1.0, abs(refined_radius))
+        valid = True
+        for row in range(4):
+            delta = refined_location - locs[row]
+            distance = np.sqrt(np.dot(delta, delta))
+            if not np.isfinite(distance) or distance == 0.0:
+                valid = False
+                break
+            residual[row] = distance - rads[row] - refined_radius
+            maximum_residual = max(maximum_residual, abs(residual[row]))
+            scale = max(scale, distance)
+            jacobian[row, :3] = delta / distance
+            jacobian[row, 3] = -1.0
+        if not valid or maximum_residual <= 64.0*np.finfo(np.float64).eps*scale:
+            break
+        if abs(np.linalg.det(jacobian)) <= np.finfo(np.float64).eps:
+            break
+        correction = np.linalg.solve(jacobian, residual)
+        if not np.all(np.isfinite(correction)):
+            break
+        candidate_location = refined_location - correction[:3]
+        candidate_radius = refined_radius - correction[3]
+        candidate_residual = 0.0
+        for row in range(4):
+            distance = np.linalg.norm(candidate_location - locs[row])
+            candidate_residual = max(
+                candidate_residual,
+                abs(distance - rads[row] - candidate_radius),
+            )
+        if not np.isfinite(candidate_residual) or candidate_residual >= maximum_residual:
+            break
+        refined_location = candidate_location
+        refined_radius = candidate_radius
+    return refined_location, refined_radius
+
+
+@jit(nopython=True, cache=True)
 def _calc_vert_numba_core(locs, rads):
-    """Compiled AW solve, physical-radius filtering, and root ordering."""
+    """Compiled AW solve, Newton refinement, filtering, and root ordering."""
     Fs, _, rs, l0 = calc_vert_abcfs(locs, rads)
     output_locs = np.zeros((2, 3), dtype=np.float64)
     output_rads = np.zeros(2, dtype=np.float64)
@@ -316,18 +361,20 @@ def _calc_vert_numba_core(locs, rads):
     count = 0
     first_abs = 0.0
     for i in range(root_count):
-        radius = roots[i, 3]
+        location, radius = _refine_aw_vertex(
+            roots[i, :3], roots[i, 3], locs, rads
+        )
         if radius < minimum:
             continue
         if count == 0 or abs(radius) < first_abs:
             if count > 0:
                 output_locs[1] = output_locs[0]
                 output_rads[1] = output_rads[0]
-            output_locs[0] = roots[i, :3]
+            output_locs[0] = location
             output_rads[0] = radius
             first_abs = abs(radius)
         elif count == 1:
-            output_locs[1] = roots[i, :3]
+            output_locs[1] = location
             output_rads[1] = radius
         count = min(count + 1, 2)
     return output_locs, output_rads, count
@@ -538,10 +585,12 @@ def calc_vert(locs, rads):
 
     The four sphere centers and radii are converted into the linearized AW
     coefficient system. The standard non-degenerate case is solved by the
-    Numba-compiled Case 1 implementation. Determinant-zero configurations do
-    not have a unique solution under this formulation and return no candidate.
-    Candidate solutions are then filtered according to the physically valid
-    radius range.
+    Numba-compiled Case 1 implementation, then refined with at most two Newton
+    steps on the four equal-clearance equations. A refinement is retained only
+    when it reduces the absolute clearance residual. Determinant-zero
+    configurations do not have a unique solution under this formulation and
+    return no candidate. Candidate solutions are then filtered according to
+    the physically valid radius range.
 
     Parameters
     ----------
@@ -560,25 +609,7 @@ def calc_vert(locs, rads):
     # Normalize input data for the compiled coefficient calculation.
     locs_array, rads_array = array(locs), array(rads)
 
-    # Build the determinant coefficients for the four-sphere system.
-    Fs, abcdfs, rs, l0 = calc_vert_abcfs(locs_array, rads_array)
-
-    # The standard AW formulation requires a non-zero determinant F.
-    # The former Case 2 fallback was unreachable (it was guarded by both
-    # F == 0 and F > 0) and, more importantly, Case 2 itself divides by F.
-    # Preserve the existing determinant-zero behavior explicitly: no candidate
-    # vertex is produced when the defining system has no unique solution.
-    verts = []
-
-    if Fs[0] != 0:
-        numba_verts, numba_n = calc_vert_case_1_numba(Fs, l0, rs[0])
-        verts = [[numba_verts[i, :3].tolist(), numba_verts[i, 3]]
-                 for i in range(numba_n)]
-
-    # Remove physically invalid roots and order any remaining solutions.
-    loc, loc2, rad, rad2 = filter_vert_locrads(verts, rs)
-
-    return loc, rad, loc2, rad2
+    return calc_vert_numba(locs_array, rads_array)
 
 
 def calc_flat_vert(locs, rads, power=False):
