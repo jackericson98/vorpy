@@ -21,7 +21,8 @@ def test_manifest_orders_by_size_and_rejects_colliding_outputs(tmp_path):
     jobs = runner.load_jobs(manifest, tmp_path)
     assert [job[0].name for job in jobs] == ['large.vpy', 'small.vpy']
     assert runner.build_command(*jobs[0][:2])[4:] == [
-        '-c', 'l', '4', '-e', 'small', '-e', 'dir', str(tmp_path / 'out/large'), '-v']
+        '-c', 'l', '1', '-e', 'small', '-e', 'dir', str(tmp_path / 'out/large'), '-v']
+    assert runner.build_command(*jobs[0][:2], layers=2)[4:7] == ['-c', 'l', '2']
     manifest.write_text('checkpoint,output\nsmall.vpy,out\nlarge.vpy,out\n')
     with pytest.raises(ValueError, match='Duplicate output'):
         runner.load_jobs(manifest, tmp_path)
