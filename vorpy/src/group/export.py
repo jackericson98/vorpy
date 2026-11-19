@@ -626,6 +626,10 @@ def export_info(grp, directory=None, *, include_surface_energy=False):
         info.write("BOUNDARY TOPOLOGY\n")
         info.write("-" * 72 + "\n")
         info.write(f"Boundary faces/edges/vertices: {status_value(get_attr(grp, 'boundary_face_count'))}/{status_value(get_attr(grp, 'boundary_edge_count'))}/{status_value(get_attr(grp, 'boundary_vertex_count'))}\n")
+        face_euler = get_attr(grp, 'boundary_face_euler_characteristics', None)
+        if face_euler is not None:
+            qualifier = 'partial; unresolved faces remain' if get_attr(grp, 'boundary_face_topology_unresolved', None) else 'pairwise surface records can contain several patches'
+            info.write(f"Boundary disk patches:      {sum(face_euler.values())} ({qualifier})\n")
         info.write(f"Connected components:       {status_value(get_attr(grp, 'boundary_component_count'))}\n")
         info.write(f"Euler characteristic:       {status_value(get_attr(grp, 'euler_characteristic'))}\n")
         info.write(f"Genus:                      {status_value(get_attr(grp, 'boundary_genus'))}\n")

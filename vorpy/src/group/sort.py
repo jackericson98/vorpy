@@ -804,6 +804,14 @@ def get_info(group):
         except (IndexError, TypeError, ValueError):
             group.boundary_missing_faces += 1
 
+    from vorpy.src.calculations.boundary_complex import boundary_complex
+    complex_topology = boundary_complex(net, surface_cells)
+    group.boundary_face_euler_characteristics = complex_topology['face_euler']
+    group.boundary_face_topology_unresolved = complex_topology['unresolved_faces']
+    group.boundary_missing_faces += len(complex_topology['unresolved_faces'])
+    if complex_topology['unresolved_faces']:
+        gaussian_curvature_complete = False
+
     network_type = str((net.settings or {}).get("net_type", "aw")).lower()
     polyhedral_network = network_type in {"pow", "prm"}
     polyhedral_result = None
@@ -989,27 +997,15 @@ def get_info(group):
             (vertex, value) for vertex, value, _, _ in vertex_diagnostics
         )
 
-    # Boundary-complex topology: faces are exposed pairwise patches, with
-    # network edges/vertices deduplicated by their topology identifiers.
-    adjacency = {face: set() for face in boundary_surfaces}
-    for faces in edge_faces.values():
-        for face in faces:
-            adjacency[face].update(faces - {face})
-    components = 0
-    unseen = set(boundary_surfaces)
-    while unseen:
-        components += 1
-        stack = [unseen.pop()]
-        while stack:
-            face = stack.pop()
-            for neighbor in adjacency.get(face, ()) & unseen:
-                unseen.remove(neighbor)
-                stack.append(neighbor)
-    group.boundary_component_count = components
+    # Network surface records may represent several disconnected disk patches.
+    group.boundary_component_count = (complex_topology['components']
+                                      if not complex_topology['unresolved_faces'] else None)
     group.boundary_face_count = len(boundary_surfaces)
     group.boundary_edge_count = len(boundary_edges)
     group.boundary_vertex_count = len(boundary_vertices)
-    group.euler_characteristic = len(boundary_vertices) - len(boundary_edges) + len(boundary_surfaces)
+    group.euler_characteristic = ((len(boundary_vertices) - len(boundary_edges)
+                                  + sum(complex_topology['face_euler'].values()))
+                                 if not complex_topology['unresolved_faces'] else None)
     group.boundary_nonmanifold_edges = sum(len(faces) != 2 for faces in edge_faces.values())
     vertex_edge_sets = {vert_id: set() for vert_id in boundary_vertices}
     for edge_id in boundary_edges:
@@ -1046,12 +1042,11 @@ def get_info(group):
     group.boundary_is_manifold = (
         group.boundary_is_closed and group.boundary_nonmanifold_vertices == 0
     ) if boundary_vertices else False
-    # An orientable closed surface has even Euler characteristic.  This
-    # parity check prevents a non-orientable/ambiguous complex from being
-    # presented as an orientable genus surface.
+    # Orientability requires consistent patch orientations across shared edges;
+    # parity alone cannot prove it, and pairwise surfaces can hold several disks.
     group.boundary_is_orientable = (
         group.boundary_is_manifold
-        and ((2 * group.boundary_component_count - group.euler_characteristic) % 2 == 0)
+        and complex_topology['orientable']
     )
     group.boundary_is_complete = (
         group.boundary_is_closed and group.boundary_is_manifold
@@ -1080,7 +1075,7 @@ def get_info(group):
             group.gauss_bonnet_error = group.int_gauss_curv - group.gauss_bonnet_expected
             group.gauss_bonnet_relative_error = (
                 abs(group.gauss_bonnet_error) / abs(group.gauss_bonnet_expected)
-                if group.gauss_bonnet_expected else 0.0
+                if group.gauss_bonnet_expected else None
             )
         else:
             group.gauss_bonnet_error = None
