@@ -197,7 +197,7 @@ def test_target_selection_is_consumed_once_in_vertex_loop():
     assert len(mesh.triangles) == 40
 
 
-def test_edge_vertex_row_cache_refresh_and_off_fields():
+def test_edge_export_does_not_retain_render_mesh():
     from vorpy.src.output.edges import prepare_edges
     from vorpy.src.output.verts import prepare_verts
     net = _colored_network()
@@ -207,7 +207,8 @@ def test_edge_vertex_row_cache_refresh_and_off_fields():
         edge_mesh = prepare_edges(net, [0], target_cells=[0], color_limit=3., include_face_data=False)
         assert vertex_mesh.face_data == edge_mesh.face_data == {}
         row = net._export_component_rows[('edges', 0)]
-        assert len(row['draw_points']) > 0
+        assert 'draw_points' not in row and 'draw_tris' not in row
+        assert 'draw_points' not in net.edges and 'draw_tris' not in net.edges
         repeated = prepare_edges(net, [0], target_cells=[0], color_limit=3.)
         np.testing.assert_array_equal(repeated.points, edge_mesh.points)
         assert set(repeated.face_data) == {'edge_index', 'geometry_kind'}

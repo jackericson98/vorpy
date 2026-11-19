@@ -28,13 +28,6 @@ def _resolve_color(color):
     return color
 
 
-def _cache_columns(net):
-    if "draw_points" not in net.edges:
-        net.edges["draw_points"] = [[] for _ in range(len(net.edges))]
-    if "draw_tris" not in net.edges:
-        net.edges["draw_tris"] = [[] for _ in range(len(net.edges))]
-
-
 def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints=True,
                   joint_radius=None, joint_subdivisions=0, endpoint_tolerance=1e-6,
                   color_scheme=None, color_map=None, color_limit=None,
@@ -52,7 +45,6 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
     if endpoint_tolerance <= 0:
         raise ValueError("endpoint_tolerance must be positive")
 
-    _cache_columns(net)
     edge_indices = list(edges)
     fixed_color = np.asarray(_resolve_color(color), dtype=float)
     joint_radius = DEFAULT_JOINT_RADIUS_FACTOR * radius if joint_radius is None else joint_radius
@@ -90,15 +82,7 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
             # tangent). They can occur in validation shapes with coincident
             # Voronoi vertices, so omit them from mesh export.
             continue
-        draw_points = edge.get('draw_points')
-        draw_tris = edge.get('draw_tris')
-
-        if draw_points is None or draw_tris is None or len(draw_points) == 0 or len(draw_tris) == 0:
-            draw_points, draw_tris = draw_edge(edge, radius=radius)
-            net.edges.at[net.edges.index[index], "draw_points"] = draw_points
-            net.edges.at[net.edges.index[index], "draw_tris"] = draw_tris
-            if isinstance(edge, dict):
-                edge['draw_points'], edge['draw_tris'] = draw_points, draw_tris
+        draw_points, draw_tris = draw_edge(edge, radius=radius)
 
         edge_color = fixed_color
         if scheme is not None:

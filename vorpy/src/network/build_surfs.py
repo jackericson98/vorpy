@@ -329,10 +329,10 @@ def build_surfs(net, store_points=True, calculate_curvature=True):
 
         timer = time.perf_counter()
         if store_points:
-            points.append(surf_points)
-            tris.append(surf_tris)
-            mean_tri_curvs.append(mean_surf_tri_curvs)
-            gauss_tri_curvs.append(gauss_surf_tri_curvs)
+            points.append(np.ascontiguousarray(surf_points, dtype=np.float64).reshape(-1, 3))
+            tris.append(np.ascontiguousarray(surf_tris, dtype=np.int64).reshape(-1, 3))
+            mean_tri_curvs.append(np.ascontiguousarray(mean_surf_tri_curvs, dtype=np.float64))
+            gauss_tri_curvs.append(np.ascontiguousarray(gauss_surf_tri_curvs, dtype=np.float64))
         else:
             points.append([])
             tris.append([])

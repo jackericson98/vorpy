@@ -133,6 +133,31 @@ def test_surface_counts_record_geometry_work(monkeypatch):
     }
 
 
+def test_surface_mesh_storage_is_compact_and_contiguous(monkeypatch):
+    points = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    triangles = [[0, 1, 2]]
+    net, _, surface = _single_surface_net(points, triangles, curvature_area=None)
+    surface = list(surface)
+    surface[2] = [1.25]
+    surface[5] = [-0.5]
+    monkeypatch.setattr(build_surfs_module, 'build_surf', lambda **kwargs: tuple(surface))
+
+    build_surfs(net)
+
+    stored_points = net.surfs.at[0, 'points']
+    stored_triangles = net.surfs.at[0, 'tris']
+    stored_mean_curvature = net.surfs.at[0, 'mean_tri_curvs']
+    stored_gauss_curvature = net.surfs.at[0, 'gauss_tri_curvs']
+    assert stored_points.dtype == np.float64 and stored_points.flags.c_contiguous
+    assert stored_triangles.dtype == np.int64 and stored_triangles.flags.c_contiguous
+    assert stored_mean_curvature.dtype == np.float64 and stored_mean_curvature.flags.c_contiguous
+    assert stored_gauss_curvature.dtype == np.float64 and stored_gauss_curvature.flags.c_contiguous
+    assert np.array_equal(stored_points, points)
+    assert np.array_equal(stored_triangles, triangles)
+    assert np.array_equal(stored_mean_curvature, [1.25])
+    assert np.array_equal(stored_gauss_curvature, [-0.5])
+
+
 def test_batched_surface_volume_preserves_empty_surface_zero():
     actual_volumes, actual_area = _surface_tetra_volumes(
         [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],
