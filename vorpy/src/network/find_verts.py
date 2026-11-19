@@ -14,7 +14,8 @@ from vorpy.src.geometry.periodic_box import point_in_vertex_box
 def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None,
                iface_grps=None, b_verts=None, vert_ndxs=None, vlocs=None, vrads=None, vloc2s=None, vrad2s=None,
                start_time=0, box=None, vert_box=None, group_box=None, tot_ball_num=None,
-               printing=False, start_vert=0, split=False, seed_timeout=None, net=None, timing=None):
+               printing=False, start_vert=0, split=False, seed_timeout=None, net=None, timing=None,
+               traverse_existing=False):
     """
     Traverse a network and discover vertices connected to an initial seed.
 
@@ -79,6 +80,8 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     seed_timeout : float, optional
         Maximum time allowed for seed discovery. Used by disconnected interface
         reseeding to abandon unproductive starting balls quickly.
+    traverse_existing : bool, optional
+        Start traversal from supplied vertex state before searching for a new seed.
     net:
 
     Returns
@@ -152,7 +155,16 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
 
     # Find the first verified vertex
     t_stage = time.perf_counter()
-    if len(my_group) == 1:
+    existing_seed_vertices = []
+    if traverse_existing and vert_ndxs:
+        existing_seed_vertices = [
+            {'balls': list(balls), 'loc': list(loc), 'rad': float(rad),
+             'loc2': loc2, 'rad2': rad2}
+            for balls, loc, rad, loc2, rad2 in zip(
+                vert_ndxs, vlocs, vrads, vloc2s, vrad2s)
+        ]
+        v0 = existing_seed_vertices[0]
+    elif len(my_group) == 1:
         v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=my_group[0],
                      group_ndxs=my_group, vert_ndxs=vert_ndxs, group_box=group_box, iface_grps=iface_grps,
                      timeout=seed_timeout, metrics=timing)
@@ -249,7 +261,13 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         v0['loc2'], v0['rad2'] = None, None
     # Check if this is the first go around
     t_stage = time.perf_counter()
-    if vert_ndxs is None:
+    if existing_seed_vertices:
+        for vertex in existing_seed_vertices:
+            for ball in vertex['balls']:
+                if ball in check_ndxs_set:
+                    check_ndxs.remove(ball)
+                    check_ndxs_set.discard(ball)
+    elif vert_ndxs is None:
         for ball in v0['balls']:
             # noinspection PyTypeChecker
             b_verts[ball].append(0)
@@ -281,7 +299,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     # Throttle progress output.
     last_print = 0
     # Traverse neighboring vertices depth-first.
-    vert_stack = [v0]
+    vert_stack = list(existing_seed_vertices) if existing_seed_vertices else [v0]
 
     edge_search_calls = 0
     accepted_vertices = 0

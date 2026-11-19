@@ -65,6 +65,96 @@ def _interface_vertex_state_dependency_id(net):
     return dependency_id
 
 
+_SEED_VERTEX_STATE_SCHEMA = 1
+
+
+def _sort_ball_vertex_adjacency(b_verts, vert_ndxs):
+    """Restore the ordering required by binary vertex lookups."""
+    for indices in b_verts:
+        indices.sort(key=vert_ndxs.__getitem__)
+
+
+def _vertex_seed_dependency(net):
+    """Identity of geometry inputs that make a copied vertex reusable."""
+    stable_ids = getattr(net, 'generator_stable_ids', None)
+    if stable_ids is None or len(stable_ids) != len(net.balls):
+        return None
+    settings = getattr(net, 'settings', {}) or {}
+    return {
+        'schema_version': _SEED_VERTEX_STATE_SCHEMA,
+        'net_type': settings.get('net_type', 'aw'),
+        'max_vert': float(settings.get('max_vert', np.inf)),
+        'box_size': float(settings.get('box_size', 1.0)),
+        'generators': tuple(
+            (str(stable_id), tuple(float(value) for value in location), float(radius))
+            for stable_id, location, radius in zip(
+                stable_ids, net.balls['loc'], net.balls['rad'])
+        ),
+    }
+
+
+def _load_seed_vertex_state(net):
+    """Load validated traversal seeds copied from the preceding solvent layer."""
+    records = getattr(net, 'seed_vertex_state', None)
+    dependency = getattr(net, 'seed_vertex_state_dependency', None)
+    net.seed_vertex_state = None
+    net.seed_vertex_state_dependency = None
+    current = _vertex_seed_dependency(net)
+    if not records or dependency != current:
+        net.seed_vertex_stats = {
+            'requested': len(records or ()), 'accepted': 0,
+            'reason': 'missing_or_mismatched',
+        }
+        return None
+
+    vert_ndxs, vlocs, vrads, vloc2s, vrad2s = [], [], [], [], []
+    b_verts = [[] for _ in range(len(net.balls))]
+    for record in records:
+        try:
+            balls = sorted(int(value) for value in record['balls'])
+            loc = [float(value) for value in record['loc']]
+            rad = float(record['rad'])
+            loc2 = record.get('loc2')
+            rad2 = record.get('rad2')
+        except (KeyError, TypeError, ValueError, OverflowError):
+            net.seed_vertex_stats = {
+                'requested': len(records), 'accepted': 0, 'reason': 'invalid_record'}
+            return None
+        if (len(balls) != 4 or len(set(balls)) != 4
+                or any(ball < 0 or ball >= len(net.balls) for ball in balls)
+                or len(loc) != 3 or not np.all(np.isfinite(loc)) or not np.isfinite(rad)
+                or not vertex_is_allowed(net, balls)):
+            continue
+        if loc2 is None:
+            normalized_loc2, normalized_rad2 = [None, None, None], None
+        else:
+            try:
+                normalized_loc2 = [float(value) for value in loc2]
+                normalized_rad2 = float(rad2)
+            except (TypeError, ValueError, OverflowError):
+                net.seed_vertex_stats = {
+                    'requested': len(records), 'accepted': 0, 'reason': 'invalid_secondary'}
+                return None
+            if (len(normalized_loc2) != 3 or not np.all(np.isfinite(normalized_loc2))
+                    or not np.isfinite(normalized_rad2)):
+                continue
+        index = len(vert_ndxs)
+        vert_ndxs.append(balls)
+        vlocs.append(loc)
+        vrads.append(rad)
+        vloc2s.append(normalized_loc2)
+        vrad2s.append(normalized_rad2)
+        for ball in balls:
+            b_verts[ball].append(index)
+
+    net.seed_vertex_stats = {
+        'requested': len(records), 'accepted': len(vert_ndxs), 'reason': None}
+    if not vert_ndxs:
+        return None
+    _sort_ball_vertex_adjacency(b_verts, vert_ndxs)
+    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, b_verts
+
+
 def _enumerate_sparse_aw_vertices(net):
     """Recover exact AW vertices for the seven-generator box construction.
 
@@ -281,7 +371,7 @@ def _load_cached_vertex_state(net):
 
     for record in records:
         row = record['data']
-        balls = [int(ball) for ball in row.get('balls', [])]
+        balls = sorted(int(ball) for ball in row.get('balls', []))
         if any(ball < 0 or ball >= len(net.balls) for ball in balls):
             record_cache_result(
                 hit=False, source=source, reason='out_of_range_ball', records=len(records)
@@ -320,6 +410,7 @@ def _load_cached_vertex_state(net):
         accepted=len(vert_ndxs),
     )
 
+    _sort_ball_vertex_adjacency(b_verts, vert_ndxs)
     return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, b_verts
 
 
@@ -535,7 +626,7 @@ def find_net_verts(net):
     # --------------------------------------------------------------
     t = time.perf_counter()
     checkpoint(net, 'Vertex cache load')
-    cached_state = _load_cached_vertex_state(net)
+    cached_state = _load_seed_vertex_state(net) or _load_cached_vertex_state(net)
     if cached_state is None:
         vert_ndxs = vlocs = vrads = vloc2s = vrad2s = averts = None
     else:
@@ -567,7 +658,8 @@ def find_net_verts(net):
         start_time=net.metrics['start'],
         vert_box=net.settings['foam_box'],
         box=vertex_box,
-        timing=timer
+        timing=timer,
+        traverse_existing=cached_state is not None,
     )
 
     if my_guuy is not None:
@@ -675,7 +767,8 @@ def find_net_verts(net):
             vert_box=net.settings['foam_box'],
             b_verts=averts,
             box=vertex_box,
-            seed_timeout=0.05,
+            # A wall-clock cutoff can drop a whole disconnected target component under load.
+            seed_timeout=0.05 if net.iface_grps is not None else None,
             net=net,
             timing=timer
         )
