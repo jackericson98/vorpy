@@ -195,6 +195,10 @@ def _read_pdb_lines(sys, file, lines, report):
                              system=sys, element=element, res_seq=res_seq, res_name=res_str,
                              chn_name=chain_str,
                              name=name.strip(), seg_id=line[72:76], index=atom_count, mass=mass, radius=rad)
+            try:
+                atom['pdb_serial'] = int(line[6:11])
+            except ValueError:
+                atom['pdb_serial'] = None
             # Increment the atom count
             atom_count += 1
             # If the chain is empty

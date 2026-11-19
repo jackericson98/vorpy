@@ -1,5 +1,7 @@
 from pathlib import Path
 import pandas as pd
+import pytest
+from types import SimpleNamespace
 
 from vorpy.src.output.pdb import write_pdb
 
@@ -25,6 +27,44 @@ class DummySystem:
                 "element": ["C", "N", "O", "S"],
             }
         )
+
+
+def test_source_backed_full_export_does_not_change_cwd(tmp_path):
+    source = tmp_path / 'source.pdb'
+    source.write_text('ATOM      7  OW  SOL    2       1.000   2.000   3.000  1.00  0.00           O\n')
+    output = tmp_path / 'new'
+    output.mkdir()
+    system = DummySystem(source, output)
+    system.balls = system.balls.iloc[:1]
+    original = Path.cwd()
+    write_pdb([0], 'full', system, directory=str(output))
+    assert Path.cwd() == original
+
+
+def test_source_less_molecular_export_uses_attested_serials_and_raw_chain(tmp_path):
+    system = SimpleNamespace(type='mol', files={'base_file': None}, balls=pd.DataFrame({
+        'num': [0], 'pdb_serial': [202], 'name': ['OW'], 'loc': [[1., 2., 3.]], 'rad': [1.5],
+        'res': [SimpleNamespace(name='SOL')], 'chn': [SimpleNamespace(name='H2O')],
+        'chain_name': [' '], 'res_seq': [2], 'element': ['O']}))
+    write_pdb([0], 'attested', system, directory=str(tmp_path))
+    line = (tmp_path / 'attested.pdb').read_text().splitlines()[0]
+    assert int(line[6:11]) == 202 and line[21] == ' '
+    system.balls = system.balls.drop(columns='pdb_serial')
+    original = Path.cwd()
+    with pytest.raises(ValueError, match='Original PDB serial identities are unavailable'):
+        write_pdb([0], 'unverified', system, directory=str(tmp_path))
+    assert not (tmp_path / 'unverified.pdb').exists()
+    assert Path.cwd() == original
+
+
+def test_pdb_reader_preserves_nonconsecutive_original_serials(tmp_path):
+    from vorpy.src.output.pdb import make_pdb_line
+    from vorpy.src.system import System
+    source = tmp_path / 'original.pdb'
+    source.write_text(make_pdb_line(ser_num=202, name='OW', res_name='SOL', chain=' ', res_seq=2, elem='O')
+                      + make_pdb_line(ser_num=909, name='HW1', res_name='SOL', chain=' ', res_seq=2, x=1., elem='H'))
+    system = System(file=str(source), make_dir=False)
+    assert system.balls['pdb_serial'].tolist() == [202, 909]
 
 
 def test_subset_indexing_ignores_ter_and_other_non_atom_records(tmp_path):

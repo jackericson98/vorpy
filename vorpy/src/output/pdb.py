@@ -1,5 +1,6 @@
 import os
 from numbers import Integral
+from pathlib import Path
 import shutil
 from shutil import SameFileError
 
@@ -66,7 +67,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
     Notes:
         - If sys.files['base_file'] exists and contains all atoms, the function will
           copy the relevant lines from the base file for efficiency
-        - If no base file exists, the function will construct the PDB file manually
+        - Without a source, molecular atoms require preserved original PDB serial metadata.
         - The output file will include a custom header with system name and group info
         - Empty atom lists will result in no file being created
 
@@ -84,11 +85,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
     # Catch empty atoms cases
     if atoms is None or len(atoms) == 0:
         return
-    # Make note of the starting directory
-    start_dir = os.getcwd()
-    # Change to the specified directory
-    if directory is not None:
-        os.chdir(directory)
+    destination = Path(directory or os.getcwd()) / (file_name + '.pdb')
 
     # Check to see if a system was provided
     if sys.files['base_file'] is not None:
@@ -96,15 +93,13 @@ def write_pdb(atoms, file_name, sys, directory=None):
         # If the output is all atoms just copy the pdb
         if len(atoms) == len(sys.balls) and getattr(sys, 'frame_count', 1) <= 1:
             try:
-                shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
+                shutil.copy(sys.files['base_file'], destination)
             except SameFileError:
-                pass
-            except OSError:
                 pass
             return
 
         # Open the file for writing
-        with open(file_name + ".pdb", 'w') as pdb_file:
+        with destination.open('w') as pdb_file:
 
             # Open the base file and read the lines.
             with open(sys.files['base_file'], 'r') as f:
@@ -151,13 +146,21 @@ def write_pdb(atoms, file_name, sys, directory=None):
 
     # Manually write the pdb file
     else:
+        selected_atoms = [sys.balls.iloc[int(atom)] if isinstance(atom, Integral) else atom for atom in atoms]
+        serials = []
+        for atom in selected_atoms:
+            serial = atom.get('pdb_serial')
+            if not isinstance(serial, Integral):
+                if getattr(sys, 'type', None) == 'mol':
+                    raise ValueError(
+                        'Original PDB serial identities are unavailable. Attach a verified source structure '
+                        'before exporting molecular PDBs; internal atom indices are not original serials.')
+                serial = atom['num']
+            serials.append(serial)
         # Open the file for writing
-        with open(file_name + ".pdb", 'w') as pdb_file:
+        with destination.open('w') as pdb_file:
             # Go through each atom in the system
-            for i, a in enumerate(atoms):
-                # Get the ball
-                if isinstance(a, Integral):
-                    a = sys.balls.iloc[a]
+            for a, serial in zip(selected_atoms, serials):
                 # Get the location string
                 x, y, z = a['loc']
                 # Get the information from the atom in writable format
@@ -165,7 +168,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 if sys.type == 'foam' or sys.type == 'coarse':
                     tfact = a['rad']
                 # Write the atom information
-                pdb_file.write(make_pdb_line(ser_num=a['num'], name=a['name'], res_name=a['res'].name, chain=a['chn'].name,
+                chain = a.get('chain_name')
+                chain = (str(chain) or ' ') if chain is not None else a['chn'].name
+                pdb_file.write(make_pdb_line(ser_num=serial, name=a['name'], res_name=a['res'].name, chain=chain,
                                              res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
-    # Change back to the starting directory
-    os.chdir(start_dir)
