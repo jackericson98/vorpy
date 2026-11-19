@@ -572,7 +572,10 @@ class System:
                 f"{self.run_progress:.2f} %"
             )
         else:
-            message = f"{network_text}{self.run_process} - {self.run_progress:.0f}%"
+            message = (
+                f"{h}:{m:02d}:{sec:05.2f} - "
+                f"{network_text}{self.run_process} - {self.run_progress:.0f}%"
+            )
 
         # Pad only the difference from the prior line. This prevents stale tail
         # characters without dumping hundreds of spaces into copied transcripts.

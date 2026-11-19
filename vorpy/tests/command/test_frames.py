@@ -88,6 +88,7 @@ def test_tty_progress_redraws_edge_and_vertex_updates_in_place(monkeypatch):
     stream = io.StringIO()
     stream.isatty = lambda: True
     monkeypatch.setattr('sys.stdout', stream)
+    monkeypatch.setattr('vorpy.src.system.system.time.perf_counter', lambda: 100.0)
     system = System(simple=True, make_dir=False)
 
     system.update_progress('Edges: 1 / 2', 50.0, network='source')
@@ -96,6 +97,7 @@ def test_tty_progress_redraws_edge_and_vertex_updates_in_place(monkeypatch):
     output = stream.getvalue()
     assert '\n' not in output
     assert output.count('\r') == 2
+    assert '\r0:00:00.00 - source - Vertices' in output
     assert output.endswith('source - Vertices: 1 / 2 - 50%')
 
 
