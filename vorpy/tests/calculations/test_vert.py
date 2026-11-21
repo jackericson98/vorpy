@@ -395,6 +395,24 @@ class TestCalcVert:
 
 
 class TestCalcVertNumba:
+    def test_aw_refinement_does_not_resurrect_an_unphysical_root(self):
+        # In angstroms, the squared equations give radii -1 ± sqrt(3)/2.
+        # Refining the negative branch can duplicate the physical vertex.
+        locs = np.array([
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ])
+        rads = np.ones(4)
+
+        loc, rad, loc2, rad2 = calc_vert_numba_indexed(locs, rads, np.arange(4))
+
+        assert loc == pytest.approx([0.5, 0.5, 0.5])
+        assert rad == pytest.approx(np.sqrt(3.0) / 2 - 1.0)
+        assert loc2 is None
+        assert rad2 is None
+
     def test_calc_vert_numba_matches_reference(self):
         rng = np.random.default_rng(321)
         for _ in range(20):

@@ -361,6 +361,10 @@ def _calc_vert_numba_core(locs, rads):
     count = 0
     first_abs = 0.0
     for i in range(root_count):
+        # Squaring the clearance equations introduces roots on the wrong
+        # sign branch. Newton can move one onto an already valid root.
+        if roots[i, 3] < minimum:
+            continue
         location, radius = _refine_aw_vertex(
             roots[i, :3], roots[i, 3], locs, rads
         )
@@ -585,12 +589,12 @@ def calc_vert(locs, rads):
 
     The four sphere centers and radii are converted into the linearized AW
     coefficient system. The standard non-degenerate case is solved by the
-    Numba-compiled Case 1 implementation, then refined with at most two Newton
-    steps on the four equal-clearance equations. A refinement is retained only
-    when it reduces the absolute clearance residual. Determinant-zero
-    configurations do not have a unique solution under this formulation and
-    return no candidate. Candidate solutions are then filtered according to
-    the physically valid radius range.
+    Numba-compiled Case 1 implementation. Roots in the physically valid radius
+    range are refined with at most two Newton steps on the four equal-clearance
+    equations. Refinement is retained only when it reduces the absolute
+    clearance residual, and the resulting radius is checked again.
+    Determinant-zero configurations do not have a unique solution under this
+    formulation and return no candidate.
 
     Parameters
     ----------
